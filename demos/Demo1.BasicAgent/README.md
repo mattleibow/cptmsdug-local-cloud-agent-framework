@@ -13,6 +13,34 @@ This is an AI Agent Web API application created from the `aiagent-webapi` templa
 #### Azure OpenAI Configuration
 
 
+**Using User Secrets (Recommended for Development)**
+
+```bash
+dotnet user-secrets set "AzureOpenAI:Endpoint" "https://YOUR-DEPLOYMENT-NAME.openai.azure.com"
+dotnet user-secrets set "AzureOpenAI:Key" "your-azure-openai-key-here"
+```
+
+**Using Environment Variables**
+
+- **Windows (PowerShell)**:
+  ```powershell
+  $env:AzureOpenAI__Endpoint = "https://YOUR-DEPLOYMENT-NAME.openai.azure.com"
+  $env:AzureOpenAI__Key = "your-azure-openai-key-here"
+  ```
+
+- **Linux/macOS**:
+  ```bash
+  export AzureOpenAI__Endpoint="https://YOUR-DEPLOYMENT-NAME.openai.azure.com"
+  export AzureOpenAI__Key="your-azure-openai-key-here"
+  ```
+
+#### Set Up Azure OpenAI
+
+1. Visit [Azure Portal](https://portal.azure.com)
+2. Create an Azure OpenAI resource
+3. Deploy a model (e.g., gpt-4o-mini)
+
+
 ### 2. Run the Application
 
 ```bash
@@ -20,8 +48,8 @@ dotnet run -lp https
 ```
 
 The application will start and listen on:
-- HTTP: `http://localhost:5009`
-- HTTPS: `https://localhost:7031`
+- HTTP: `http://localhost:5041`
+- HTTPS: `https://localhost:7132`
 
 ### 3. Test the Application
 
@@ -89,19 +117,12 @@ dotnet new aiagent-webapi --provider ollama --chat-model llama3.1
 
 ## Troubleshooting
 
-**Problem**: Application fails with "Missing configuration: AzureOpenAI:Endpoint"
+**Problem**: Application fails with "Missing configuration: AzureOpenAI:Endpoint" or "Missing configuration: AzureOpenAI:Key"
 
-**Solution**: Make sure you've configured your Azure OpenAI endpoint using one of the methods described above.
-
-**Problem**: Managed identity authentication fails
-
-**Solution**:
-- Ensure your Azure resource has a system-assigned or user-assigned managed identity enabled
-- Verify the managed identity has been granted the "Cognitive Services OpenAI User" role on your Azure OpenAI resource
-- For local development, ensure you're signed in to Azure CLI: `az login`
+**Solution**: Make sure you've configured your Azure OpenAI endpoint and API key using one of the methods described above.
 
 **Problem**: API requests fail with authentication errors
 
-**Solution**: Verify your Azure OpenAI endpoint is correct and your managed identity has the correct permissions.
+**Solution**: Verify your Azure OpenAI endpoint is correct and your API key is valid.
 
 

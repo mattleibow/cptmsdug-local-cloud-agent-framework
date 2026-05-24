@@ -4,11 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>3f804db0-f22c-48e7-9785-602dea52a975</UserSecretsId>
+    <UserSecretsId>2d28189b-9a03-46b1-b89d-80d8adba838e</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.16.0" />
     <PackageReference Include="Microsoft.Agents.AI" Version="1.3.0" />
     <PackageReference Include="Microsoft.Agents.AI.DevUI" Version="1.3.0-preview.260423.1" />
     <PackageReference Include="Microsoft.Agents.AI.Hosting" Version="1.3.0-preview.260423.1" />

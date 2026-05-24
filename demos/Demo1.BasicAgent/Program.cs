@@ -1,6 +1,5 @@
-using System.ClientModel.Primitives;
+using System.ClientModel;
 using System.ComponentModel;
-using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
@@ -15,15 +14,14 @@ var builder = WebApplication.CreateBuilder(args);
 // You can do this using Visual Studio's "Manage User Secrets" UI, or on the command line:
 //   cd this-project-directory
 //   dotnet user-secrets set AzureOpenAI:Endpoint https://YOUR-DEPLOYMENT-NAME.openai.azure.com
+//   dotnet user-secrets set AzureOpenAI:Key YOUR-API-KEY
 var azureOpenAIEndpoint = new Uri(new Uri(builder.Configuration["AzureOpenAI:Endpoint"] ?? throw new InvalidOperationException("Missing configuration: AzureOpenAI:Endpoint")), "/openai/v1");
 
-#pragma warning disable OPENAI001 // The overload accepting an AuthenticationPolicy is experimental and may change or be removed in future releases.
 var chatClient = new ChatClient(
-        "gpt-4o-mini",
-        new BearerTokenPolicy(new DefaultAzureCredential(), "https://ai.azure.com/.default"),
+        builder.Configuration["AzureOpenAI:DeploymentName"] ?? "gpt-4o-mini",
+        new ApiKeyCredential(builder.Configuration["AzureOpenAI:Key"] ?? throw new InvalidOperationException("Missing configuration: AzureOpenAI:Key")),
         new OpenAIClientOptions { Endpoint = azureOpenAIEndpoint })
     .AsIChatClient();
-#pragma warning restore OPENAI001
 
 builder.Services.AddChatClient(chatClient);
 
@@ -43,7 +41,7 @@ builder.AddWorkflow("publisher", (sp, key) => AgentWorkflowBuilder.BuildSequenti
         sp.GetRequiredKeyedService<AIAgent>("writer"),
         sp.GetRequiredKeyedService<AIAgent>("editor")
     ]
-)).AddAsAIAgent("publisher-agent");
+)).AddAsAIAgent("publisher");
 
 // Register services for OpenAI responses and conversations (also required for DevUI)
 builder.Services.AddOpenAIResponses();
