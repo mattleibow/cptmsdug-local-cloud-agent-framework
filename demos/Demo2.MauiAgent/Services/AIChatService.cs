@@ -26,7 +26,10 @@ public class AIChatService
                 _deploymentName,
                 new ApiKeyCredential(apiKey),
                 new OpenAIClientOptions { Endpoint = azureOpenAIEndpoint })
-            .AsIChatClient();
+            .AsIChatClient()
+            .AsBuilder()
+            .UseFunctionInvocation()
+            .Build();
     }
 
     public IChatClient ChatClient => _chatClient;

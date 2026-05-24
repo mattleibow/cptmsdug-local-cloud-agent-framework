@@ -136,7 +136,6 @@ public partial class MainViewModel : ObservableObject
             {
                 fullResponse += text;
                 assistantMsg.Content = fullResponse;
-                OnPropertyChanged(nameof(Messages));
                 AddEvent("output_text.delta", text.Length > 60 ? text[..60] + "..." : text);
             }
 
@@ -169,7 +168,6 @@ public partial class MainViewModel : ObservableObject
             step.StartTime = null;
             step.EndTime = null;
         }
-        OnPropertyChanged(nameof(WorkflowSteps));
 
         AddEvent("workflow.started", "Publisher workflow started");
 
@@ -177,7 +175,6 @@ public partial class MainViewModel : ObservableObject
         var writerStep = WorkflowSteps[0];
         writerStep.Status = "running";
         writerStep.StartTime = DateTime.Now;
-        OnPropertyChanged(nameof(WorkflowSteps));
         AddEvent("workflow_event.started", "Executor: writer");
 
         var writerMessages = new List<ChatMessage>
@@ -202,21 +199,18 @@ public partial class MainViewModel : ObservableObject
             {
                 writerResponse += text;
                 writerMsg.Content = "[writer] " + writerResponse;
-                OnPropertyChanged(nameof(Messages));
                 AddEvent("output_text.delta", text.Length > 60 ? text[..60] + "..." : text);
             }
         }
         writerMsg.IsStreaming = false;
         writerStep.Status = "completed";
         writerStep.EndTime = DateTime.Now;
-        OnPropertyChanged(nameof(WorkflowSteps));
         AddEvent("workflow_event.completed", "Executor: writer");
 
         // Step 2: Editor
         var editorStep = WorkflowSteps[1];
         editorStep.Status = "running";
         editorStep.StartTime = DateTime.Now;
-        OnPropertyChanged(nameof(WorkflowSteps));
         AddEvent("workflow_event.started", "Executor: editor");
 
         var formatTool = AIFunctionFactory.Create(FormatStory);
@@ -244,7 +238,6 @@ public partial class MainViewModel : ObservableObject
             {
                 editorResponse += text;
                 editorMsg.Content = "[editor] " + editorResponse;
-                OnPropertyChanged(nameof(Messages));
                 AddEvent("output_text.delta", text.Length > 60 ? text[..60] + "..." : text);
             }
 
@@ -266,14 +259,12 @@ public partial class MainViewModel : ObservableObject
         editorMsg.IsStreaming = false;
         editorStep.Status = "completed";
         editorStep.EndTime = DateTime.Now;
-        OnPropertyChanged(nameof(WorkflowSteps));
         AddEvent("workflow_event.completed", "Executor: editor");
 
         // Step 3: Output
         var outputStep = WorkflowSteps[2];
         outputStep.Status = "running";
         outputStep.StartTime = DateTime.Now;
-        OnPropertyChanged(nameof(WorkflowSteps));
 
         var finalContent = string.IsNullOrEmpty(editorResponse) ? writerResponse : editorResponse;
         var outputMsg = new UIChatMessage
@@ -288,7 +279,6 @@ public partial class MainViewModel : ObservableObject
 
         outputStep.Status = "completed";
         outputStep.EndTime = DateTime.Now;
-        OnPropertyChanged(nameof(WorkflowSteps));
         AddEvent("workflow.completed", "Publisher workflow completed");
     }
 
@@ -318,7 +308,6 @@ public partial class MainViewModel : ObservableObject
             step.StartTime = null;
             step.EndTime = null;
         }
-        OnPropertyChanged(nameof(WorkflowSteps));
     }
 
     [System.ComponentModel.Description("Formats the story for publication, revealing its title.")]
