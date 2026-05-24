@@ -4,43 +4,13 @@ This is an AI Agent Web API application created from the `aiagent-webapi` templa
 
 ## Prerequisites
 
-- A GitHub Models API token (free to get started)
+- An Azure OpenAI service deployment
 
 ## Getting Started
 
 ### 1. Configure Your AI Service
 
-#### GitHub Models Configuration
-
-This application uses GitHub Models (model: gpt-4o-mini) for AI functionality. You'll need to configure your GitHub Models API token:
-
-**Option A: Using User Secrets (Recommended for Development)**
-
-```bash
-dotnet user-secrets set "GITHUB_TOKEN" "your-github-models-token-here"
-```
-
-**Option B: Using Environment Variables**
-
-Set the `GITHUB_TOKEN` environment variable:
-
-- **Windows (PowerShell)**:
-  ```powershell
-  $env:GITHUB_TOKEN = "your-github-models-token-here"
-  ```
-
-- **Linux/macOS**:
-  ```bash
-  export GITHUB_TOKEN="your-github-models-token-here"
-  ```
-
-#### Get a GitHub Models Token
-
-1. Visit [GitHub Models](https://github.com/marketplace/models)
-2. Sign in with your GitHub account
-3. Select a model (e.g., gpt-4o-mini)
-4. Click "Get API Key" or follow the authentication instructions
-5. Copy your personal access token
+#### Azure OpenAI Configuration
 
 
 ### 2. Run the Application
@@ -50,8 +20,8 @@ dotnet run -lp https
 ```
 
 The application will start and listen on:
-- HTTP: `http://localhost:5238`
-- HTTPS: `https://localhost:7056`
+- HTTP: `http://localhost:5009`
+- HTTPS: `https://localhost:7031`
 
 ### 3. Test the Application
 
@@ -115,15 +85,23 @@ dotnet new aiagent-webapi --provider ollama --chat-model llama3.1
 
 - [AI apps for .NET developers](https://learn.microsoft.com/dotnet/ai)
 - [Microsoft Agent Framework Documentation](https://aka.ms/dotnet/agent-framework/docs)
-- [GitHub Models](https://github.com/marketplace/models)
+- [Azure OpenAI Service](https://azure.microsoft.com/products/ai-services/openai-service)
 
 ## Troubleshooting
 
-**Problem**: Application fails with "Missing configuration: GITHUB_TOKEN"
+**Problem**: Application fails with "Missing configuration: AzureOpenAI:Endpoint"
 
-**Solution**: Make sure you've configured your GitHub Models API token using one of the methods described above.
+**Solution**: Make sure you've configured your Azure OpenAI endpoint using one of the methods described above.
+
+**Problem**: Managed identity authentication fails
+
+**Solution**:
+- Ensure your Azure resource has a system-assigned or user-assigned managed identity enabled
+- Verify the managed identity has been granted the "Cognitive Services OpenAI User" role on your Azure OpenAI resource
+- For local development, ensure you're signed in to Azure CLI: `az login`
 
 **Problem**: API requests fail with authentication errors
 
-**Solution**: Verify your GitHub Models token is valid and hasn't expired. You may need to regenerate it from the GitHub Models website.
+**Solution**: Verify your Azure OpenAI endpoint is correct and your managed identity has the correct permissions.
+
 

@@ -1,5 +1,6 @@
-using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.ComponentModel;
+using Azure.Identity;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
@@ -10,15 +11,19 @@ using OpenAI.Chat;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// You will need to set the token to your own value
+// You will need to set the endpoint to your own value
 // You can do this using Visual Studio's "Manage User Secrets" UI, or on the command line:
 //   cd this-project-directory
-//   dotnet user-secrets set "GITHUB_TOKEN" "your-github-models-token-here"
+//   dotnet user-secrets set AzureOpenAI:Endpoint https://YOUR-DEPLOYMENT-NAME.openai.azure.com
+var azureOpenAIEndpoint = new Uri(new Uri(builder.Configuration["AzureOpenAI:Endpoint"] ?? throw new InvalidOperationException("Missing configuration: AzureOpenAI:Endpoint")), "/openai/v1");
+
+#pragma warning disable OPENAI001 // The overload accepting an AuthenticationPolicy is experimental and may change or be removed in future releases.
 var chatClient = new ChatClient(
         "gpt-4o-mini",
-        new ApiKeyCredential(builder.Configuration["GITHUB_TOKEN"] ?? throw new InvalidOperationException("Missing configuration: GITHUB_TOKEN")),
-        new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") })
+        new BearerTokenPolicy(new DefaultAzureCredential(), "https://ai.azure.com/.default"),
+        new OpenAIClientOptions { Endpoint = azureOpenAIEndpoint })
     .AsIChatClient();
+#pragma warning restore OPENAI001
 
 builder.Services.AddChatClient(chatClient);
 
