@@ -9,6 +9,8 @@
 		<SingleProject>true</SingleProject>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<NoWarn>NU1603</NoWarn>
 
 		<ApplicationTitle>Agent DevUI</ApplicationTitle>
 		<ApplicationId>com.companyname.demo2.mauiagent</ApplicationId>

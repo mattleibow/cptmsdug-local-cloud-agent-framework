@@ -11,7 +11,6 @@ namespace Demo2.MauiAgent.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly AIChatService _aiService;
-    private readonly List<ChatMessage> _conversationHistory = [];
 
     [ObservableProperty]
     private string _messageText = string.Empty;
@@ -54,6 +53,9 @@ public partial class MainViewModel : ObservableObject
         WorkflowSteps.Add(new WorkflowStep { Name = "output", Status = "pending" });
     }
 
+    private void RunOnUI(Action action) =>
+        MainThread.BeginInvokeOnMainThread(action);
+
     [RelayCommand]
     private async Task SendMessage()
     {
@@ -77,22 +79,22 @@ public partial class MainViewModel : ObservableObject
         {
             if (SelectedAgent == "publisher")
             {
-                await RunWorkflow(userMessage);
+                await Task.Run(() => RunWorkflow(userMessage));
             }
             else
             {
-                await RunSingleAgent(SelectedAgent, userMessage);
+                await Task.Run(() => RunSingleAgent(SelectedAgent, userMessage));
             }
         }
         catch (Exception ex)
         {
             AddEvent("error", $"Error: {ex.Message}");
-            Messages.Add(new UIChatMessage
+            RunOnUI(() => Messages.Add(new UIChatMessage
             {
                 Role = "assistant",
                 Content = $"Error: {ex.Message}",
                 Timestamp = DateTime.Now
-            });
+            }));
         }
         finally
         {
@@ -127,7 +129,7 @@ public partial class MainViewModel : ObservableObject
             Timestamp = DateTime.Now,
             IsStreaming = true
         };
-        Messages.Add(assistantMsg);
+        RunOnUI(() => Messages.Add(assistantMsg));
 
         var fullResponse = "";
         await foreach (var update in _aiService.ChatClient.GetStreamingResponseAsync(chatMessages, options))
@@ -135,7 +137,8 @@ public partial class MainViewModel : ObservableObject
             if (update.Text is { Length: > 0 } text)
             {
                 fullResponse += text;
-                assistantMsg.Content = fullResponse;
+                var snapshot = fullResponse;
+                RunOnUI(() => assistantMsg.Content = snapshot);
                 AddEvent("output_text.delta", text.Length > 60 ? text[..60] + "..." : text);
             }
 
@@ -144,37 +147,47 @@ public partial class MainViewModel : ObservableObject
                 foreach (var fc in update.Contents.OfType<FunctionCallContent>())
                 {
                     AddEvent("function_call", $"Tool call: {fc.Name}");
-                    ToolCalls.Add(new ToolCall
+                    var toolCall = new ToolCall
                     {
                         Name = fc.Name,
                         Arguments = fc.Arguments?.ToString() ?? "",
                         Timestamp = DateTime.Now
-                    });
+                    };
+                    RunOnUI(() => ToolCalls.Add(toolCall));
                 }
             }
         }
 
-        assistantMsg.IsStreaming = false;
-        assistantMsg.TokenCount = fullResponse.Split(' ').Length * 2;
-        TotalTokens += assistantMsg.TokenCount ?? 0;
-        AddEvent("response.completed", $"Response complete ({assistantMsg.TokenCount} tokens est.)");
+        RunOnUI(() =>
+        {
+            assistantMsg.IsStreaming = false;
+            assistantMsg.TokenCount = fullResponse.Split(' ').Length * 2;
+            TotalTokens += assistantMsg.TokenCount ?? 0;
+        });
+        AddEvent("response.completed", $"Response complete ({fullResponse.Split(' ').Length * 2} tokens est.)");
     }
 
     private async Task RunWorkflow(string userMessage)
     {
-        foreach (var step in WorkflowSteps)
+        RunOnUI(() =>
         {
-            step.Status = "pending";
-            step.StartTime = null;
-            step.EndTime = null;
-        }
+            foreach (var step in WorkflowSteps)
+            {
+                step.Status = "pending";
+                step.StartTime = null;
+                step.EndTime = null;
+            }
+        });
 
         AddEvent("workflow.started", "Publisher workflow started");
 
         // Step 1: Writer
         var writerStep = WorkflowSteps[0];
-        writerStep.Status = "running";
-        writerStep.StartTime = DateTime.Now;
+        RunOnUI(() =>
+        {
+            writerStep.Status = "running";
+            writerStep.StartTime = DateTime.Now;
+        });
         AddEvent("workflow_event.started", "Executor: writer");
 
         var writerMessages = new List<ChatMessage>
@@ -190,7 +203,7 @@ public partial class MainViewModel : ObservableObject
             Timestamp = DateTime.Now,
             IsStreaming = true
         };
-        Messages.Add(writerMsg);
+        RunOnUI(() => Messages.Add(writerMsg));
 
         var writerResponse = "";
         await foreach (var update in _aiService.ChatClient.GetStreamingResponseAsync(writerMessages))
@@ -198,19 +211,26 @@ public partial class MainViewModel : ObservableObject
             if (update.Text is { Length: > 0 } text)
             {
                 writerResponse += text;
-                writerMsg.Content = "[writer] " + writerResponse;
+                var snapshot = "[writer] " + writerResponse;
+                RunOnUI(() => writerMsg.Content = snapshot);
                 AddEvent("output_text.delta", text.Length > 60 ? text[..60] + "..." : text);
             }
         }
-        writerMsg.IsStreaming = false;
-        writerStep.Status = "completed";
-        writerStep.EndTime = DateTime.Now;
+        RunOnUI(() =>
+        {
+            writerMsg.IsStreaming = false;
+            writerStep.Status = "completed";
+            writerStep.EndTime = DateTime.Now;
+        });
         AddEvent("workflow_event.completed", "Executor: writer");
 
         // Step 2: Editor
         var editorStep = WorkflowSteps[1];
-        editorStep.Status = "running";
-        editorStep.StartTime = DateTime.Now;
+        RunOnUI(() =>
+        {
+            editorStep.Status = "running";
+            editorStep.StartTime = DateTime.Now;
+        });
         AddEvent("workflow_event.started", "Executor: editor");
 
         var formatTool = AIFunctionFactory.Create(FormatStory);
@@ -228,7 +248,7 @@ public partial class MainViewModel : ObservableObject
             Timestamp = DateTime.Now,
             IsStreaming = true
         };
-        Messages.Add(editorMsg);
+        RunOnUI(() => Messages.Add(editorMsg));
 
         var editorResponse = "";
         var toolCalled = false;
@@ -237,7 +257,8 @@ public partial class MainViewModel : ObservableObject
             if (update.Text is { Length: > 0 } text)
             {
                 editorResponse += text;
-                editorMsg.Content = "[editor] " + editorResponse;
+                var snapshot = "[editor] " + editorResponse;
+                RunOnUI(() => editorMsg.Content = snapshot);
                 AddEvent("output_text.delta", text.Length > 60 ? text[..60] + "..." : text);
             }
 
@@ -247,24 +268,31 @@ public partial class MainViewModel : ObservableObject
                 {
                     toolCalled = true;
                     AddEvent("function_call", $"Calling {fc.Name}({fc.Arguments})");
-                    ToolCalls.Add(new ToolCall
+                    var toolCall = new ToolCall
                     {
                         Name = fc.Name,
                         Arguments = fc.Arguments?.ToString() ?? "",
                         Timestamp = DateTime.Now
-                    });
+                    };
+                    RunOnUI(() => ToolCalls.Add(toolCall));
                 }
             }
         }
-        editorMsg.IsStreaming = false;
-        editorStep.Status = "completed";
-        editorStep.EndTime = DateTime.Now;
+        RunOnUI(() =>
+        {
+            editorMsg.IsStreaming = false;
+            editorStep.Status = "completed";
+            editorStep.EndTime = DateTime.Now;
+        });
         AddEvent("workflow_event.completed", "Executor: editor");
 
         // Step 3: Output
         var outputStep = WorkflowSteps[2];
-        outputStep.Status = "running";
-        outputStep.StartTime = DateTime.Now;
+        RunOnUI(() =>
+        {
+            outputStep.Status = "running";
+            outputStep.StartTime = DateTime.Now;
+        });
 
         var finalContent = string.IsNullOrEmpty(editorResponse) ? writerResponse : editorResponse;
         var outputMsg = new UIChatMessage
@@ -274,11 +302,13 @@ public partial class MainViewModel : ObservableObject
             Timestamp = DateTime.Now,
             TokenCount = finalContent.Split(' ').Length * 2
         };
-        Messages.Add(outputMsg);
-        TotalTokens += outputMsg.TokenCount ?? 0;
-
-        outputStep.Status = "completed";
-        outputStep.EndTime = DateTime.Now;
+        RunOnUI(() =>
+        {
+            Messages.Add(outputMsg);
+            TotalTokens += outputMsg.TokenCount ?? 0;
+            outputStep.Status = "completed";
+            outputStep.EndTime = DateTime.Now;
+        });
         AddEvent("workflow.completed", "Publisher workflow completed");
     }
 
@@ -290,8 +320,11 @@ public partial class MainViewModel : ObservableObject
             Type = type,
             Description = description
         };
-        Events.Insert(0, evt);
-        EventCount = Events.Count;
+        RunOnUI(() =>
+        {
+            Events.Insert(0, evt);
+            EventCount = Events.Count;
+        });
     }
 
     [RelayCommand]
@@ -310,7 +343,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [System.ComponentModel.Description("Formats the story for publication, revealing its title.")]
+    [Description("Formats the story for publication, revealing its title.")]
     private static string FormatStory(string title, string story) => $"""
         **Title**: {title}
 
