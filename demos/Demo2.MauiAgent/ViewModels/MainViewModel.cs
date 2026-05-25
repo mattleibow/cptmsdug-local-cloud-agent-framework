@@ -17,7 +17,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ConcurrentOrchestration _concurrent;
     private readonly HandoffOrchestration _handoff;
     private readonly GroupChatOrchestration _groupChat;
-    private readonly TimeSpan _uiBufferInterval = TimeSpan.FromMilliseconds(250);
+    private readonly TimeSpan _uiBufferInterval = TimeSpan.FromMilliseconds(120);
+    private DateTime? _sessionStartTime;
 
     [ObservableProperty]
     private string _messageText = string.Empty;
@@ -35,14 +36,38 @@ public partial class MainViewModel : ObservableObject
     private int _eventCount;
 
     [ObservableProperty]
+    private int _traceCount;
+
+    [ObservableProperty]
     private string _workflowTitle = "";
 
     [ObservableProperty]
     private bool _isWorkflow;
 
+    [ObservableProperty]
+    private string _orchestrationKindLabel = "";
+
+    [ObservableProperty]
+    private string _elapsedTime = "0.0s";
+
+    // Tab state
+    [ObservableProperty]
+    private bool _isEventsTab = true;
+
+    [ObservableProperty]
+    private bool _isTracesTab;
+
+    [ObservableProperty]
+    private bool _isToolsTab;
+
+    // Theme
+    [ObservableProperty]
+    private string _themeIcon = "☀️";
+
     public ObservableCollection<UIChatMessage> Messages { get; } = [];
     public ObservableCollection<AgentEvent> Events { get; } = [];
     public ObservableCollection<ToolCall> ToolCalls { get; } = [];
+    public ObservableCollection<TraceSpan> Traces { get; } = [];
     public ObservableCollection<WorkflowStep> WorkflowSteps { get; } = [];
     public ObservableCollection<string> Agents { get; } =
     [
@@ -72,6 +97,27 @@ public partial class MainViewModel : ObservableObject
         _concurrent = concurrent;
         _handoff = handoff;
         _groupChat = groupChat;
+
+        // Set initial theme icon
+        ThemeIcon = Application.Current?.RequestedTheme == AppTheme.Dark ? "☀️" : "🌙";
+    }
+
+    [RelayCommand]
+    private void SwitchTab(string tab)
+    {
+        IsEventsTab = tab == "events";
+        IsTracesTab = tab == "traces";
+        IsToolsTab = tab == "tools";
+    }
+
+    [RelayCommand]
+    private void ToggleTheme()
+    {
+        var app = Application.Current;
+        if (app is null) return;
+
+        app.UserAppTheme = app.UserAppTheme == AppTheme.Dark ? AppTheme.Light : AppTheme.Dark;
+        ThemeIcon = app.UserAppTheme == AppTheme.Dark ? "☀️" : "🌙";
     }
 
     partial void OnSelectedAgentChanged(string value)
@@ -85,6 +131,7 @@ public partial class MainViewModel : ObservableObject
         {
             WorkflowSteps.Clear();
             WorkflowTitle = "";
+            OrchestrationKindLabel = "";
         }
     }
 
@@ -92,10 +139,18 @@ public partial class MainViewModel : ObservableObject
     {
         WorkflowSteps.Clear();
         var agents = GetOrchestrationAgents(workflow);
+        var kind = GetOrchestrationKind(workflow);
         WorkflowTitle = workflow.Replace("⚡ ", "");
-        foreach (var agent in agents)
+        OrchestrationKindLabel = kind.ToString();
+
+        for (var i = 0; i < agents.Count; i++)
         {
-            WorkflowSteps.Add(new WorkflowStep { Name = agent.Name, Status = "pending" });
+            WorkflowSteps.Add(new WorkflowStep
+            {
+                Name = agents[i].Name,
+                Status = "pending",
+                IsFirst = i == 0
+            });
         }
     }
 
@@ -137,6 +192,7 @@ public partial class MainViewModel : ObservableObject
         var userMessage = MessageText.Trim();
         MessageText = string.Empty;
         IsSending = true;
+        _sessionStartTime ??= DateTime.UtcNow;
 
         var userMsg = new UIChatMessage
         {
@@ -165,13 +221,25 @@ public partial class MainViewModel : ObservableObject
             await RunOnUIAsync(() => Messages.Add(new UIChatMessage
             {
                 Role = "assistant",
-                Content = $"Error: {ex.Message}",
+                Content = $"❌ Error: {ex.Message}",
                 Timestamp = DateTime.Now
             }));
         }
         finally
         {
             IsSending = false;
+            UpdateElapsedTime();
+        }
+    }
+
+    private void UpdateElapsedTime()
+    {
+        if (_sessionStartTime.HasValue)
+        {
+            var elapsed = DateTime.UtcNow - _sessionStartTime.Value;
+            ElapsedTime = elapsed.TotalMinutes >= 1
+                ? $"{elapsed.TotalMinutes:F1}m"
+                : $"{elapsed.TotalSeconds:F1}s";
         }
     }
 
@@ -180,7 +248,7 @@ public partial class MainViewModel : ObservableObject
         var instructions = _agentInstructions[agentName];
 
         AddEvent("response.created", "Response created");
-        AddEvent("response.in_progress", "Processing...");
+        AddTrace("LLM", $"chat.completion ({agentName})");
 
         var chatMessages = new List<ChatMessage>
         {
@@ -195,16 +263,15 @@ public partial class MainViewModel : ObservableObject
             options = new ChatOptions { Tools = [formatTool] };
         }
 
-        var response = await StreamToUI("assistant", chatMessages, options);
+        var response = await StreamToUI(agentName, chatMessages, options);
 
-        var tokenEst = response.Split(' ').Length * 2;
-        await RunOnUIAsync(() => TotalTokens += tokenEst);
-        AddEvent("response.completed", $"Complete ({tokenEst} tokens est.)");
+        AddEvent("response.completed", $"Done ({response.Split(' ').Length * 2} tokens est.)");
     }
 
     private async Task RunOrchestration(OrchestrationKind kind, string userMessage)
     {
-        AddEvent("workflow.started", $"{kind} workflow started");
+        AddEvent("workflow.started", $"{kind} orchestration started");
+        AddTrace("Agent", $"Orchestration: {kind}");
 
         await RunOnUIAsync(() =>
         {
@@ -232,7 +299,7 @@ public partial class MainViewModel : ObservableObject
                 break;
         }
 
-        AddEvent("workflow.completed", $"{kind} workflow completed");
+        AddEvent("workflow.completed", $"{kind} orchestration completed");
     }
 
     private async Task RunSequentialWorkflow(string userMessage)
@@ -259,7 +326,7 @@ public partial class MainViewModel : ObservableObject
                 options = new ChatOptions { Tools = [.. _sequential.GetTools()] };
             }
 
-            currentInput = await StreamToUI($"[{agent.Name}]", messages, options);
+            currentInput = await StreamToUI(agent.Name, messages, options);
             await SetStepCompleted(step);
         }
     }
@@ -270,7 +337,6 @@ public partial class MainViewModel : ObservableObject
         var analysts = agents.Where(a => a.Name != "synthesizer").ToList();
         var synthesizer = agents.First(a => a.Name == "synthesizer");
 
-        // Mark all analysts as running BEFORE starting tasks to avoid race
         await RunOnUIAsync(() =>
         {
             for (var i = 0; i < analysts.Count; i++)
@@ -280,7 +346,6 @@ public partial class MainViewModel : ObservableObject
             }
         });
 
-        // Run all analysts in parallel
         var tasks = new List<Task<(string name, string result)>>();
         for (var i = 0; i < analysts.Count; i++)
         {
@@ -291,7 +356,6 @@ public partial class MainViewModel : ObservableObject
 
         var results = await Task.WhenAll(tasks);
 
-        // Synthesize
         var synthStep = WorkflowSteps[^1];
         await SetStepRunning(synthStep, synthesizer.Name);
 
@@ -302,13 +366,14 @@ public partial class MainViewModel : ObservableObject
             new(ChatRole.User, combinedInput)
         };
 
-        await StreamToUI($"[{synthesizer.Name}]", synthMessages, null);
+        await StreamToUI(synthesizer.Name, synthMessages, null);
         await SetStepCompleted(synthStep);
     }
 
     private async Task<(string name, string result)> RunConcurrentAgent(AgentDefinition agent, WorkflowStep step, string input)
     {
-        AddEvent("workflow_event.started", $"Executor: {agent.Name}");
+        AddEvent("workflow_event.started", $"Parallel: {agent.Name}");
+        AddTrace("LLM", $"chat.completion ({agent.Name})");
 
         var messages = new List<ChatMessage>
         {
@@ -316,9 +381,9 @@ public partial class MainViewModel : ObservableObject
             new(ChatRole.User, input)
         };
 
-        var result = await StreamToUI($"[{agent.Name}]", messages, null);
+        var result = await StreamToUI(agent.Name, messages, null);
         await SetStepCompleted(step);
-        AddEvent("workflow_event.completed", $"Executor: {agent.Name}");
+        AddEvent("workflow_event.completed", $"Parallel: {agent.Name}");
         return (agent.Name, result);
     }
 
@@ -328,7 +393,6 @@ public partial class MainViewModel : ObservableObject
         var triageAgent = agents[0];
         var triageStep = WorkflowSteps[0];
 
-        // Step 1: Triage
         await SetStepRunning(triageStep, triageAgent.Name);
 
         var triageMessages = new List<ChatMessage>
@@ -337,11 +401,10 @@ public partial class MainViewModel : ObservableObject
             new(ChatRole.User, userMessage)
         };
 
-        var triageResult = await StreamToUI($"[{triageAgent.Name}]", triageMessages, null);
+        var triageResult = await StreamToUI(triageAgent.Name, triageMessages, null);
         await SetStepCompleted(triageStep);
 
-        // Determine routing
-        var route = "technical"; // default
+        var route = "technical";
         if (triageResult.Contains("ROUTE:billing", StringComparison.OrdinalIgnoreCase))
             route = "billing";
         else if (triageResult.Contains("ROUTE:technical", StringComparison.OrdinalIgnoreCase))
@@ -349,9 +412,8 @@ public partial class MainViewModel : ObservableObject
         else if (triageResult.Contains("ROUTE:account", StringComparison.OrdinalIgnoreCase))
             route = "account";
 
-        AddEvent("handoff", $"Routing to: {route}");
+        AddEvent("handoff", $"Routing → {route}");
 
-        // Step 2: Specialist handles the issue
         var specialist = agents.First(a => a.Name == route);
         var specialistIdx = agents.ToList().IndexOf(specialist);
         var specialistStep = WorkflowSteps[specialistIdx];
@@ -364,10 +426,9 @@ public partial class MainViewModel : ObservableObject
             new(ChatRole.User, $"Customer issue: {userMessage}\n\nTriage notes: {triageResult}")
         };
 
-        await StreamToUI($"[{specialist.Name}]", specialistMessages, null);
+        await StreamToUI(specialist.Name, specialistMessages, null);
         await SetStepCompleted(specialistStep);
 
-        // Mark un-routed agents as skipped
         await RunOnUIAsync(() =>
         {
             for (var i = 1; i < WorkflowSteps.Count; i++)
@@ -402,7 +463,6 @@ public partial class MainViewModel : ObservableObject
                     new(ChatRole.System, agent.SystemPrompt)
                 };
 
-                // Add conversation context
                 if (conversationHistory.Count == 0)
                 {
                     messages.Add(new ChatMessage(ChatRole.User, $"Topic for discussion: {userMessage}"));
@@ -414,14 +474,13 @@ public partial class MainViewModel : ObservableObject
                     messages.Add(new ChatMessage(ChatRole.User, "Please provide your contribution for this round."));
                 }
 
-                var response = await StreamToUI($"[{agent.Name}]", messages, null);
+                var response = await StreamToUI(agent.Name, messages, null);
                 conversationHistory.Add(new ChatMessage(ChatRole.Assistant, $"{agent.Name}: {response}"));
 
                 await RunOnUIAsync(() => step.Status = "completed");
             }
         }
 
-        // Mark all steps as completed with end time
         await RunOnUIAsync(() =>
         {
             foreach (var step in WorkflowSteps)
@@ -432,15 +491,14 @@ public partial class MainViewModel : ObservableObject
         });
     }
 
-    /// <summary>
-    /// Streams an AI response to the chat UI with buffered updates. Returns full text.
-    /// </summary>
-    private async Task<string> StreamToUI(string label, List<ChatMessage> messages, ChatOptions? options)
+    private async Task<string> StreamToUI(string agentName, List<ChatMessage> messages, ChatOptions? options)
     {
+        var isLabeled = IsWorkflow;
         var msg = new UIChatMessage
         {
             Role = "assistant",
-            Content = label.StartsWith("[") ? $"{label} " : "",
+            Content = isLabeled ? "" : "",
+            AgentLabel = isLabeled ? agentName : null,
             Timestamp = DateTime.Now,
             IsStreaming = true
         };
@@ -448,7 +506,7 @@ public partial class MainViewModel : ObservableObject
 
         var response = "";
         var lastUIUpdate = DateTime.UtcNow;
-        var prefix = label.StartsWith("[") ? $"{label} " : "";
+        var traceStart = DateTime.UtcNow;
 
         await foreach (var update in _aiService.ChatClient.GetStreamingResponseAsync(messages, options))
         {
@@ -458,7 +516,7 @@ public partial class MainViewModel : ObservableObject
 
                 if (DateTime.UtcNow - lastUIUpdate >= _uiBufferInterval)
                 {
-                    var snapshot = prefix + response;
+                    var snapshot = response + " ▍";
                     await RunOnUIAsync(() => msg.Content = snapshot);
                     lastUIUpdate = DateTime.UtcNow;
                 }
@@ -469,7 +527,8 @@ public partial class MainViewModel : ObservableObject
                 foreach (var fc in update.Contents.OfType<FunctionCallContent>())
                 {
                     var argsJson = FormatArguments(fc.Arguments);
-                    AddEvent("function_call", $"Tool: {fc.Name}({argsJson})");
+                    AddEvent("function_call", $"⚡ {fc.Name}({argsJson})");
+                    AddTrace("Tool", $"{fc.Name}");
                     var toolCall = new ToolCall
                     {
                         Name = fc.Name,
@@ -481,22 +540,27 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        // Final flush
-        var finalSnapshot = prefix + response;
+        // Final flush — remove cursor
         var tokenEst = response.Split(' ').Length * 2;
+        var traceDuration = (int)(DateTime.UtcNow - traceStart).TotalMilliseconds;
         await RunOnUIAsync(() =>
         {
-            msg.Content = finalSnapshot;
+            msg.Content = response;
             msg.IsStreaming = false;
             msg.TokenCount = tokenEst;
+            TotalTokens += tokenEst;
         });
+
+        // Update trace with duration
+        AddTrace("LLM", $"completion ({agentName})", traceDuration);
 
         return response;
     }
 
     private async Task SetStepRunning(WorkflowStep step, string agentName)
     {
-        AddEvent("workflow_event.started", $"Executor: {agentName}");
+        AddEvent("workflow_event.started", $"▶ {agentName}");
+        AddTrace("Agent", $"execute ({agentName})");
         await RunOnUIAsync(() =>
         {
             step.Status = "running";
@@ -524,7 +588,27 @@ public partial class MainViewModel : ObservableObject
         MainThread.BeginInvokeOnMainThread(() =>
         {
             Events.Insert(0, evt);
+            if (Events.Count > 200)
+                Events.RemoveAt(Events.Count - 1);
             EventCount = Events.Count;
+        });
+    }
+
+    private void AddTrace(string kind, string name, int? durationMs = null)
+    {
+        var trace = new TraceSpan
+        {
+            Name = name,
+            OperationKind = kind,
+            Duration = durationMs ?? 0,
+            Timestamp = DateTime.Now
+        };
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            Traces.Insert(0, trace);
+            if (Traces.Count > 200)
+                Traces.RemoveAt(Traces.Count - 1);
+            TraceCount = Traces.Count;
         });
     }
 
@@ -549,8 +633,12 @@ public partial class MainViewModel : ObservableObject
         Messages.Clear();
         Events.Clear();
         ToolCalls.Clear();
+        Traces.Clear();
         TotalTokens = 0;
         EventCount = 0;
+        TraceCount = 0;
+        ElapsedTime = "0.0s";
+        _sessionStartTime = null;
         foreach (var step in WorkflowSteps)
         {
             step.Status = "pending";

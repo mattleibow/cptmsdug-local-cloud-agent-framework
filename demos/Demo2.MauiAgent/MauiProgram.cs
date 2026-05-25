@@ -1,6 +1,7 @@
 using Demo2.MauiAgent.Orchestrations;
 using Demo2.MauiAgent.Services;
 using Demo2.MauiAgent.ViewModels;
+using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -22,6 +23,10 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
+
+#if DEBUG
+		builder.AddMauiDevFlowAgent();
+#endif
 
 		// Register services
 		builder.Services.AddSingleton<AIChatService>();

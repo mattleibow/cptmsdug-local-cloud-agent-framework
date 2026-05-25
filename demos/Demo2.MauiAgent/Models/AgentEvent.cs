@@ -26,6 +26,9 @@ public partial class UIChatMessage : ObservableObject
 
     [ObservableProperty]
     private bool _isStreaming;
+
+    [ObservableProperty]
+    private string? _agentLabel;
 }
 
 public class ToolCall
@@ -34,6 +37,22 @@ public class ToolCall
     public string Arguments { get; set; } = string.Empty;
     public string? Result { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.Now;
+}
+
+public class TraceSpan
+{
+    public string Name { get; set; } = string.Empty;
+    public string OperationKind { get; set; } = "LLM";
+    public int Duration { get; set; }
+    public DateTime Timestamp { get; set; } = DateTime.Now;
+
+    public Color OperationColor => OperationKind switch
+    {
+        "LLM" => Color.FromArgb("#8B5CF6"),
+        "Tool" => Color.FromArgb("#3B82F6"),
+        "Agent" => Color.FromArgb("#10B981"),
+        _ => Color.FromArgb("#6B7280")
+    };
 }
 
 public partial class WorkflowStep : ObservableObject
@@ -49,4 +68,41 @@ public partial class WorkflowStep : ObservableObject
 
     [ObservableProperty]
     private DateTime? _endTime;
+
+    [ObservableProperty]
+    private bool _isFirst;
+
+    public string StatusIcon => Status switch
+    {
+        "running" => "▶",
+        "completed" => "✓",
+        "failed" => "✗",
+        "skipped" => "⊘",
+        _ => "○"
+    };
+
+    public string StatusLabel => Status switch
+    {
+        "running" => "Running...",
+        "completed" => EndTime.HasValue && StartTime.HasValue
+            ? $"Done ({(EndTime.Value - StartTime.Value).TotalSeconds:F1}s)"
+            : "Done",
+        "failed" => "Failed",
+        "skipped" => "Skipped",
+        _ => "Pending"
+    };
+
+    public bool IsRunning => Status == "running";
+
+    partial void OnStatusChanged(string value)
+    {
+        OnPropertyChanged(nameof(StatusIcon));
+        OnPropertyChanged(nameof(StatusLabel));
+        OnPropertyChanged(nameof(IsRunning));
+    }
+
+    partial void OnEndTimeChanged(DateTime? value)
+    {
+        OnPropertyChanged(nameof(StatusLabel));
+    }
 }
