@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Microsoft.Maui.AI.Agents.DevUI"
+             xmlns:controls="clr-namespace:Microsoft.Maui.AI.Agents.DevUI.Controls"
+             x:Class="Microsoft.Maui.AI.Agents.DevUI.Controls.ChatPanelView"
+             x:Name="self"
+             x:DataType="local:Controls.ChatPanelView">
+
+    <ContentView.Resources>
+        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
+    </ContentView.Resources>
+
+    <Grid RowDefinitions="*,Auto">
+
+        <!-- Message list -->
+        <CollectionView x:Name="MessageList"
+                        Grid.Row="0"
+                        ItemsSource="{Binding Messages, Source={x:Reference self}}"
+                        ItemsUpdatingScrollMode="KeepLastItemInView">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:DevUIChatMessage">
+                    <Grid Padding="12,4">
+                        <Border StrokeShape="RoundRectangle 12"
+                                StrokeThickness="0"
+                                Padding="12,8"
+                                MaximumWidthRequest="500"
+                                HorizontalOptions="{Binding IsUser, Converter={StaticResource MessageAlignConverter}}"
+                                BackgroundColor="{Binding IsUser, Converter={StaticResource MessageBackgroundConverter}}">
+                            <VerticalStackLayout Spacing="4">
+                                <!-- Agent label for workflow messages -->
+                                <Label Text="{Binding AgentLabel}"
+                                       IsVisible="{Binding AgentLabel, Converter={StaticResource NotNullOrEmptyConverter}}"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource DevUI.Primary}" />
+                                <!-- Content -->
+                                <Label Text="{Binding Content}"
+                                       FontSize="13"
+                                       TextColor="{AppThemeBinding Light=#1a1a2e, Dark=#f0f0f0}"
+                                       LineBreakMode="WordWrap" />
+                                <!-- Streaming indicator -->
+                                <Label Text="..."
+                                       IsVisible="{Binding IsStreaming}"
+                                       FontSize="13"
+                                       TextColor="{StaticResource DevUI.TextMuted}"
+                                       Opacity="0.6" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+            <CollectionView.EmptyView>
+                <controls:EmptyStateView
+                    Title="{Binding EmptyTitle, Source={x:Reference self}}"
+                    Description="{Binding EmptyDescription, Source={x:Reference self}}"
+                    HowItWorks="{Binding EmptyHowItWorks, Source={x:Reference self}}"
+                    DemoPrompt="{Binding DemoPrompt, Source={x:Reference self}}"
+                    RunDemoCommand="{Binding RunDemoCommand, Source={x:Reference self}}" />
+            </CollectionView.EmptyView>
+        </CollectionView>
+
+        <!-- Input bar -->
+        <controls:ChatInputBar Grid.Row="1"
+                               IsSending="{Binding IsSending, Source={x:Reference self}}"
+                               SendCommand="{Binding SendCommand, Source={x:Reference self}}"
+                               Placeholder="{Binding Placeholder, Source={x:Reference self}}" />
+    </Grid>
+
+</ContentView>

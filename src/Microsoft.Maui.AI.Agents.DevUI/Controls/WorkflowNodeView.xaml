@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Microsoft.Maui.AI.Agents.DevUI"
+             x:Class="Microsoft.Maui.AI.Agents.DevUI.Controls.WorkflowNodeView"
+             x:Name="self"
+             x:DataType="local:Controls.WorkflowNodeView">
+
+    <ContentView.Resources>
+        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
+    </ContentView.Resources>
+
+    <Border StrokeShape="RoundRectangle 10"
+            StrokeThickness="2"
+            Padding="10,8"
+            Stroke="{Binding Status, Source={x:Reference self}, Converter={StaticResource NodeBorderColorConverter}}"
+            BackgroundColor="{AppThemeBinding Light=#fafafa, Dark=#1a1a2e}">
+        <Border.Shadow>
+            <Shadow Brush="#00000020"
+                    Offset="0,2"
+                    Radius="4"
+                    Opacity="0.3" />
+        </Border.Shadow>
+
+        <Grid ColumnDefinitions="12,*" ColumnSpacing="8" VerticalOptions="Center">
+            <!-- Status dot -->
+            <Border StrokeShape="RoundRectangle 4"
+                    WidthRequest="8"
+                    HeightRequest="8"
+                    StrokeThickness="0"
+                    BackgroundColor="{Binding Status, Source={x:Reference self}, Converter={StaticResource NodeBorderColorConverter}}"
+                    VerticalOptions="Center"
+                    HorizontalOptions="Center" />
+
+            <!-- Name + Status -->
+            <VerticalStackLayout Grid.Column="1" Spacing="3">
+                <Label Text="{Binding DisplayName, Source={x:Reference self}}"
+                       FontAttributes="Bold"
+                       FontSize="11"
+                       TextColor="{AppThemeBinding Light=#1a1a2e, Dark=#f0f0f0}"
+                       LineBreakMode="TailTruncation"
+                       MaxLines="2" />
+                <HorizontalStackLayout Spacing="4">
+                    <Label Text="{Binding StatusIcon, Source={x:Reference self}}"
+                           FontSize="10" />
+                    <Label Text="{Binding StatusLabel, Source={x:Reference self}}"
+                           FontSize="10"
+                           TextColor="{Binding Status, Source={x:Reference self}, Converter={StaticResource NodeBorderColorConverter}}" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Grid>
+    </Border>
+
+</ContentView>

@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using System.Windows.Input;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.AI.Agents.DevUI.Controls;
+using Microsoft.Maui.AI.Agents.DevUI.Layout;
 
 namespace Microsoft.Maui.AI.Agents.DevUI;
 
@@ -23,6 +26,9 @@ public partial class AgentDevUIView : ContentView
     private IChatClient? _chatClient;
     private bool _isSending;
     private int _totalTokens;
+    private AgentInfo? _selectedAgent;
+    private WorkflowInfo? _selectedWorkflow;
+    private GraphEdgeDrawable? _edgeDrawable;
 
     #region Bindable Properties
 
@@ -56,8 +62,105 @@ public partial class AgentDevUIView : ContentView
 
     public AgentDevUIView()
     {
-        BuildUI();
+        InitializeComponent();
+        WireControls();
     }
+
+    private void WireControls()
+    {
+        // Wire chat panel
+        ChatPanel.Messages = _messages;
+        ChatPanel.IsSending = false;
+        ChatPanel.SendCommand = new Command<string>(OnSendMessage);
+        ChatPanel.RunDemoCommand = new Command<string>(OnSendMessage);
+
+        // Wire debug panel
+        DebugPanel.Events = _events;
+        DebugPanel.Traces = _traces;
+        DebugPanel.ToolCalls = _toolCalls;
+
+        // Wire selector
+        SelectorView.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(AgentSelectorView.SelectedEntity))
+                OnEntitySelected(SelectorView.SelectedEntity);
+        };
+
+        // Wire edge drawable
+        _edgeDrawable = new GraphEdgeDrawable();
+        GraphEdgeView.Drawable = _edgeDrawable;
+    }
+
+    private void OnSendMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return;
+
+        if (_selectedWorkflow is not null)
+            _ = RunWorkflowAsync(message, _selectedWorkflow);
+        else if (_selectedAgent is not null)
+            _ = SendMessageAsync(message, _selectedAgent);
+    }
+
+    private void OnEntitySelected(object? entity)
+    {
+        _selectedAgent = null;
+        _selectedWorkflow = null;
+
+        switch (entity)
+        {
+            case AgentInfo agent:
+                _selectedAgent = agent;
+                HeaderTitle.Text = agent.Name;
+                ChatPanel.EmptyTitle = agent.Name;
+                ChatPanel.EmptyDescription = agent.Description;
+                ChatPanel.EmptyHowItWorks = null;
+                ChatPanel.DemoPrompt = null;
+                ChatPanel.Placeholder = $"Ask {agent.Name}...";
+                WorkflowGraph.IsVisible = false;
+                break;
+
+            case WorkflowInfo workflow:
+                _selectedWorkflow = workflow;
+                HeaderTitle.Text = workflow.Name;
+                ChatPanel.EmptyTitle = workflow.Name;
+                ChatPanel.EmptyDescription = workflow.Description;
+                ChatPanel.EmptyHowItWorks = GetHowItWorks(workflow.Kind);
+                ChatPanel.DemoPrompt = workflow.DemoPrompt;
+                ChatPanel.Placeholder = $"Start {workflow.Name}...";
+
+                // Show and configure the graph
+                WorkflowGraph.Workflow = workflow;
+                WorkflowGraph.IsVisible = true;
+                InitializeWorkflowNodes(workflow);
+                RefreshGraph();
+                break;
+        }
+
+        ClearConversation();
+    }
+
+    private void RefreshGraph()
+    {
+        if (_edgeDrawable is not null && WorkflowGraph.ComputedLayout is not null)
+        {
+            _edgeDrawable.Layout = WorkflowGraph.ComputedLayout;
+            _edgeDrawable.IsDarkMode = Application.Current?.RequestedTheme == AppTheme.Dark;
+            GraphEdgeView.Invalidate();
+        }
+
+        // Rebuild node views in the layout
+        // Remove old node views (keep GraphicsView at index 0)
+        while (WorkflowGraph.Children.Count > 1)
+            WorkflowGraph.Children.RemoveAt(WorkflowGraph.Children.Count - 1);
+
+        foreach (var node in _workflowNodes)
+        {
+            var nodeView = new WorkflowNodeView { Node = node };
+            WorkflowGraph.Children.Add(nodeView);
+        }
+    }
+
+    private void OnClearClicked(object? sender, EventArgs e) => ClearConversation();
 
     protected override void OnHandlerChanged()
     {
@@ -82,18 +185,11 @@ public partial class AgentDevUIView : ContentView
     private void PopulateEntities()
     {
         if (_registry is null) return;
-        // Will be wired to the selector panel
-        OnEntitiesDiscovered(_registry.Agents, _registry.Workflows);
+        SelectorView.Agents = _registry.Agents;
+        SelectorView.Workflows = _registry.Workflows;
     }
 
     #region Internal State
-
-    // Exposed for panel controls to bind to
-    internal ObservableCollection<DevUIChatMessage> Messages => _messages;
-    internal ObservableCollection<DevUIEvent> Events => _events;
-    internal ObservableCollection<DevUITraceSpan> Traces => _traces;
-    internal ObservableCollection<DevUIToolCall> ToolCalls => _toolCalls;
-    internal ObservableCollection<WorkflowNode> WorkflowNodes => _workflowNodes;
 
     internal bool IsSending
     {
@@ -102,6 +198,7 @@ public partial class AgentDevUIView : ContentView
         {
             _isSending = value;
             OnPropertyChanged(nameof(IsSending));
+            MainThread.BeginInvokeOnMainThread(() => ChatPanel.IsSending = value);
         }
     }
 
@@ -112,6 +209,7 @@ public partial class AgentDevUIView : ContentView
         {
             _totalTokens = value;
             OnPropertyChanged(nameof(TotalTokens));
+            MainThread.BeginInvokeOnMainThread(() => TokenLabel.Text = $"{value} tokens");
         }
     }
 
@@ -125,7 +223,6 @@ public partial class AgentDevUIView : ContentView
             return;
 
         IsSending = true;
-        SetEmptyStateVisible(false);
 
         var userMsg = new DevUIChatMessage
         {
@@ -167,7 +264,6 @@ public partial class AgentDevUIView : ContentView
             return;
 
         IsSending = true;
-        SetEmptyStateVisible(false);
 
         var userMsg = new DevUIChatMessage
         {
@@ -231,7 +327,6 @@ public partial class AgentDevUIView : ContentView
     private void InitializeWorkflowNodes(WorkflowInfo workflow)
     {
         _workflowNodes.Clear();
-        _graphNodeViews.Clear();
         foreach (var exec in workflow.Executors)
         {
             _workflowNodes.Add(new WorkflowNode
@@ -436,7 +531,7 @@ public partial class AgentDevUIView : ContentView
         };
         await RunOnUIAsync(() => _messages.Add(msg));
 
-        var response = "";
+        var responseBuilder = new System.Text.StringBuilder();
         var lastUIUpdate = DateTime.UtcNow;
         var traceStart = DateTime.UtcNow;
 
@@ -444,10 +539,10 @@ public partial class AgentDevUIView : ContentView
         {
             if (update.Text is { Length: > 0 } text)
             {
-                response += text;
+                responseBuilder.Append(text);
                 if (DateTime.UtcNow - lastUIUpdate >= _uiBufferInterval)
                 {
-                    var snapshot = response + " \u258D"; // ▍ cursor
+                    var snapshot = responseBuilder.ToString() + " \u258D"; // ▍ cursor
                     await RunOnUIAsync(() => msg.Content = snapshot);
                     lastUIUpdate = DateTime.UtcNow;
                 }
@@ -471,7 +566,8 @@ public partial class AgentDevUIView : ContentView
             }
         }
 
-        var tokenEst = response.Split(' ').Length * 2;
+        var response = responseBuilder.ToString();
+        var tokenEst = response.Length > 0 ? response.Split(' ').Length * 2 : 0;
         var traceDuration = (int)(DateTime.UtcNow - traceStart).TotalMilliseconds;
         await RunOnUIAsync(() =>
         {
@@ -544,7 +640,6 @@ public partial class AgentDevUIView : ContentView
         _traces.Clear();
         _workflowNodes.Clear();
         TotalTokens = 0;
-        SetEmptyStateVisible(true);
     }
 
     private static Task RunOnUIAsync(Action action)
@@ -565,9 +660,14 @@ public partial class AgentDevUIView : ContentView
         catch { return string.Join(", ", args.Select(kv => $"{kv.Key}: {kv.Value}")); }
     }
 
-    #endregion
+    private static string GetHowItWorks(OrchestrationKind kind) => kind switch
+    {
+        OrchestrationKind.Sequential => "Agents execute one after another, each passing its output to the next.",
+        OrchestrationKind.Concurrent => "Multiple agents analyze in parallel, then a merger synthesizes results.",
+        OrchestrationKind.Handoff => "A dispatcher routes the request to the most appropriate specialist.",
+        OrchestrationKind.GroupChat => "Agents take turns contributing to a shared discussion over multiple rounds.",
+        _ => "Agents collaborate to produce a result."
+    };
 
-    // Partial method for UI building (implemented in AgentDevUIView.UI.cs)
-    partial void BuildUI();
-    partial void OnEntitiesDiscovered(IReadOnlyList<AgentInfo> agents, IReadOnlyList<WorkflowInfo> workflows);
+    #endregion
 }

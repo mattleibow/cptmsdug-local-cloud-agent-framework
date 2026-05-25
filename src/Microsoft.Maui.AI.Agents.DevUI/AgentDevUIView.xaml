@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Microsoft.Maui.AI.Agents.DevUI"
+             xmlns:controls="clr-namespace:Microsoft.Maui.AI.Agents.DevUI.Controls"
+             xmlns:layout="clr-namespace:Microsoft.Maui.AI.Agents.DevUI.Layout"
+             x:Class="Microsoft.Maui.AI.Agents.DevUI.AgentDevUIView"
+             x:Name="self"
+             x:DataType="local:AgentDevUIView">
+
+    <ContentView.Resources>
+        <ResourceDictionary Source="Resources/DevUIResources.xaml" />
+    </ContentView.Resources>
+
+    <Grid ColumnDefinitions="240,1,*,1,360"
+          RowDefinitions="48,*">
+
+        <!-- ===== HEADER ===== -->
+        <Border Grid.Row="0" Grid.ColumnSpan="5"
+                BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}"
+                StrokeThickness="0">
+            <Grid ColumnDefinitions="*,Auto,Auto" Padding="16,0">
+                <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                    <Label Text="AG"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource DevUI.Primary}"
+                           VerticalOptions="Center" />
+                    <Label x:Name="HeaderTitle"
+                           Text="Agent DevUI"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#1a1a2e, Dark=#f0f0f0}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <!-- Clear button -->
+                <Button Grid.Column="1"
+                        Text="Clear"
+                        BackgroundColor="Transparent"
+                        TextColor="{StaticResource DevUI.TextMuted}"
+                        FontSize="11"
+                        Clicked="OnClearClicked"
+                        VerticalOptions="Center" />
+
+                <!-- Token counter -->
+                <Label x:Name="TokenLabel"
+                       Grid.Column="2"
+                       Text="0 tokens"
+                       FontSize="10"
+                       TextColor="{StaticResource DevUI.TextMuted}"
+                       VerticalOptions="Center"
+                       Margin="12,0,0,0" />
+            </Grid>
+        </Border>
+
+        <!-- ===== LEFT SIDEBAR ===== -->
+        <Grid Grid.Row="1" Grid.Column="0"
+              RowDefinitions="*,Auto"
+              BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}">
+
+            <!-- Agent/Workflow Selector -->
+            <controls:AgentSelectorView x:Name="SelectorView"
+                                        Grid.Row="0" />
+
+            <!-- Workflow Graph (below selector when a workflow is selected) -->
+            <layout:WorkflowGraphLayout x:Name="WorkflowGraph"
+                                        Grid.Row="1"
+                                        IsVisible="False">
+                <!-- Edge overlay (first child) -->
+                <GraphicsView x:Name="GraphEdgeView"
+                              InputTransparent="True" />
+            </layout:WorkflowGraphLayout>
+        </Grid>
+
+        <!-- Left splitter -->
+        <BoxView Grid.Row="1" Grid.Column="1"
+                 Color="{AppThemeBinding Light=#e0e0e0, Dark=#1e1e30}"
+                 WidthRequest="1" />
+
+        <!-- ===== CHAT PANEL ===== -->
+        <controls:ChatPanelView x:Name="ChatPanel"
+                                Grid.Row="1" Grid.Column="2"
+                                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0f0d1a}" />
+
+        <!-- Right splitter -->
+        <BoxView Grid.Row="1" Grid.Column="3"
+                 Color="{AppThemeBinding Light=#e0e0e0, Dark=#1e1e30}"
+                 WidthRequest="1" />
+
+        <!-- ===== DEBUG PANEL ===== -->
+        <controls:DebugPanelView x:Name="DebugPanel"
+                                 Grid.Row="1" Grid.Column="4"
+                                 BackgroundColor="{AppThemeBinding Light=#fafafa, Dark=#12121e}" />
+
+    </Grid>
+
+</ContentView>

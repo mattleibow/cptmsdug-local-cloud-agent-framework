@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Microsoft.Maui.AI.Agents.DevUI"
+             x:Class="Microsoft.Maui.AI.Agents.DevUI.Controls.DebugPanelView"
+             x:Name="self"
+             x:DataType="local:Controls.DebugPanelView"
+             BackgroundColor="{AppThemeBinding Light=#fafafa, Dark=#12121e}">
+
+    <ContentView.Resources>
+        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
+    </ContentView.Resources>
+
+    <Grid RowDefinitions="40,*">
+        <!-- Tab Bar -->
+        <Grid ColumnDefinitions="*,*,*" Padding="4,0">
+            <Button Text="Events"
+                    Style="{StaticResource DevUI.TabButtonActive}"
+                    x:Name="EventsTabBtn"
+                    Clicked="OnEventsTabClicked" />
+            <Button Grid.Column="1"
+                    Text="Traces"
+                    Style="{StaticResource DevUI.TabButton}"
+                    x:Name="TracesTabBtn"
+                    Clicked="OnTracesTabClicked" />
+            <Button Grid.Column="2"
+                    Text="Tools"
+                    Style="{StaticResource DevUI.TabButton}"
+                    x:Name="ToolsTabBtn"
+                    Clicked="OnToolsTabClicked" />
+        </Grid>
+
+        <!-- Events List -->
+        <CollectionView Grid.Row="1"
+                        x:Name="EventsList"
+                        Margin="8,4"
+                        ItemsSource="{Binding Events, Source={x:Reference self}}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:DevUIEvent">
+                    <Border StrokeShape="RoundRectangle 6"
+                            Stroke="{AppThemeBinding Light=#e8e8e8, Dark=#2a2a3e}"
+                            StrokeThickness="1"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1a1a2e}"
+                            Padding="8,6"
+                            Margin="0,2">
+                        <VerticalStackLayout Spacing="2">
+                            <HorizontalStackLayout Spacing="6">
+                                <Border StrokeShape="RoundRectangle 4"
+                                        StrokeThickness="0"
+                                        BackgroundColor="{Binding Type, Converter={StaticResource EventTypeColorConverter}}"
+                                        Padding="4,1">
+                                    <Label Text="{Binding Type}"
+                                           FontSize="9"
+                                           TextColor="White" />
+                                </Border>
+                                <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm:ss}'}"
+                                       FontSize="9"
+                                       TextColor="{StaticResource DevUI.TextMuted}" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding Description}"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#333333, Dark=#cccccc}"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="2" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Traces List -->
+        <CollectionView Grid.Row="1"
+                        x:Name="TracesList"
+                        Margin="8,4"
+                        IsVisible="False"
+                        ItemsSource="{Binding Traces, Source={x:Reference self}}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:DevUITraceSpan">
+                    <Border StrokeShape="RoundRectangle 6"
+                            Stroke="{AppThemeBinding Light=#e8e8e8, Dark=#2a2a3e}"
+                            StrokeThickness="1"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1a1a2e}"
+                            Padding="8,6"
+                            Margin="0,2">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border StrokeShape="RoundRectangle 4"
+                                    StrokeThickness="0"
+                                    BackgroundColor="{Binding OperationColor}"
+                                    Padding="4,1"
+                                    VerticalOptions="Center">
+                                <Label Text="{Binding OperationKind}"
+                                       FontSize="9"
+                                       TextColor="White" />
+                            </Border>
+                            <Label Grid.Column="1"
+                                   Text="{Binding Name}"
+                                   FontSize="11"
+                                   TextColor="{AppThemeBinding Light=#333333, Dark=#cccccc}"
+                                   VerticalOptions="Center"
+                                   Margin="8,0,0,0" />
+                            <Label Grid.Column="2"
+                                   Text="{Binding Duration, StringFormat='{0}ms'}"
+                                   FontSize="9"
+                                   TextColor="{StaticResource DevUI.TextMuted}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Tools List -->
+        <CollectionView Grid.Row="1"
+                        x:Name="ToolsList"
+                        Margin="8,4"
+                        IsVisible="False"
+                        ItemsSource="{Binding ToolCalls, Source={x:Reference self}}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:DevUIToolCall">
+                    <Border StrokeShape="RoundRectangle 6"
+                            Stroke="{AppThemeBinding Light=#e8e8e8, Dark=#2a2a3e}"
+                            StrokeThickness="1"
+                            BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1a1a2e}"
+                            Padding="8,6"
+                            Margin="0,2">
+                        <VerticalStackLayout Spacing="2">
+                            <HorizontalStackLayout Spacing="6">
+                                <Label Text="{Binding Name}"
+                                       FontSize="11"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource DevUI.Info}" />
+                                <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm:ss}'}"
+                                       FontSize="9"
+                                       TextColor="{StaticResource DevUI.TextMuted}" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding Arguments}"
+                                   FontSize="10"
+                                   TextColor="{AppThemeBinding Light=#555555, Dark=#999999}"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="3"
+                                   FontFamily="Courier New" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+
+</ContentView>
