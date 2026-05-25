@@ -3,10 +3,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     x:Class="Demo2.MauiAgent.AppShell"
     xmlns:local="clr-namespace:Demo2.MauiAgent"
-    Title="Demo2.MauiAgent">
+    Title="Agent DevUI"
+    Shell.NavBarIsVisible="False"
+    Shell.FlyoutBehavior="Disabled">
 
     <ShellContent
-        Title="Home"
+        Shell.NavBarIsVisible="False"
         ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage" />
 

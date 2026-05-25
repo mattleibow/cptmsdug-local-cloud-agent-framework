@@ -5,6 +5,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Maui.AI.Agents.DevUI;
 using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.LifecycleEvents;
 
 namespace Demo2.MauiAgent;
 
@@ -24,6 +25,25 @@ public static class MauiProgram
 				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
 				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
 			});
+
+#if MACCATALYST
+		// Minimize the native title bar on Mac Catalyst
+		builder.ConfigureLifecycleEvents(events =>
+		{
+			events.AddiOS(ios => ios.SceneWillConnect((scene, session, options) =>
+			{
+				if (scene is UIKit.UIWindowScene windowScene)
+				{
+					var titlebar = windowScene.Titlebar;
+					if (titlebar is not null)
+					{
+						titlebar.TitleVisibility = UIKit.UITitlebarTitleVisibility.Hidden;
+						titlebar.Toolbar = null;
+					}
+				}
+			}));
+		});
+#endif
 
 #if DEBUG
 		builder.AddMauiDevFlowAgent();
