@@ -4,12 +4,18 @@
     x:Class="Demo2.MauiAgent.AppShell"
     xmlns:local="clr-namespace:Demo2.MauiAgent"
     Title="Agent DevUI"
-    Shell.NavBarIsVisible="False"
     Shell.FlyoutBehavior="Disabled">
 
-    <ShellContent
-        Shell.NavBarIsVisible="False"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    <TabBar>
+        <ShellContent
+            Title="Agent DevUI"
+            Shell.NavBarIsVisible="False"
+            ContentTemplate="{DataTemplate local:MainPage}"
+            Route="MainPage" />
+        <ShellContent
+            Title="Graph Test"
+            ContentTemplate="{DataTemplate local:GraphTestPage}"
+            Route="GraphTestPage" />
+    </TabBar>
 
 </Shell>

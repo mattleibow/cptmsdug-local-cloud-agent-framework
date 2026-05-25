@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:graph="clr-namespace:Microsoft.Maui.AI.Agents.DevUI.Graph;assembly=Microsoft.Maui.AI.Agents.DevUI"
+             x:Class="Demo2.MauiAgent.GraphTestPage"
+             Title="Graph Test"
+             BackgroundColor="#0F0D1A">
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="24">
+
+            <Label Text="Sequential (A → B → C)"
+                   FontSize="18" FontAttributes="Bold" TextColor="White" />
+            <Border Stroke="#2A2540" StrokeThickness="1" Padding="0"
+                    HeightRequest="320">
+                <graph:GraphView x:Name="SequentialGraph" />
+            </Border>
+
+            <Label Text="Concurrent (A, B, C → D)"
+                   FontSize="18" FontAttributes="Bold" TextColor="White" />
+            <Border Stroke="#2A2540" StrokeThickness="1" Padding="0"
+                    HeightRequest="320">
+                <graph:GraphView x:Name="ConcurrentGraph" />
+            </Border>
+
+            <Label Text="Handoff (Dispatcher → Specialists)"
+                   FontSize="18" FontAttributes="Bold" TextColor="White" />
+            <Border Stroke="#2A2540" StrokeThickness="1" Padding="0"
+                    HeightRequest="320">
+                <graph:GraphView x:Name="HandoffGraph" />
+            </Border>
+
+            <Label Text="GroupChat (Ring with loopback)"
+                   FontSize="18" FontAttributes="Bold" TextColor="White" />
+            <Border Stroke="#2A2540" StrokeThickness="1" Padding="0"
+                    HeightRequest="420">
+                <graph:GraphView x:Name="GroupChatGraph" />
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
