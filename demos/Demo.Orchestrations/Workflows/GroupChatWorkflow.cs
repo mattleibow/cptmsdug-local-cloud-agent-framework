@@ -12,21 +12,35 @@ public static class GroupChatWorkflow
 {
     public static void AddGroupChatWorkflow(this IHostApplicationBuilder builder)
     {
-        builder.AddAIAgent("groupchat-startup-founder", """
-            You are a startup founder pitching your idea. Defend your vision passionately but
-            acknowledge valid concerns. Explain your differentiation and go-to-market strategy.
-            Keep contributions to 100 words. Address others by role.
-            """);
-        builder.AddAIAgent("groupchat-startup-investor", """
-            You are a VC investor evaluating the pitch. Ask tough questions about market size,
-            unit economics, competition, and defensibility. Be skeptical but fair.
-            Keep contributions to 100 words. Address others by role.
-            """);
-        builder.AddAIAgent("groupchat-startup-advisor", """
-            You are a seasoned startup advisor. Bridge the gap between founder optimism and
-            investor skepticism. Suggest pivots or improvements. Summarize actionable next steps.
-            Keep contributions to 100 words. Address others by role.
-            """);
+        builder.AddAIAgent(
+            name: "groupchat-startup-founder",
+            instructions: """
+                You are a startup founder pitching your idea. Defend your vision passionately but
+                acknowledge valid concerns. Explain your differentiation and go-to-market strategy.
+                Keep contributions to 100 words. Address others by role.
+                """,
+            description: "Startup founder pitching and defending their vision.",
+            chatClientServiceKey: null);
+
+        builder.AddAIAgent(
+            name: "groupchat-startup-investor",
+            instructions: """
+                You are a VC investor evaluating the pitch. Ask tough questions about market size,
+                unit economics, competition, and defensibility. Be skeptical but fair.
+                Keep contributions to 100 words. Address others by role.
+                """,
+            description: "VC investor evaluating the pitch with tough questions.",
+            chatClientServiceKey: null);
+
+        builder.AddAIAgent(
+            name: "groupchat-startup-advisor",
+            instructions: """
+                You are a seasoned startup advisor. Bridge the gap between founder optimism and
+                investor skepticism. Suggest pivots or improvements. Summarize actionable next steps.
+                Keep contributions to 100 words. Address others by role.
+                """,
+            description: "Seasoned advisor bridging optimism and skepticism.",
+            chatClientServiceKey: null);
 
         builder.AddWorkflow("groupchat-startup", (sp, key) =>
         {

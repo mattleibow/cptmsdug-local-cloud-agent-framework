@@ -12,10 +12,10 @@ public static class SequentialWorkflow
 {
     public static void AddSequentialWorkflow(this IHostApplicationBuilder builder)
     {
-        // Reporter has a SearchNews tool to research stories
         builder.AddAIAgent("sequential-newsdesk-reporter", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
             name: key,
+            description: "News reporter that researches topics and writes articles.",
             instructions: """
                 You are a news reporter. Research the given topic using the SearchNews tool,
                 then write a concise news article (250 words) based on the results.
@@ -25,10 +25,10 @@ public static class SequentialWorkflow
             tools: [AIFunctionFactory.Create(NewsDeskTools.SearchNews)]
         ));
 
-        // Factchecker has a VerifyFact tool to check claims
         builder.AddAIAgent("sequential-newsdesk-factchecker", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
             name: key,
+            description: "Fact-checker that verifies claims in articles.",
             instructions: """
                 You are a fact-checker. Review the article and use the VerifyFact tool to check
                 key claims and statistics. Add [VERIFIED] or [NEEDS SOURCE] annotations based on
@@ -37,10 +37,10 @@ public static class SequentialWorkflow
             tools: [AIFunctionFactory.Create(NewsDeskTools.VerifyFact)]
         ));
 
-        // Editor has a FormatForPublication tool
         builder.AddAIAgent("sequential-newsdesk-editor", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
             name: key,
+            description: "Senior editor that polishes articles for publication.",
             instructions: """
                 You are a senior editor. Polish the article for clarity and flow.
                 Ensure the headline is compelling. Once the article is ready, use the
