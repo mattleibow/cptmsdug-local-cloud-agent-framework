@@ -73,6 +73,9 @@ builder.AddWorkflow("research-briefing", (sp, key) => AgentWorkflowBuilder.Build
 )).AddAsAIAgent("research-briefing");
 
 // ===== Handoff Agents (Customer Support) =====
+// NOTE: MAF's BuildSequential runs all agents in order. True handoff routing
+// is demonstrated in Demo2's native app. Here we register agents individually
+// so they're visible in DevUI for direct interaction.
 
 builder.AddAIAgent("triage", """
     You are a customer support triage agent. Analyze the customer's issue and determine which specialist should handle it.
@@ -92,18 +95,9 @@ builder.AddAIAgent("technical",
 builder.AddAIAgent("account",
     "You are an account specialist. Help customers with login issues, password resets, account recovery, and access problems. Be patient and clear. Keep responses under 200 words.");
 
-builder.AddWorkflow("customer-support", (sp, key) => AgentWorkflowBuilder.BuildSequential(
-    workflowName: key,
-    agents:
-    [
-        sp.GetRequiredKeyedService<AIAgent>("triage"),
-        sp.GetRequiredKeyedService<AIAgent>("billing"),
-        sp.GetRequiredKeyedService<AIAgent>("technical"),
-        sp.GetRequiredKeyedService<AIAgent>("account")
-    ]
-)).AddAsAIAgent("customer-support");
-
 // ===== Group Chat Agents (Design Review) =====
+// NOTE: True multi-round group chat is demonstrated in Demo2's native app.
+// Here we register agents individually for DevUI direct interaction.
 
 builder.AddAIAgent("designer",
     "You are a UX designer in a product design review. Evaluate ideas from a usability, aesthetics, and user experience perspective. Challenge engineering constraints when they hurt UX. Keep contributions to 100 words. Address other participants by name.");
@@ -113,16 +107,6 @@ builder.AddAIAgent("engineer",
 
 builder.AddAIAgent("product-manager",
     "You are a product manager in a product design review. Evaluate ideas from a business value, user impact, and timeline perspective. Mediate between design and engineering. Summarize decisions. Keep contributions to 100 words. Address other participants by name.");
-
-builder.AddWorkflow("design-review", (sp, key) => AgentWorkflowBuilder.BuildSequential(
-    workflowName: key,
-    agents:
-    [
-        sp.GetRequiredKeyedService<AIAgent>("designer"),
-        sp.GetRequiredKeyedService<AIAgent>("engineer"),
-        sp.GetRequiredKeyedService<AIAgent>("product-manager")
-    ]
-)).AddAsAIAgent("design-review");
 
 // Register services for OpenAI responses and conversations (also required for DevUI)
 builder.Services.AddOpenAIResponses();

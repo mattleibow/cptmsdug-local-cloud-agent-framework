@@ -270,16 +270,7 @@ public partial class MainViewModel : ObservableObject
         var analysts = agents.Where(a => a.Name != "synthesizer").ToList();
         var synthesizer = agents.First(a => a.Name == "synthesizer");
 
-        // Run all analysts in parallel
-        var tasks = new List<Task<(string name, string result)>>();
-        for (var i = 0; i < analysts.Count; i++)
-        {
-            var agent = analysts[i];
-            var step = WorkflowSteps[i];
-            tasks.Add(RunConcurrentAgent(agent, step, userMessage));
-        }
-
-        // Mark all analysts as running simultaneously
+        // Mark all analysts as running BEFORE starting tasks to avoid race
         await RunOnUIAsync(() =>
         {
             for (var i = 0; i < analysts.Count; i++)
@@ -288,6 +279,15 @@ public partial class MainViewModel : ObservableObject
                 WorkflowSteps[i].StartTime = DateTime.Now;
             }
         });
+
+        // Run all analysts in parallel
+        var tasks = new List<Task<(string name, string result)>>();
+        for (var i = 0; i < analysts.Count; i++)
+        {
+            var agent = analysts[i];
+            var step = WorkflowSteps[i];
+            tasks.Add(RunConcurrentAgent(agent, step, userMessage));
+        }
 
         var results = await Task.WhenAll(tasks);
 
