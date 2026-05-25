@@ -28,7 +28,6 @@ public partial class AgentDevUIView : ContentView
     private int _totalTokens;
     private AgentInfo? _selectedAgent;
     private WorkflowInfo? _selectedWorkflow;
-    private GraphEdgeDrawable? _edgeDrawable;
 
     #region Bindable Properties
 
@@ -85,10 +84,6 @@ public partial class AgentDevUIView : ContentView
             if (e.PropertyName == nameof(AgentSelectorView.SelectedEntity))
                 OnEntitySelected(SelectorView.SelectedEntity);
         };
-
-        // Wire edge drawable
-        _edgeDrawable = new GraphEdgeDrawable();
-        GraphEdgeView.Drawable = _edgeDrawable;
     }
 
     private void OnSendMessage(string? message)
@@ -151,24 +146,30 @@ public partial class AgentDevUIView : ContentView
 
     private void RefreshGraph()
     {
-        if (_edgeDrawable is not null && WorkflowGraph.ComputedLayout is not null)
+        // Clear all children (edges + nodes)
+        foreach (var child in WorkflowGraph.Children.ToList())
         {
-            _edgeDrawable.Layout = WorkflowGraph.ComputedLayout;
-            _edgeDrawable.IsDarkMode = Application.Current?.RequestedTheme == AppTheme.Dark;
-            GraphEdgeView.Invalidate();
-        }
-
-        // Remove old node views (keep GraphicsView at index 0), unhooking events
-        while (WorkflowGraph.Children.Count > 1)
-        {
-            if (WorkflowGraph.Children[^1] is WorkflowNodeView oldView)
+            if (child is Controls.WorkflowNodeView oldView)
                 oldView.Node = null;
-            WorkflowGraph.Children.RemoveAt(WorkflowGraph.Children.Count - 1);
         }
+        WorkflowGraph.Children.Clear();
+        WorkflowGraph.EdgeCount = 0;
 
+        if (WorkflowGraph.ComputedLayout is null) return;
+
+        var isDarkMode = Application.Current?.RequestedTheme == AppTheme.Dark;
+        var layout = WorkflowGraph.ComputedLayout;
+
+        // Add edge Path shapes first
+        var edgePaths = EdgePathBuilder.CreateEdgePaths(layout, isDarkMode);
+        foreach (var path in edgePaths)
+            WorkflowGraph.Children.Add(path);
+        WorkflowGraph.EdgeCount = edgePaths.Count;
+
+        // Add node views
         foreach (var node in _workflowNodes)
         {
-            var nodeView = new WorkflowNodeView { Node = node };
+            var nodeView = new Controls.WorkflowNodeView { Node = node };
             WorkflowGraph.Children.Add(nodeView);
         }
 

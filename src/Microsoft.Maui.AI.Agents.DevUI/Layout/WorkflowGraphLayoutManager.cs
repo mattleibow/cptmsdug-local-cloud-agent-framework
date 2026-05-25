@@ -3,14 +3,15 @@ using Microsoft.Maui.Layouts;
 namespace Microsoft.Maui.AI.Agents.DevUI.Layout;
 
 /// <summary>
-/// Layout manager that positions nodes according to GraphLayoutEngine output.
-/// First child is expected to be a GraphicsView (edge overlay), remaining children are nodes.
+/// Layout manager that positions edge Path shapes and node views according to
+/// the MSAGL-computed layout. Children order: [EdgePaths...] [NodeViews...]
+/// Edge Paths are arranged to fill the full canvas so their geometry is in absolute coords.
+/// Node views are positioned at their computed (X, Y).
 /// </summary>
 internal class WorkflowGraphLayoutManager : ILayoutManager
 {
     private const double NodeWidth = 140;
     private const double NodeHeight = 48;
-    private const double Padding = 10;
 
     private readonly WorkflowGraphLayout _layout;
 
@@ -25,15 +26,13 @@ internal class WorkflowGraphLayoutManager : ILayoutManager
         var computed = _layout.ComputedLayout;
 
         if (computed is null || computed.Nodes.Count == 0)
-            return new Size(NodeWidth + Padding * 2, NodeHeight + Padding * 2);
+            return new Size(NodeWidth + 40, NodeHeight + 40);
 
         // Measure each child so they report their desired size
         foreach (var child in _layout.Children.Where(c => c.Visibility == Visibility.Visible))
             child.Measure(widthConstraint, heightConstraint);
 
-        return new Size(
-            computed.Width + Padding * 2,
-            computed.Height + Padding * 2);
+        return new Size(computed.Width, computed.Height);
     }
 
     public Size ArrangeChildren(Rect bounds)
@@ -44,26 +43,28 @@ internal class WorkflowGraphLayoutManager : ILayoutManager
         var children = _layout.Children.Where(c => c.Visibility == Visibility.Visible).ToList();
         if (children.Count == 0) return bounds.Size;
 
-        // First child is the GraphicsView overlay — fill entire area
-        var firstChild = children[0];
-        if (firstChild is IView graphicsView)
+        var edgeCount = _layout.EdgeCount;
+        var canvasWidth = computed.Width;
+        var canvasHeight = computed.Height;
+
+        // Edge Paths fill the full canvas area (their PathGeometry is in absolute coordinates)
+        for (var i = 0; i < edgeCount && i < children.Count; i++)
         {
-            graphicsView.Arrange(new Rect(0, 0, computed.Width + Padding * 2, computed.Height + Padding * 2));
+            children[i].Arrange(new Rect(0, 0, canvasWidth, canvasHeight));
         }
 
-        // Remaining children are node views — position according to computed layout
-        var nodeChildren = children.Skip(1).ToList();
+        // Node views are positioned at computed layout positions
+        var nodeChildren = children.Skip(edgeCount).ToList();
         for (var i = 0; i < nodeChildren.Count && i < computed.Nodes.Count; i++)
         {
             var layoutNode = computed.Nodes[i];
-            var nodeView = nodeChildren[i];
-            nodeView.Arrange(new Rect(
-                layoutNode.X + Padding,
-                layoutNode.Y + Padding,
+            nodeChildren[i].Arrange(new Rect(
+                layoutNode.X,
+                layoutNode.Y,
                 NodeWidth,
                 NodeHeight));
         }
 
-        return new Size(computed.Width + Padding * 2, computed.Height + Padding * 2);
+        return new Size(canvasWidth, canvasHeight);
     }
 }

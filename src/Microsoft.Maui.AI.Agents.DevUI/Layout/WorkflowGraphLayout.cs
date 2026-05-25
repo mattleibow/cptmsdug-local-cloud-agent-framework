@@ -3,8 +3,9 @@ using Microsoft.Maui.Layouts;
 namespace Microsoft.Maui.AI.Agents.DevUI.Layout;
 
 /// <summary>
-/// A custom layout that positions WorkflowNodeView children according to the
-/// orchestration topology. A GraphicsView child (first child) draws edges.
+/// A custom layout that positions WorkflowNodeView children and edge Path shapes
+/// according to the orchestration topology computed by MSAGL.
+/// Children are: edge Paths first, then node views.
 /// </summary>
 public class WorkflowGraphLayout : Microsoft.Maui.Controls.Layout
 {
@@ -28,6 +29,9 @@ public class WorkflowGraphLayout : Microsoft.Maui.Controls.Layout
     }
 
     internal GraphLayout? ComputedLayout { get; private set; }
+
+    /// <summary>Number of edge Path views at the start of Children.</summary>
+    internal int EdgeCount { get; set; }
 
     protected override ILayoutManager CreateLayoutManager()
         => new WorkflowGraphLayoutManager(this);

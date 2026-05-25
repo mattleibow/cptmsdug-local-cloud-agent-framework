@@ -82,10 +82,7 @@
                             MinimumWidthRequest="280"
                             BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}">
                     <layout:WorkflowGraphLayout x:Name="WorkflowGraph"
-                                                Padding="12">
-                        <GraphicsView x:Name="GraphEdgeView"
-                                      InputTransparent="True" />
-                    </layout:WorkflowGraphLayout>
+                                                Padding="12" />
                 </ScrollView>
 
                 <!-- Graph splitter -->
