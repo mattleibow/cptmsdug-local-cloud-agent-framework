@@ -3,9 +3,11 @@ using Demo2.MauiAgent.Services;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using Microsoft.Maui.AI.Agents.DevUI;
+using Microsoft.Maui.LifecycleEvents;
+#if DEBUG
 using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Extensions.Logging;
-using Microsoft.Maui.LifecycleEvents;
+#endif
 
 namespace Demo2.MauiAgent;
 
@@ -65,9 +67,8 @@ public static class MauiProgram
 		builder.AddHandoffWorkflow();
 		builder.AddGroupChatWorkflow();
 
-		// Register DevUI with entities from shared definitions
+		// Register DevUI (auto-discovers agents and workflows from DI)
 		builder.Services.AddMauiAgentDevUI();
-		builder.Services.AddDemoDevUIEntities();
 
 		builder.Services.AddTransient<MainPage>();
 
@@ -78,40 +79,4 @@ public static class MauiProgram
 		return builder.Build();
 	}
 
-	/// <summary>
-	/// Maps Demo.Orchestrations definitions into DevUI display entities.
-	/// </summary>
-	private static IServiceCollection AddDemoDevUIEntities(this IServiceCollection services)
-	{
-		foreach (var agent in DemoWorkflows.StandaloneAgents)
-		{
-			services.AddDevUIAgent(new AgentInfo
-			{
-				Id = agent.Name,
-				Name = agent.Name,
-				Description = agent.SystemPrompt[..Math.Min(80, agent.SystemPrompt.Length)] + "...",
-				Instructions = agent.SystemPrompt
-			});
-		}
-
-		foreach (var wf in DemoWorkflows.Workflows)
-		{
-			services.AddDevUIWorkflow(new WorkflowInfo
-			{
-				Id = wf.Id,
-				Name = wf.Name,
-				Description = wf.Description,
-				Kind = (Microsoft.Maui.AI.Agents.DevUI.OrchestrationKind)(int)wf.Kind,
-				DemoPrompt = wf.DemoPrompt,
-				Executors = wf.Agents.Select(a => new ExecutorInfo
-				{
-					Id = a.Name,
-					Name = a.Name,
-					SystemPrompt = a.SystemPrompt
-				}).ToList()
-			});
-		}
-
-		return services;
-	}
 }

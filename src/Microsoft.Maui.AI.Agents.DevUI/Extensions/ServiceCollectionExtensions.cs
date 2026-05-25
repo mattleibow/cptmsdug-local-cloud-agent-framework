@@ -1,3 +1,6 @@
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Workflows;
+using Microsoft.Agents.AI.Workflows.Checkpointing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Maui.AI.Agents.DevUI;
@@ -8,39 +11,22 @@ namespace Microsoft.Maui.AI.Agents.DevUI;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the MAUI Agent DevUI services including agent and workflow discovery.
+    /// Registers the MAUI Agent DevUI services with auto-discovery from DI.
+    /// Agents and workflows registered via AddAIAgent/AddWorkflow are discovered automatically.
     /// </summary>
     public static IServiceCollection AddMauiAgentDevUI(this IServiceCollection services)
     {
         services.AddSingleton<IDevUIEntityRegistry, DevUIEntityRegistry>();
         return services;
     }
-
-    /// <summary>
-    /// Registers a single agent with the DevUI.
-    /// </summary>
-    public static IServiceCollection AddDevUIAgent(this IServiceCollection services, AgentInfo agent)
-    {
-        services.AddSingleton<IDevUIEntityRegistration>(new AgentRegistration(agent));
-        return services;
-    }
-
-    /// <summary>
-    /// Registers a workflow with the DevUI.
-    /// </summary>
-    public static IServiceCollection AddDevUIWorkflow(this IServiceCollection services, WorkflowInfo workflow)
-    {
-        services.AddSingleton<IDevUIEntityRegistration>(new WorkflowRegistration(workflow));
-        return services;
-    }
 }
 
 /// <summary>
-/// Provides access to all registered agents and workflows.
+/// Provides access to all registered agents and workflows, auto-discovered from DI.
 /// </summary>
 public interface IDevUIEntityRegistry
 {
-    /// <summary>Gets all registered agents.</summary>
+    /// <summary>Gets all registered agents (standalone, not workflow executors).</summary>
     IReadOnlyList<AgentInfo> Agents { get; }
 
     /// <summary>Gets all registered workflows.</summary>
@@ -48,39 +34,182 @@ public interface IDevUIEntityRegistry
 }
 
 /// <summary>
-/// Marker interface for entity registrations resolved from DI.
+/// Auto-discovers AIAgent and Workflow registrations from the DI container,
+/// mirroring the pattern used by the web DevUI (EntitiesApiExtensions).
 /// </summary>
-public interface IDevUIEntityRegistration;
-
-internal sealed class AgentRegistration(AgentInfo agent) : IDevUIEntityRegistration
-{
-    public AgentInfo Agent => agent;
-}
-
-internal sealed class WorkflowRegistration(WorkflowInfo workflow) : IDevUIEntityRegistration
-{
-    public WorkflowInfo Workflow => workflow;
-}
-
 internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
 {
     public IReadOnlyList<AgentInfo> Agents { get; }
     public IReadOnlyList<WorkflowInfo> Workflows { get; }
 
-    public DevUIEntityRegistry(IEnumerable<IDevUIEntityRegistration> registrations)
+    public DevUIEntityRegistry(IServiceProvider serviceProvider)
     {
-        var agents = new List<AgentInfo>();
-        var workflows = new List<WorkflowInfo>();
+        // Discover all Workflow instances from DI (keyed + default)
+        var workflows = GetRegisteredEntities<Workflow>(serviceProvider).ToList();
+        var workflowNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var reg in registrations)
+        var workflowInfos = new List<WorkflowInfo>();
+        foreach (var workflow in workflows)
         {
-            if (reg is AgentRegistration ar)
-                agents.Add(ar.Agent);
-            else if (reg is WorkflowRegistration wr)
-                workflows.Add(wr.Workflow);
+            var name = workflow.Name ?? workflow.StartExecutorId ?? "unnamed";
+            workflowNames.Add(name);
+
+            var info = MapWorkflow(workflow, serviceProvider);
+            workflowInfos.Add(info);
         }
 
-        Agents = agents;
-        Workflows = workflows;
+        // Discover all AIAgent instances (keyed + default), excluding workflow-wrapped agents
+        var agents = GetRegisteredEntities<AIAgent>(serviceProvider)
+            .Where(a => a.Name is not null && !workflowNames.Contains(a.Name))
+            .ToList();
+
+        // Also exclude agents that are executors within workflows
+        var executorNames = workflowInfos
+            .SelectMany(w => w.Executors)
+            .Select(e => e.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var agentInfos = agents
+            .Where(a => !executorNames.Contains(a.Name!))
+            .Select(MapAgent)
+            .ToList();
+
+        Agents = agentInfos;
+        Workflows = workflowInfos;
+    }
+
+    private static IEnumerable<T> GetRegisteredEntities<T>(IServiceProvider serviceProvider)
+    {
+        var keyedEntities = serviceProvider.GetKeyedServices<T>(KeyedService.AnyKey);
+        var defaultEntities = serviceProvider.GetServices<T>() ?? [];
+        return keyedEntities.Concat(defaultEntities).Where(entity => entity is not null);
+    }
+
+    private static AgentInfo MapAgent(AIAgent agent)
+    {
+        string? instructions = null;
+        if (agent is ChatClientAgent chatAgent)
+            instructions = chatAgent.Instructions;
+
+        return new AgentInfo
+        {
+            Id = agent.Name ?? "unknown",
+            Name = agent.Name ?? "unknown",
+            Description = agent.Description ?? (instructions is { Length: > 80 }
+                ? instructions[..80] + "..."
+                : instructions),
+            Instructions = instructions
+        };
+    }
+
+    private static WorkflowInfo MapWorkflow(Workflow workflow, IServiceProvider serviceProvider)
+    {
+        var name = workflow.Name ?? workflow.StartExecutorId ?? "unnamed";
+
+        // Get graph structure from ReflectEdges
+        var reflectedEdges = workflow.ReflectEdges();
+        var executorIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var edgeList = new List<Edge>();
+
+        if (workflow.StartExecutorId is not null)
+            executorIds.Add(workflow.StartExecutorId);
+
+        foreach (var (sourceId, edgeInfoSet) in reflectedEdges)
+        {
+            executorIds.Add(sourceId);
+            foreach (var edgeInfo in edgeInfoSet)
+            {
+                foreach (var sinkId in edgeInfo.Connection.SinkIds)
+                {
+                    executorIds.Add(sinkId);
+                    edgeList.Add(new Edge
+                    {
+                        SourceId = sourceId,
+                        TargetId = sinkId
+                    });
+                }
+            }
+        }
+
+        var edgeGroups = new List<EdgeGroup>();
+        if (edgeList.Count > 0)
+        {
+            edgeGroups.Add(new EdgeGroup
+            {
+                Type = InferEdgeGroupType(edgeList),
+                Edges = edgeList
+            });
+        }
+
+        // Build executor list, attempting to get instructions from DI-registered agents
+        var executors = executorIds
+            .Select(id =>
+            {
+                string? prompt = null;
+                var agent = serviceProvider.GetKeyedService<AIAgent>(id);
+                if (agent is ChatClientAgent ca)
+                    prompt = ca.Instructions;
+
+                return new ExecutorInfo { Id = id, Name = id, SystemPrompt = prompt };
+            })
+            .ToList();
+
+        var kind = InferOrchestrationKind(edgeList, executors.Count, workflow.StartExecutorId);
+
+        return new WorkflowInfo
+        {
+            Id = name,
+            Name = name,
+            Description = workflow.Description,
+            Kind = kind,
+            StartExecutorId = workflow.StartExecutorId,
+            Executors = executors,
+            EdgeGroups = edgeGroups
+        };
+    }
+
+    private static OrchestrationKind InferOrchestrationKind(
+        List<Edge> edges, int nodeCount, string? startId)
+    {
+        if (edges.Count == 0) return OrchestrationKind.Sequential;
+
+        // Check for fan-out from start node
+        var startOutEdges = edges.Where(e =>
+            string.Equals(e.SourceId, startId, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (startOutEdges.Count > 1)
+        {
+            // If targets of start also have outgoing edges converging → concurrent
+            var targets = startOutEdges.Select(e => e.TargetId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var convergeEdges = edges.Where(e => targets.Contains(e.SourceId)).ToList();
+            var mergeTargets = convergeEdges.Select(e => e.TargetId).Distinct().ToList();
+            if (mergeTargets.Count == 1)
+                return OrchestrationKind.Concurrent;
+
+            // Fan-out without convergence → handoff
+            return OrchestrationKind.Handoff;
+        }
+
+        // Check for cycles (group chat)
+        var sources = edges.Select(e => e.SourceId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var targets2 = edges.Select(e => e.TargetId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (sources.SetEquals(targets2) && nodeCount >= 2)
+            return OrchestrationKind.GroupChat;
+
+        // Default: linear chain = sequential
+        return OrchestrationKind.Sequential;
+    }
+
+    private static EdgeGroupType InferEdgeGroupType(List<Edge> edges)
+    {
+        var sourceCounts = edges.GroupBy(e => e.SourceId).ToDictionary(g => g.Key, g => g.Count());
+        if (sourceCounts.Values.Any(c => c > 1))
+            return EdgeGroupType.FanOut;
+
+        var targetCounts = edges.GroupBy(e => e.TargetId).ToDictionary(g => g.Key, g => g.Count());
+        if (targetCounts.Values.Any(c => c > 1))
+            return EdgeGroupType.FanIn;
+
+        return EdgeGroupType.Single;
     }
 }
