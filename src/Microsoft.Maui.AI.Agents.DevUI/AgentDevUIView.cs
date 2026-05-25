@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Input;
+using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.AI.Agents.DevUI.Controls;
@@ -312,8 +314,17 @@ public partial class AgentDevUIView : ContentView
 
     internal async Task RunWorkflowAsync(string message, WorkflowInfo workflow)
     {
-        if (string.IsNullOrWhiteSpace(message) || IsSending || _chatClient is null)
+        if (string.IsNullOrWhiteSpace(message) || IsSending)
             return;
+
+        // Resolve the Workflow from DI
+        var services = Handler?.MauiContext?.Services;
+        var workflowInstance = services?.GetKeyedService<Workflow>(workflow.Id);
+        if (workflowInstance is null)
+        {
+            AddEvent("error", $"No Workflow registered for key '{workflow.Id}'");
+            return;
+        }
 
         IsSending = true;
 
@@ -344,21 +355,8 @@ public partial class AgentDevUIView : ContentView
             AddEvent("workflow.started", $"{workflow.Kind} orchestration started");
             AddTrace("Agent", $"Orchestration: {workflow.Kind}");
 
-            switch (workflow.Kind)
-            {
-                case OrchestrationKind.Sequential:
-                    await RunSequentialAsync(message, workflow);
-                    break;
-                case OrchestrationKind.Concurrent:
-                    await RunConcurrentAsync(message, workflow);
-                    break;
-                case OrchestrationKind.Handoff:
-                    await RunHandoffAsync(message, workflow);
-                    break;
-                case OrchestrationKind.GroupChat:
-                    await RunGroupChatAsync(message, workflow);
-                    break;
-            }
+            // Execute via the real Agent Framework workflow engine
+            await RunWorkflowStreamingAsync(workflowInstance, message);
 
             AddEvent("workflow.completed", $"{workflow.Kind} orchestration completed");
         }
@@ -393,191 +391,194 @@ public partial class AgentDevUIView : ContentView
 
     #endregion
 
-    #region Workflow Orchestrations
+    #region Workflow Execution (Agent Framework)
 
-    private async Task RunSequentialAsync(string input, WorkflowInfo workflow)
+    private async Task RunWorkflowStreamingAsync(Workflow workflow, string input)
     {
-        var current = input;
-        for (var i = 0; i < workflow.Executors.Count; i++)
+        // Use the Agent Framework's InProcessExecution to run the workflow with streaming events
+        await using var run = await InProcessExecution.RunStreamingAsync(workflow, input);
+
+        // Track the current streaming message per executor
+        var activeMessages = new Dictionary<string, DevUIChatMessage>();
+        var responseBuilders = new Dictionary<string, System.Text.StringBuilder>();
+        var lastUIUpdate = DateTime.UtcNow;
+
+        await foreach (var evt in run.WatchStreamAsync())
         {
-            var exec = workflow.Executors[i];
-            var node = _workflowNodes[i];
-
-            await SetNodeRunning(node, exec.Name);
-
-            var messages = new List<ChatMessage>
+            switch (evt)
             {
-                new(ChatRole.System, exec.SystemPrompt ?? "Process the input."),
-                new(ChatRole.User, current)
-            };
-
-            current = await StreamResponseAsync(exec.Name, messages, null);
-            await SetNodeCompleted(node);
-        }
-    }
-
-    private async Task RunConcurrentAsync(string input, WorkflowInfo workflow)
-    {
-        var parallelExecutors = workflow.Executors.Take(workflow.Executors.Count - 1).ToList();
-        var merger = workflow.Executors[^1];
-
-        // Mark all parallel nodes running
-        await RunOnUIAsync(() =>
-        {
-            for (var i = 0; i < parallelExecutors.Count; i++)
-            {
-                _workflowNodes[i].Status = "running";
-                _workflowNodes[i].StartTime = DateTime.Now;
-            }
-        });
-
-        // Run in parallel
-        var tasks = parallelExecutors.Select((exec, i) => Task.Run(async () =>
-        {
-            AddEvent("workflow_event.started", $"Parallel: {exec.Name}");
-            AddTrace("LLM", $"chat.completion ({exec.Name})");
-
-            var messages = new List<ChatMessage>
-            {
-                new(ChatRole.System, exec.SystemPrompt ?? "Analyze the topic."),
-                new(ChatRole.User, input)
-            };
-
-            var result = await StreamResponseAsync(exec.Name, messages, null);
-            await SetNodeCompleted(_workflowNodes[i]);
-            AddEvent("workflow_event.completed", $"Parallel: {exec.Name}");
-            return (exec.Name, result);
-        })).ToArray();
-
-        var results = await Task.WhenAll(tasks);
-
-        // Run merger
-        var mergerNode = _workflowNodes[^1];
-        await SetNodeRunning(mergerNode, merger.Name);
-
-        var combined = string.Join("\n\n", results.Select(r => $"--- {r.Name} ---\n{r.result}"));
-        var mergerMessages = new List<ChatMessage>
-        {
-            new(ChatRole.System, merger.SystemPrompt ?? "Synthesize the findings."),
-            new(ChatRole.User, combined)
-        };
-
-        await StreamResponseAsync(merger.Name, mergerMessages, null);
-        await SetNodeCompleted(mergerNode);
-    }
-
-    private async Task RunHandoffAsync(string input, WorkflowInfo workflow)
-    {
-        var triage = workflow.Executors[0];
-        var triageNode = _workflowNodes[0];
-
-        await SetNodeRunning(triageNode, triage.Name);
-
-        // Build the list of specialist names for the dispatcher to choose from
-        var specialistList = string.Join(", ",
-            workflow.Executors.Skip(1).Select(e => e.Name));
-
-        var triageMessages = new List<ChatMessage>
-        {
-            new(ChatRole.System, $"""
-                You are a routing dispatcher. Your ONLY job is to read the user's issue and respond
-                with EXACTLY the name of the specialist to route to. Do not say anything else.
-                Do not provide analysis, do not greet the user, do not explain your reasoning.
-                
-                Available specialists: {specialistList}
-                
-                Respond with only the specialist name, nothing else.
-                """),
-            new(ChatRole.User, input)
-        };
-
-        var triageResult = await StreamResponseAsync(triage.Name, triageMessages, null);
-        await SetNodeCompleted(triageNode);
-
-        // Determine route — look for specialist name in the triage response
-        var targetIdx = 1; // default to first specialist
-        for (var i = 1; i < workflow.Executors.Count; i++)
-        {
-            if (triageResult.Contains(workflow.Executors[i].Name, StringComparison.OrdinalIgnoreCase))
-            {
-                targetIdx = i;
-                break;
-            }
-        }
-
-        AddEvent("handoff", $"Routing \u2192 {workflow.Executors[targetIdx].Name}");
-
-        var specialist = workflow.Executors[targetIdx];
-        var specialistNode = _workflowNodes[targetIdx];
-        await SetNodeRunning(specialistNode, specialist.Name);
-
-        var specMessages = new List<ChatMessage>
-        {
-            new(ChatRole.System, specialist.SystemPrompt ?? "Handle the customer issue."),
-            new(ChatRole.User, $"Customer issue: {input}")
-        };
-
-        await StreamResponseAsync(specialist.Name, specMessages, null);
-        await SetNodeCompleted(specialistNode);
-
-        // Mark others as skipped
-        await RunOnUIAsync(() =>
-        {
-            for (var i = 1; i < _workflowNodes.Count; i++)
-            {
-                if (_workflowNodes[i].Status == "pending")
-                    _workflowNodes[i].Status = "skipped";
-            }
-        });
-    }
-
-    private async Task RunGroupChatAsync(string input, WorkflowInfo workflow)
-    {
-        var maxRounds = 3;
-        var history = new List<ChatMessage>();
-
-        AddEvent("group_chat.started", $"Discussion: {maxRounds} rounds, {workflow.Executors.Count} participants");
-
-        for (var round = 0; round < maxRounds; round++)
-        {
-            AddEvent("group_chat.round", $"Round {round + 1}/{maxRounds}");
-
-            for (var i = 0; i < workflow.Executors.Count; i++)
-            {
-                var exec = workflow.Executors[i];
-                var node = _workflowNodes[i];
-
-                await SetNodeRunning(node, $"{exec.Name} (round {round + 1})");
-
-                var messages = new List<ChatMessage>
+                case ExecutorInvokedEvent invoked:
                 {
-                    new(ChatRole.System, exec.SystemPrompt ?? "Contribute to the discussion.")
-                };
-
-                if (history.Count == 0)
-                    messages.Add(new ChatMessage(ChatRole.User, $"Topic: {input}"));
-                else
-                {
-                    messages.Add(new ChatMessage(ChatRole.User,
-                        $"Topic: {input}\n\nDiscussion so far:\n{string.Join("\n", history.Select(m => m.Text))}"));
-                    messages.Add(new ChatMessage(ChatRole.User, "Provide your contribution for this round."));
+                    var executorId = invoked.ExecutorId;
+                    var node = FindNodeByExecutorId(executorId);
+                    if (node is not null)
+                    {
+                        AddEvent("executor.invoked", $"\u25B6 {node.Name}");
+                        AddTrace("Agent", $"execute ({node.Name})");
+                        await RunOnUIAsync(() =>
+                        {
+                            node.Status = "running";
+                            node.StartTime = DateTime.Now;
+                        });
+                    }
+                    else
+                    {
+                        AddEvent("executor.invoked", $"\u25B6 {executorId}");
+                    }
+                    break;
                 }
 
-                var response = await StreamResponseAsync(exec.Name, messages, null);
-                history.Add(new ChatMessage(ChatRole.Assistant, $"{exec.Name}: {response}"));
+                case ExecutorCompletedEvent completed:
+                {
+                    var executorId = completed.ExecutorId;
+                    var node = FindNodeByExecutorId(executorId);
+                    if (node is not null)
+                    {
+                        AddEvent("executor.completed", $"\u2714 {node.Name}");
+                        await RunOnUIAsync(() =>
+                        {
+                            node.Status = "completed";
+                            node.EndTime = DateTime.Now;
+                        });
+                    }
 
-                await RunOnUIAsync(() => node.Status = "completed");
+                    // Finalize any active streaming message for this executor
+                    if (activeMessages.TryGetValue(executorId, out var msg))
+                    {
+                        var finalText = responseBuilders.TryGetValue(executorId, out var sb)
+                            ? sb.ToString() : msg.Content;
+                        await RunOnUIAsync(() =>
+                        {
+                            msg.Content = finalText;
+                            msg.IsStreaming = false;
+                        });
+                        activeMessages.Remove(executorId);
+                        responseBuilders.Remove(executorId);
+                    }
+                    break;
+                }
+
+                case AgentResponseUpdateEvent responseUpdate:
+                {
+                    var executorId = responseUpdate.ExecutorId;
+                    var update = responseUpdate.Update;
+                    var text = update.Text;
+
+                    // Create a chat message for this executor if we don't have one
+                    if (!activeMessages.TryGetValue(executorId, out var msg))
+                    {
+                        var node = FindNodeByExecutorId(executorId);
+                        var label = node?.Name ?? executorId;
+                        msg = new DevUIChatMessage
+                        {
+                            Role = "assistant",
+                            Content = "",
+                            AgentLabel = label,
+                            Timestamp = DateTime.Now,
+                            IsStreaming = true
+                        };
+                        activeMessages[executorId] = msg;
+                        responseBuilders[executorId] = new System.Text.StringBuilder();
+                        await RunOnUIAsync(() => _messages.Add(msg));
+                    }
+
+                    // Append streaming text
+                    if (text is { Length: > 0 })
+                    {
+                        var sb = responseBuilders[executorId];
+                        sb.Append(text);
+
+                        if (DateTime.UtcNow - lastUIUpdate >= _uiBufferInterval)
+                        {
+                            var snapshot = sb.ToString() + " \u258D";
+                            await RunOnUIAsync(() => msg.Content = snapshot);
+                            lastUIUpdate = DateTime.UtcNow;
+                        }
+                    }
+
+                    // Handle function calls in the update
+                    if (update.Contents?.OfType<FunctionCallContent>().Any() == true)
+                    {
+                        foreach (var fc in update.Contents.OfType<FunctionCallContent>())
+                        {
+                            var argsJson = FormatArguments(fc.Arguments);
+                            AddEvent("function_call", $"fn: {fc.Name}({argsJson})");
+                            AddTrace("Tool", fc.Name);
+                            var toolCall = new DevUIToolCall
+                            {
+                                Name = fc.Name,
+                                Arguments = argsJson,
+                                Timestamp = DateTime.Now
+                            };
+                            await RunOnUIAsync(() => _toolCalls.Add(toolCall));
+                        }
+                    }
+                    break;
+                }
+
+                case AgentResponseEvent responseComplete:
+                {
+                    var executorId = responseComplete.ExecutorId;
+                    // Finalize the message
+                    if (activeMessages.TryGetValue(executorId, out var msg))
+                    {
+                        var finalText = responseBuilders.TryGetValue(executorId, out var sb)
+                            ? sb.ToString() : msg.Content;
+                        var tokenEst = finalText.Length > 0 ? finalText.Split(' ').Length * 2 : 0;
+                        await RunOnUIAsync(() =>
+                        {
+                            msg.Content = finalText;
+                            msg.IsStreaming = false;
+                            msg.TokenCount = tokenEst;
+                            TotalTokens += tokenEst;
+                        });
+                        activeMessages.Remove(executorId);
+                        responseBuilders.Remove(executorId);
+                    }
+                    break;
+                }
+
+                case WorkflowErrorEvent errorEvt:
+                    AddEvent("workflow.error", $"Error: {errorEvt.Data}");
+                    break;
+
+                case WorkflowStartedEvent:
+                    AddEvent("workflow.running", "Workflow execution started");
+                    break;
             }
         }
 
+        // Mark any remaining pending nodes as skipped
         await RunOnUIAsync(() =>
         {
             foreach (var node in _workflowNodes)
             {
-                node.Status = "completed";
-                node.EndTime ??= DateTime.Now;
+                if (node.Status == "pending")
+                    node.Status = "skipped";
             }
         });
+    }
+
+    private WorkflowNode? FindNodeByExecutorId(string executorId)
+    {
+        // Direct match first
+        foreach (var node in _workflowNodes)
+        {
+            if (node.Id == executorId)
+                return node;
+        }
+
+        // MAF executor IDs use underscores and GUIDs: e.g. "handoff_helpdesk_network_293b3c9e..."
+        // Our registered keys use dashes: "handoff-helpdesk-network"
+        // Match by checking if executorId starts with a normalized version of the node ID
+        foreach (var node in _workflowNodes)
+        {
+            var normalized = node.Id.Replace("-", "_");
+            if (executorId.StartsWith(normalized, StringComparison.OrdinalIgnoreCase))
+                return node;
+        }
+
+        return null;
     }
 
     #endregion
@@ -649,26 +650,6 @@ public partial class AgentDevUIView : ContentView
     #endregion
 
     #region Helpers
-
-    private async Task SetNodeRunning(WorkflowNode node, string label)
-    {
-        AddEvent("workflow_event.started", $"\u25B6 {label}");
-        AddTrace("Agent", $"execute ({label})");
-        await RunOnUIAsync(() =>
-        {
-            node.Status = "running";
-            node.StartTime = DateTime.Now;
-        });
-    }
-
-    private async Task SetNodeCompleted(WorkflowNode node)
-    {
-        await RunOnUIAsync(() =>
-        {
-            node.Status = "completed";
-            node.EndTime = DateTime.Now;
-        });
-    }
 
     internal void AddEvent(string type, string description)
     {
