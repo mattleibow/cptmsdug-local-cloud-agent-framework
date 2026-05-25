@@ -21,7 +21,9 @@ public partial class AgentDevUIView
     private Button? _sendButton;
     private Button? _demoButton;
     private Grid? _leftPanel;
+    private View? _emptyStateView;
     private readonly Dictionary<string, (Border border, Label statusIcon, Label statusLabel)> _graphNodeViews = [];
+    private readonly Dictionary<string, Microsoft.Maui.Controls.Shapes.Line> _edgeLineViews = [];
 
     // State
     private AgentInfo? _selectedAgent;
@@ -248,28 +250,28 @@ public partial class AgentDevUIView
         {
             RowDefinitions = new RowDefinitionCollection
             {
-                new(GridLength.Auto),  // Workflow info / empty state
-                new(GridLength.Star),  // Messages
+                new(GridLength.Star),  // Messages / empty state overlay
                 new(GridLength.Auto)   // Input
             },
             BackgroundColor = GetThemedColor("#ffffff", "#0f0f1a")
         };
-
-        // Empty state / workflow description
-        var emptyState = BuildEmptyState();
-        panel.Add(emptyState, 0, 0);
 
         // Messages
         _messagesView = new CollectionView
         {
             ItemsSource = _messages,
             Margin = new Thickness(16, 8),
-            ItemTemplate = BuildMessageTemplate()
+            ItemTemplate = BuildMessageTemplate(),
+            IsVisible = false
         };
-        panel.Add(_messagesView, 0, 1);
+        panel.Add(_messagesView, 0, 0);
+
+        // Empty state (centered in chat area, visible when no messages)
+        _emptyStateView = BuildEmptyState();
+        panel.Add(_emptyStateView, 0, 0);
 
         // Input area
-        panel.Add(BuildInputArea(), 0, 2);
+        panel.Add(BuildInputArea(), 0, 1);
 
         return panel;
     }
@@ -278,34 +280,233 @@ public partial class AgentDevUIView
     {
         var container = new VerticalStackLayout
         {
-            Spacing = 12,
-            Padding = new Thickness(16, 12),
-            HorizontalOptions = LayoutOptions.Center
+            Spacing = 16,
+            Padding = new Thickness(32, 24),
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Center,
+            MaximumWidthRequest = 480
         };
 
+        // Icon/title area showing orchestration type
+        var iconBorder = new Border
+        {
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 12 },
+            BackgroundColor = Color.FromArgb("#643FB215"),
+            Stroke = new SolidColorBrush(Color.FromArgb("#643FB240")),
+            StrokeThickness = 1,
+            WidthRequest = 56,
+            HeightRequest = 56,
+            HorizontalOptions = LayoutOptions.Center,
+            Content = new Label
+            {
+                Text = "AG",
+                FontSize = 20,
+                FontAttributes = FontAttributes.Bold,
+                TextColor = Color.FromArgb("#643FB2"),
+                HorizontalOptions = LayoutOptions.Center,
+                VerticalOptions = LayoutOptions.Center
+            }
+        };
+        container.Add(iconBorder);
+
+        // Title label (entity name)
+        var titleLabel = new Label
+        {
+            Text = "Select an agent or workflow",
+            FontSize = 18,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = GetThemedColor("#1a1a2e", "#f0f0f0"),
+            HorizontalOptions = LayoutOptions.Center,
+            HorizontalTextAlignment = TextAlignment.Center
+        };
+        container.Add(titleLabel);
+
+        // Description
         _workflowDescription = new Label
         {
             FontSize = 13,
             TextColor = Colors.Gray,
-            HorizontalOptions = LayoutOptions.Center
+            HorizontalOptions = LayoutOptions.Center,
+            HorizontalTextAlignment = TextAlignment.Center,
+            MaxLines = 3
         };
         container.Add(_workflowDescription);
 
+        // "How it works" section
+        var howItWorksContainer = new Border
+        {
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
+            BackgroundColor = GetThemedColor("#f8f7fc", "#1a1525"),
+            Stroke = new SolidColorBrush(GetThemedColor("#e8e0f0", "#2a2040")),
+            StrokeThickness = 1,
+            Padding = new Thickness(16, 12),
+            IsVisible = false,
+            HorizontalOptions = LayoutOptions.Fill
+        };
+
+        var howItWorksStack = new VerticalStackLayout { Spacing = 6 };
+        var howItWorksTitle = new Label
+        {
+            Text = "How it works",
+            FontSize = 11,
+            FontAttributes = FontAttributes.Bold,
+            TextColor = Color.FromArgb("#643FB2")
+        };
+        howItWorksStack.Add(howItWorksTitle);
+
+        var howItWorksDesc = new Label
+        {
+            FontSize = 12,
+            TextColor = GetThemedColor("#555", "#aaa"),
+            LineBreakMode = LineBreakMode.WordWrap
+        };
+        howItWorksStack.Add(howItWorksDesc);
+        howItWorksContainer.Content = howItWorksStack;
+        container.Add(howItWorksContainer);
+
+        // Demo prompt chips area
+        var chipsContainer = new VerticalStackLayout
+        {
+            Spacing = 8,
+            IsVisible = false,
+            HorizontalOptions = LayoutOptions.Center
+        };
+
+        var chipsTitle = new Label
+        {
+            Text = "Try this example:",
+            FontSize = 11,
+            TextColor = Colors.Gray,
+            HorizontalOptions = LayoutOptions.Center
+        };
+        chipsContainer.Add(chipsTitle);
+
         _demoButton = new Button
         {
-            Text = "\u25B6 Try Demo",
-            BackgroundColor = Color.FromArgb("#643FB2"),
-            TextColor = Colors.White,
-            CornerRadius = 8,
+            BackgroundColor = GetThemedColor("#f3f0ff", "#2a1f4e"),
+            TextColor = Color.FromArgb("#643FB2"),
+            CornerRadius = 16,
             FontSize = 12,
-            Padding = new Thickness(16, 8),
+            Padding = new Thickness(16, 10),
             HorizontalOptions = LayoutOptions.Center,
+            BorderWidth = 1,
+            BorderColor = Color.FromArgb("#643FB240"),
             IsVisible = false
         };
         _demoButton.Clicked += OnDemoButtonClicked;
-        container.Add(_demoButton);
+        chipsContainer.Add(_demoButton);
+
+        container.Add(chipsContainer);
+
+        // Store references for dynamic updates via BindingContext-like pattern
+        container.BindingContext = new EmptyStateContext
+        {
+            IconBorder = iconBorder,
+            TitleLabel = titleLabel,
+            HowItWorksContainer = howItWorksContainer,
+            HowItWorksDesc = howItWorksDesc,
+            ChipsContainer = chipsContainer
+        };
 
         return container;
+    }
+
+    private void UpdateEmptyState(AgentInfo? agent, WorkflowInfo? workflow)
+    {
+        if (_emptyStateView?.BindingContext is not EmptyStateContext ctx) return;
+
+        if (workflow is not null)
+        {
+            var kindIcon = workflow.Kind switch
+            {
+                OrchestrationKind.Sequential => "\u2192", // right arrow
+                OrchestrationKind.Concurrent => "\u2261", // triple bar
+                OrchestrationKind.Handoff => "\u21C4",    // left right arrows
+                OrchestrationKind.GroupChat => "\u25CB",   // circle
+                _ => "AG"
+            };
+            ((Label)ctx.IconBorder.Content!).Text = kindIcon;
+            ((Label)ctx.IconBorder.Content!).FontSize = 24;
+            ctx.TitleLabel.Text = workflow.Name;
+
+            if (_workflowDescription is not null)
+                _workflowDescription.Text = workflow.Description ?? $"{workflow.Kind} workflow";
+
+            // How it works
+            ctx.HowItWorksContainer.IsVisible = true;
+            ctx.HowItWorksDesc.Text = workflow.Kind switch
+            {
+                OrchestrationKind.Sequential => "Agents execute one after another. Each agent's output becomes the next agent's input.",
+                OrchestrationKind.Concurrent => "Multiple agents work in parallel on the same input. Results are merged at the end.",
+                OrchestrationKind.Handoff => "A dispatcher agent routes work to the appropriate specialist based on context.",
+                OrchestrationKind.GroupChat => "Agents take turns contributing to a shared conversation in round-robin fashion.",
+                _ => ""
+            };
+
+            // Demo prompt chip
+            if (!string.IsNullOrEmpty(workflow.DemoPrompt))
+            {
+                ctx.ChipsContainer.IsVisible = true;
+                if (_demoButton is not null)
+                {
+                    _demoButton.Text = $"\u25B6 {workflow.DemoPrompt}";
+                    _demoButton.IsVisible = true;
+                }
+            }
+            else
+            {
+                ctx.ChipsContainer.IsVisible = false;
+                if (_demoButton is not null) _demoButton.IsVisible = false;
+            }
+        }
+        else if (agent is not null)
+        {
+            ((Label)ctx.IconBorder.Content!).Text = "AG";
+            ((Label)ctx.IconBorder.Content!).FontSize = 20;
+            ctx.TitleLabel.Text = agent.Name;
+
+            if (_workflowDescription is not null)
+                _workflowDescription.Text = agent.Description ?? $"Chat with {agent.Name}";
+
+            ctx.HowItWorksContainer.IsVisible = false;
+
+            // Show a "Start chatting" prompt
+            ctx.ChipsContainer.IsVisible = true;
+            if (_demoButton is not null)
+            {
+                _demoButton.Text = "\u25B6 Start chatting";
+                _demoButton.IsVisible = !string.IsNullOrEmpty(agent.Description);
+            }
+        }
+        else
+        {
+            ((Label)ctx.IconBorder.Content!).Text = "AG";
+            ((Label)ctx.IconBorder.Content!).FontSize = 20;
+            ctx.TitleLabel.Text = "Select an agent or workflow";
+            if (_workflowDescription is not null)
+                _workflowDescription.Text = "";
+            ctx.HowItWorksContainer.IsVisible = false;
+            ctx.ChipsContainer.IsVisible = false;
+            if (_demoButton is not null) _demoButton.IsVisible = false;
+        }
+    }
+
+    private void SetEmptyStateVisible(bool visible)
+    {
+        if (_emptyStateView is not null)
+            _emptyStateView.IsVisible = visible;
+        if (_messagesView is not null)
+            _messagesView.IsVisible = !visible;
+    }
+
+    // Helper class to hold empty state control references
+    private sealed class EmptyStateContext
+    {
+        public Border IconBorder { get; init; } = null!;
+        public Label TitleLabel { get; init; } = null!;
+        public Border HowItWorksContainer { get; init; } = null!;
+        public Label HowItWorksDesc { get; init; } = null!;
+        public VerticalStackLayout ChipsContainer { get; init; } = null!;
     }
 
     private View BuildInputArea()
@@ -903,14 +1104,13 @@ public partial class AgentDevUIView
 
         if (_headerTitle is not null)
             _headerTitle.Text = agent.Name;
-        if (_workflowDescription is not null)
-            _workflowDescription.Text = agent.Description ?? $"Chat with {agent.Name}";
-        if (_demoButton is not null)
-            _demoButton.IsVisible = !string.IsNullOrEmpty(agent.Description);
-        if (_workflowGraphContainer is not null)
-            _workflowGraphContainer.IsVisible = false;
         if (_messageEntry is not null)
             _messageEntry.Placeholder = $"Message {agent.Name}...";
+        if (_workflowGraphContainer is not null)
+            _workflowGraphContainer.IsVisible = false;
+
+        UpdateEmptyState(agent, null);
+        SetEmptyStateVisible(true);
 
         // Hide graph in left panel
         UpdateLeftPanelLayout(showGraph: false);
@@ -924,12 +1124,11 @@ public partial class AgentDevUIView
 
         if (_headerTitle is not null)
             _headerTitle.Text = workflow.Name;
-        if (_workflowDescription is not null)
-            _workflowDescription.Text = workflow.Description ?? $"{workflow.Kind} workflow";
-        if (_demoButton is not null)
-            _demoButton.IsVisible = !string.IsNullOrEmpty(workflow.DemoPrompt);
         if (_messageEntry is not null)
             _messageEntry.Placeholder = $"Message {workflow.Name}...";
+
+        UpdateEmptyState(null, workflow);
+        SetEmptyStateVisible(true);
 
         // Show graph
         BuildWorkflowGraph(workflow);
@@ -947,6 +1146,7 @@ public partial class AgentDevUIView
         if (_workflowGraphContainer is null) return;
 
         _workflowGraphContainer.Children.Clear();
+        _edgeLineViews.Clear();
         InitializeWorkflowNodes(workflow);
 
         var layout = GraphLayoutEngine.ComputeLayout(workflow);
@@ -958,26 +1158,108 @@ public partial class AgentDevUIView
             HeightRequest = layout.Height + 20
         };
 
-        // Add edge connectors (arrows between nodes)
+        // Add edge connectors as drawn lines
         foreach (var edge in layout.Edges)
         {
             var source = layout.Nodes.First(n => n.Id == edge.SourceId);
             var target = layout.Nodes.First(n => n.Id == edge.TargetId);
 
-            var midX = (source.X + target.X) / 2 + 70;
-            var midY = (source.Y + target.Y) / 2 + 24;
+            // Line from bottom-center of source to top-center of target
+            var sourceX = source.X + 85;  // center of 170px node
+            var sourceY = source.Y + 60;  // bottom of 60px node
+            var targetX = target.X + 85;
+            var targetY = target.Y;       // top of target node
 
-            var isVertical = Math.Abs(target.Y - source.Y) > Math.Abs(target.X - source.X);
-            var connector = new Label
+            var line = new Microsoft.Maui.Controls.Shapes.Line
             {
-                Text = edge.IsBidirectional ? "\u21C4" : (isVertical ? "\u2193" : "\u2192"), // ⇄, ↓, or →
-                FontSize = 14,
-                TextColor = Color.FromArgb("#9CA3AF"),
-                HorizontalOptions = LayoutOptions.Center,
-                VerticalOptions = LayoutOptions.Center
+                X1 = sourceX,
+                Y1 = sourceY,
+                X2 = targetX,
+                Y2 = targetY,
+                Stroke = new SolidColorBrush(Color.FromArgb("#9CA3AF")),
+                StrokeThickness = 1.5
             };
-            AbsoluteLayout.SetLayoutBounds(connector, new Rect(midX, midY, 20, 20));
-            canvas.Add(connector);
+            AbsoluteLayout.SetLayoutBounds(line, new Rect(0, 0, layout.Width + 20, layout.Height + 20));
+            AbsoluteLayout.SetLayoutFlags(line, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.None);
+            canvas.Add(line);
+
+            // Store for active-edge animation
+            var edgeKey = $"{edge.SourceId}->{edge.TargetId}";
+            _edgeLineViews[edgeKey] = line;
+
+            // Arrowhead at target end
+            var arrowSize = 6.0;
+            var dx = targetX - sourceX;
+            var dy = targetY - sourceY;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            if (len > 0)
+            {
+                var ux = dx / len;
+                var uy = dy / len;
+                // perpendicular
+                var px = -uy;
+                var py = ux;
+
+                var tipX = targetX;
+                var tipY = targetY;
+                var leftX = tipX - ux * arrowSize + px * arrowSize * 0.5;
+                var leftY = tipY - uy * arrowSize + py * arrowSize * 0.5;
+                var rightX = tipX - ux * arrowSize - px * arrowSize * 0.5;
+                var rightY = tipY - uy * arrowSize - py * arrowSize * 0.5;
+
+                var arrow = new Microsoft.Maui.Controls.Shapes.Polygon
+                {
+                    Points = new PointCollection
+                    {
+                        new Point(tipX, tipY),
+                        new Point(leftX, leftY),
+                        new Point(rightX, rightY)
+                    },
+                    Fill = new SolidColorBrush(Color.FromArgb("#9CA3AF")),
+                    Stroke = new SolidColorBrush(Colors.Transparent)
+                };
+                AbsoluteLayout.SetLayoutBounds(arrow, new Rect(0, 0, layout.Width + 20, layout.Height + 20));
+                AbsoluteLayout.SetLayoutFlags(arrow, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.None);
+                canvas.Add(arrow);
+            }
+
+            // For bidirectional edges, draw a second arrowhead at source
+            if (edge.IsBidirectional)
+            {
+                var arrowSize2 = 6.0;
+                var dx2 = sourceX - targetX;
+                var dy2 = sourceY - targetY;
+                var len2 = Math.Sqrt(dx2 * dx2 + dy2 * dy2);
+                if (len2 > 0)
+                {
+                    var ux2 = dx2 / len2;
+                    var uy2 = dy2 / len2;
+                    var px2 = -uy2;
+                    var py2 = ux2;
+
+                    var tipX2 = sourceX;
+                    var tipY2 = sourceY;
+                    var leftX2 = tipX2 - ux2 * arrowSize2 + px2 * arrowSize2 * 0.5;
+                    var leftY2 = tipY2 - uy2 * arrowSize2 + py2 * arrowSize2 * 0.5;
+                    var rightX2 = tipX2 - ux2 * arrowSize2 - px2 * arrowSize2 * 0.5;
+                    var rightY2 = tipY2 - uy2 * arrowSize2 - py2 * arrowSize2 * 0.5;
+
+                    var arrow2 = new Microsoft.Maui.Controls.Shapes.Polygon
+                    {
+                        Points = new PointCollection
+                        {
+                            new Point(tipX2, tipY2),
+                            new Point(leftX2, leftY2),
+                            new Point(rightX2, rightY2)
+                        },
+                        Fill = new SolidColorBrush(Color.FromArgb("#9CA3AF")),
+                        Stroke = new SolidColorBrush(Colors.Transparent)
+                    };
+                    AbsoluteLayout.SetLayoutBounds(arrow2, new Rect(0, 0, layout.Width + 20, layout.Height + 20));
+                    AbsoluteLayout.SetLayoutFlags(arrow2, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.None);
+                    canvas.Add(arrow2);
+                }
+            }
         }
 
         // Add nodes
@@ -986,7 +1268,7 @@ public partial class AgentDevUIView
             var layoutNode = layout.Nodes[i];
             var dataNode = _workflowNodes[i];
             var nodeView = BuildGraphNode(dataNode);
-            AbsoluteLayout.SetLayoutBounds(nodeView, new Rect(layoutNode.X, layoutNode.Y, 160, 56));
+            AbsoluteLayout.SetLayoutBounds(nodeView, new Rect(layoutNode.X, layoutNode.Y, 170, 60));
             canvas.Add(nodeView);
         }
 
@@ -1005,13 +1287,44 @@ public partial class AgentDevUIView
     {
         var border = new Border
         {
-            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 8 },
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 10 },
             StrokeThickness = 2,
-            Padding = new Thickness(10, 6),
+            Padding = new Thickness(10, 8),
             Stroke = new SolidColorBrush(Color.FromArgb("#6B7280")),
             BackgroundColor = Color.FromArgb(
-                Application.Current?.RequestedTheme == AppTheme.Dark ? "#1a1a2e" : "#fafafa")
+                Application.Current?.RequestedTheme == AppTheme.Dark ? "#1a1a2e" : "#fafafa"),
+            Shadow = new Shadow
+            {
+                Brush = new SolidColorBrush(Color.FromArgb("#00000020")),
+                Offset = new Point(0, 2),
+                Radius = 4,
+                Opacity = 0.3f
+            }
         };
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitionCollection
+            {
+                new(new GridLength(12)),  // Status dot
+                new(GridLength.Star)      // Content
+            },
+            ColumnSpacing = 8,
+            VerticalOptions = LayoutOptions.Center
+        };
+
+        // Status dot (4px colored circle)
+        var statusDot = new Border
+        {
+            StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 4 },
+            WidthRequest = 8,
+            HeightRequest = 8,
+            StrokeThickness = 0,
+            BackgroundColor = Color.FromArgb("#9CA3AF"), // gray = pending
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Center
+        };
+        grid.Add(statusDot, 0, 0);
 
         var stack = new VerticalStackLayout { Spacing = 3 };
 
@@ -1020,7 +1333,9 @@ public partial class AgentDevUIView
             Text = node.Name,
             FontAttributes = FontAttributes.Bold,
             FontSize = 11,
-            TextColor = GetThemedColor("#1a1a2e", "#f0f0f0")
+            TextColor = GetThemedColor("#1a1a2e", "#f0f0f0"),
+            LineBreakMode = LineBreakMode.TailTruncation,
+            MaxLines = 1
         };
         stack.Add(nameLabel);
 
@@ -1032,7 +1347,8 @@ public partial class AgentDevUIView
         statusRow.Add(statusLabel);
 
         stack.Add(statusRow);
-        border.Content = stack;
+        grid.Add(stack, 1, 0);
+        border.Content = grid;
 
         // Track for imperative updates
         _graphNodeViews[node.Id] = (border, statusIcon, statusLabel);
@@ -1055,6 +1371,16 @@ public partial class AgentDevUIView
                     };
                     border.Stroke = new SolidColorBrush(color);
                     statusLabel.TextColor = color;
+
+                    // Update status dot color
+                    statusDot.BackgroundColor = node.Status switch
+                    {
+                        "running" => Color.FromArgb("#643FB2"),
+                        "completed" => Color.FromArgb("#10B981"),
+                        "failed" => Color.FromArgb("#EF4444"),
+                        _ => Color.FromArgb("#9CA3AF")
+                    };
+
                     var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
                     border.BackgroundColor = node.Status switch
                     {
@@ -1063,11 +1389,29 @@ public partial class AgentDevUIView
                         "failed" => Color.FromArgb(isDark ? "#2e1a1a" : "#fef2f2"),
                         _ => Color.FromArgb(isDark ? "#1a1a2e" : "#fafafa")
                     };
+
+                    // Animate edge lines when node is running
+                    AnimateEdgesForNode(node.Id, node.Status == "running");
                 });
             }
         };
 
         return border;
+    }
+
+    private void AnimateEdgesForNode(string nodeId, bool active)
+    {
+        var activeColor = Color.FromArgb("#643FB2");
+        var inactiveColor = Color.FromArgb("#9CA3AF");
+
+        foreach (var kvp in _edgeLineViews)
+        {
+            if (kvp.Key.StartsWith(nodeId + "->"))
+            {
+                kvp.Value.Stroke = new SolidColorBrush(active ? activeColor : inactiveColor);
+                kvp.Value.StrokeThickness = active ? 2.0 : 1.5;
+            }
+        }
     }
 
     #endregion

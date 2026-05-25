@@ -7,8 +7,8 @@ namespace Microsoft.Maui.AI.Agents.DevUI;
 /// </summary>
 internal static class GraphLayoutEngine
 {
-    private const double NodeWidth = 160;
-    private const double NodeHeight = 56;
+    private const double NodeWidth = 170;
+    private const double NodeHeight = 60;
     private const double HGap = 20;
     private const double VGap = 28;
 

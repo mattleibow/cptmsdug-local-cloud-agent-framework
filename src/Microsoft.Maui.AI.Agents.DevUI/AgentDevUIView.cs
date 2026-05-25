@@ -125,6 +125,7 @@ public partial class AgentDevUIView : ContentView
             return;
 
         IsSending = true;
+        SetEmptyStateVisible(false);
 
         var userMsg = new DevUIChatMessage
         {
@@ -166,6 +167,7 @@ public partial class AgentDevUIView : ContentView
             return;
 
         IsSending = true;
+        SetEmptyStateVisible(false);
 
         var userMsg = new DevUIChatMessage
         {
@@ -542,6 +544,7 @@ public partial class AgentDevUIView : ContentView
         _traces.Clear();
         _workflowNodes.Clear();
         TotalTokens = 0;
+        SetEmptyStateVisible(true);
     }
 
     private static Task RunOnUIAsync(Action action)
