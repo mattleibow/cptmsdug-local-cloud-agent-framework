@@ -3,39 +3,44 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:Demo2.MauiAgent.ViewModels"
              xmlns:models="clr-namespace:Demo2.MauiAgent.Models"
+             xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"
              x:Class="Demo2.MauiAgent.MainPage"
              x:DataType="vm:MainViewModel"
              Title="Agent Framework Dev UI">
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            <local:IsPublisherConverter x:Key="IsPublisherConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
-            <local:StepBorderConverter x:Key="StepBorderConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
-            <local:StepBgConverter x:Key="StepBgConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
-            <local:MessageBgConverter x:Key="MessageBgConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
-            <local:MessageAlignConverter x:Key="MessageAlignConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
-            <local:NotNullConverter x:Key="NotNullConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
-            <local:InvertBoolConverter x:Key="InvertBoolConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
-            <local:EventTypeColorConverter x:Key="EventTypeColorConverter" xmlns:local="clr-namespace:Demo2.MauiAgent.Converters"/>
+            <local:StepBorderConverter x:Key="StepBorderConverter"/>
+            <local:StepBgConverter x:Key="StepBgConverter"/>
+            <local:MessageBgConverter x:Key="MessageBgConverter"/>
+            <local:MessageAlignConverter x:Key="MessageAlignConverter"/>
+            <local:NotNullConverter x:Key="NotNullConverter"/>
+            <local:InvertBoolConverter x:Key="InvertBoolConverter"/>
+            <local:EventTypeColorConverter x:Key="EventTypeColorConverter"/>
         </ResourceDictionary>
     </ContentPage.Resources>
 
     <Grid ColumnDefinitions="*,1,350" RowDefinitions="50,*">
 
-        <!-- Header -->
+        <!-- Header (DevUI purple branding) -->
         <Grid Grid.Row="0" Grid.ColumnSpan="3" 
-              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark=#1e1e2e}"
+              BackgroundColor="{AppThemeBinding Light=#faf8ff, Dark=#1a1025}"
               Padding="16,8" ColumnDefinitions="Auto,*,Auto">
             <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                <Label Text="&#x1F916; Dev UI" FontSize="16" FontAttributes="Bold" VerticalOptions="Center"/>
-                <Label Text="v0.1.0" FontSize="11" TextColor="Gray" VerticalOptions="Center"/>
+                <Label Text="&#x1F7E3;" FontSize="18" VerticalOptions="Center"/>
+                <Label Text="Dev UI" FontSize="16" FontAttributes="Bold" 
+                       TextColor="{AppThemeBinding Light=#643FB2, Dark=#8B5CF6}" VerticalOptions="Center"/>
+                <Border StrokeShape="RoundRectangle 4" Stroke="#643FB2" 
+                        BackgroundColor="#643FB220" Padding="4,2">
+                    <Label Text="v0.1.0" FontSize="9" TextColor="#643FB2"/>
+                </Border>
             </HorizontalStackLayout>
 
             <HorizontalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="8" VerticalOptions="Center">
                 <Picker x:Name="agentPicker" 
                         ItemsSource="{Binding Agents}" 
                         SelectedItem="{Binding SelectedAgent}"
-                        WidthRequest="150"/>
+                        WidthRequest="250"/>
             </HorizontalStackLayout>
 
             <Button Grid.Column="2" Text="New Chat" 
@@ -47,30 +52,32 @@
         <!-- Left Panel: Chat + Workflow -->
         <Grid Grid.Row="1" Grid.Column="0" RowDefinitions="Auto,*,Auto">
 
-            <!-- Workflow Steps (visible when publisher selected) -->
+            <!-- Workflow Steps (visible when workflow selected) -->
             <Border Grid.Row="0" Padding="12" Margin="12,8,12,0"
                     StrokeShape="RoundRectangle 8"
                     Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#333}"
                     BackgroundColor="{AppThemeBinding Light=#f8f8fc, Dark=#22223a}"
-                    IsVisible="{Binding SelectedAgent, Converter={StaticResource IsPublisherConverter}}">
+                    IsVisible="{Binding IsWorkflow}">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="Workflow: publisher" FontSize="12" FontAttributes="Bold"/>
-                    <HorizontalStackLayout Spacing="8" x:Name="workflowStepsLayout"
-                                           BindableLayout.ItemsSource="{Binding WorkflowSteps}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="models:WorkflowStep" 
-                                          xmlns:models="clr-namespace:Demo2.MauiAgent.Models">
-                                <Border Stroke="{Binding Status, Converter={StaticResource StepBorderConverter}}"
-                                       BackgroundColor="{Binding Status, Converter={StaticResource StepBgConverter}}"
-                                       StrokeShape="RoundRectangle 6" Padding="10,6" MinimumWidthRequest="100">
-                                    <VerticalStackLayout Spacing="2">
-                                        <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="12"/>
-                                        <Label Text="{Binding Status}" FontSize="10" TextColor="Gray"/>
-                                    </VerticalStackLayout>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </HorizontalStackLayout>
+                    <Label Text="{Binding WorkflowTitle}" FontSize="12" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#643FB2, Dark=#8B5CF6}"/>
+                    <ScrollView Orientation="Horizontal">
+                        <HorizontalStackLayout Spacing="8" x:Name="workflowStepsLayout"
+                                               BindableLayout.ItemsSource="{Binding WorkflowSteps}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:WorkflowStep">
+                                    <Border Stroke="{Binding Status, Converter={StaticResource StepBorderConverter}}"
+                                           BackgroundColor="{Binding Status, Converter={StaticResource StepBgConverter}}"
+                                           StrokeShape="RoundRectangle 6" Padding="10,6" MinimumWidthRequest="100">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="12"/>
+                                            <Label Text="{Binding Status}" FontSize="10" TextColor="Gray"/>
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
                 </VerticalStackLayout>
             </Border>
 
@@ -81,14 +88,14 @@
                 <CollectionView.EmptyView>
                     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
                         <Label Text="{Binding SelectedAgent, StringFormat='Chat with {0}'}" 
-                               FontSize="20" FontAttributes="Bold" HorizontalOptions="Center"/>
+                               FontSize="20" FontAttributes="Bold" HorizontalOptions="Center"
+                               TextColor="{AppThemeBinding Light=#643FB2, Dark=#8B5CF6}"/>
                         <Label Text="Type a message below to begin" 
                                TextColor="Gray" FontSize="14" HorizontalOptions="Center"/>
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:UIChatMessage"
-                                  xmlns:models="clr-namespace:Demo2.MauiAgent.Models">
+                    <DataTemplate x:DataType="models:UIChatMessage">
                         <Grid Padding="0,4">
                             <Border StrokeShape="RoundRectangle 12" Padding="12,10"
                                    BackgroundColor="{Binding Role, Converter={StaticResource MessageBgConverter}}"
@@ -123,7 +130,7 @@
                 <Button Grid.Column="1" Text="&#x27A4;" 
                         Command="{Binding SendMessageCommand}"
                         IsEnabled="{Binding IsSending, Converter={StaticResource InvertBoolConverter}}"
-                        BackgroundColor="#7c3aed" TextColor="White"
+                        BackgroundColor="#643FB2" TextColor="White"
                         CornerRadius="8" WidthRequest="44" HeightRequest="44"
                         FontSize="18"/>
             </Grid>
@@ -133,15 +140,16 @@
         <BoxView Grid.Row="1" Grid.Column="1" 
                  Color="{AppThemeBinding Light=#e0e0e0, Dark=#333}"/>
 
-        <!-- Right Panel: Events -->
-        <Grid Grid.Row="1" Grid.Column="2" RowDefinitions="40,*" 
+        <!-- Right Panel: Debug (Events + Tools) -->
+        <Grid Grid.Row="1" Grid.Column="2" RowDefinitions="40,*,Auto" 
               BackgroundColor="{AppThemeBinding Light=#fafafa, Dark=#1a1a2e}">
 
             <!-- Tab Header -->
             <Grid Grid.Row="0" Padding="12,0" ColumnDefinitions="*,*">
-                <Label Text="{Binding EventCount, StringFormat='Events {0}'}" 
-                       FontSize="12" FontAttributes="Bold" VerticalOptions="Center"/>
-                <Label Grid.Column="1" Text="{Binding ToolCalls.Count, StringFormat='Tools {0}'}"
+                <Label Text="{Binding EventCount, StringFormat='Events ({0})'}" 
+                       FontSize="12" FontAttributes="Bold" VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light=#643FB2, Dark=#8B5CF6}"/>
+                <Label Grid.Column="1" Text="{Binding ToolCalls.Count, StringFormat='Tools ({0})'}"
                        FontSize="12" TextColor="Gray" VerticalOptions="Center"
                        HorizontalOptions="End"/>
             </Grid>
@@ -158,8 +166,7 @@
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:AgentEvent"
-                                  xmlns:models="clr-namespace:Demo2.MauiAgent.Models">
+                    <DataTemplate x:DataType="models:AgentEvent">
                         <Grid Padding="4,3" ColumnDefinitions="55,*" ColumnSpacing="6">
                             <Label Text="{Binding Timestamp, StringFormat='{0:h:mm:ss}'}" 
                                    FontSize="10" TextColor="Gray" VerticalOptions="Start"/>
@@ -175,6 +182,13 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
+
+            <!-- Token count footer -->
+            <Border Grid.Row="2" Padding="12,6" 
+                    BackgroundColor="{AppThemeBinding Light=#f0f0f0, Dark=#222}">
+                <Label Text="{Binding TotalTokens, StringFormat='Total tokens: {0}'}" 
+                       FontSize="11" TextColor="Gray"/>
+            </Border>
         </Grid>
     </Grid>
 

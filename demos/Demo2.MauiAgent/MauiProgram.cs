@@ -1,3 +1,4 @@
+using Demo2.MauiAgent.Orchestrations;
 using Demo2.MauiAgent.Services;
 using Demo2.MauiAgent.ViewModels;
 using Microsoft.Extensions.Configuration;
@@ -24,6 +25,14 @@ public static class MauiProgram
 
 		// Register services
 		builder.Services.AddSingleton<AIChatService>();
+
+		// Register orchestrations
+		builder.Services
+			.AddSequentialWorkflow()
+			.AddConcurrentWorkflow()
+			.AddHandoffWorkflow()
+			.AddGroupChatWorkflow();
+
 		builder.Services.AddTransient<MainViewModel>();
 		builder.Services.AddTransient<MainPage>();
 
