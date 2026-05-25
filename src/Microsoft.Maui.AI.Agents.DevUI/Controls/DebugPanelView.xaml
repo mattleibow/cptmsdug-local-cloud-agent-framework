@@ -7,10 +7,6 @@
              x:DataType="local:Controls.DebugPanelView"
              BackgroundColor="{AppThemeBinding Light=#fafafa, Dark=#12121e}">
 
-    <ContentView.Resources>
-        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
-    </ContentView.Resources>
-
     <Grid RowDefinitions="40,*">
         <!-- Tab Bar -->
         <Grid ColumnDefinitions="*,*,*" Padding="4,0">

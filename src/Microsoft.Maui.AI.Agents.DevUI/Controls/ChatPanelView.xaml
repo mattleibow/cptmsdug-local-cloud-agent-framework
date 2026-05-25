@@ -7,10 +7,6 @@
              x:Name="self"
              x:DataType="local:Controls.ChatPanelView">
 
-    <ContentView.Resources>
-        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
-    </ContentView.Resources>
-
     <Grid RowDefinitions="*,Auto">
 
         <!-- Message list -->

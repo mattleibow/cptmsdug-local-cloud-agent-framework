@@ -6,10 +6,6 @@
              x:Name="self"
              x:DataType="local:Controls.EmptyStateView">
 
-    <ContentView.Resources>
-        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
-    </ContentView.Resources>
-
     <VerticalStackLayout Spacing="16"
                          Padding="32,24"
                          VerticalOptions="Center"

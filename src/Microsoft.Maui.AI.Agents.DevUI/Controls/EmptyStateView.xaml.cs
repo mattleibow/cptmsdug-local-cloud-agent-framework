@@ -51,6 +51,7 @@ public partial class EmptyStateView : ContentView
 
     public EmptyStateView()
     {
+        Resources.MergedDictionaries.Add(new Resources.DevUIResources());
         InitializeComponent();
     }
 

@@ -88,6 +88,7 @@ public partial class ChatPanelView : ContentView
 
     public ChatPanelView()
     {
+        Resources.MergedDictionaries.Add(new Resources.DevUIResources());
         InitializeComponent();
     }
 }

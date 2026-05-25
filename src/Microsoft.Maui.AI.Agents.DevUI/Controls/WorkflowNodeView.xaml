@@ -6,10 +6,6 @@
              x:Name="self"
              x:DataType="local:Controls.WorkflowNodeView">
 
-    <ContentView.Resources>
-        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
-    </ContentView.Resources>
-
     <Border StrokeShape="RoundRectangle 10"
             StrokeThickness="2"
             Padding="10,8"

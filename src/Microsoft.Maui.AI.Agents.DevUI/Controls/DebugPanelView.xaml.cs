@@ -33,6 +33,7 @@ public partial class DebugPanelView : ContentView
 
     public DebugPanelView()
     {
+        Resources.MergedDictionaries.Add(new Resources.DevUIResources());
         InitializeComponent();
     }
 

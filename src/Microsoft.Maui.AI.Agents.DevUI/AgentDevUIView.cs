@@ -62,6 +62,7 @@ public partial class AgentDevUIView : ContentView
 
     public AgentDevUIView()
     {
+        Resources.MergedDictionaries.Add(new Resources.DevUIResources());
         InitializeComponent();
         WireControls();
     }

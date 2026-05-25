@@ -33,6 +33,7 @@ public partial class ChatInputBar : ContentView
 
     public ChatInputBar()
     {
+        Resources.MergedDictionaries.Add(new Resources.DevUIResources());
         InitializeComponent();
     }
 

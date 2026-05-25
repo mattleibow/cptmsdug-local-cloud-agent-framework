@@ -50,6 +50,7 @@ public partial class WorkflowNodeView : ContentView
 
     public WorkflowNodeView()
     {
+        Resources.MergedDictionaries.Add(new Resources.DevUIResources());
         InitializeComponent();
     }
 

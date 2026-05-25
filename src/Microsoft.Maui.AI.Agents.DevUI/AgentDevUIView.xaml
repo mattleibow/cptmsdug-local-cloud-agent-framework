@@ -8,10 +8,6 @@
              x:Name="self"
              x:DataType="local:AgentDevUIView">
 
-    <ContentView.Resources>
-        <ResourceDictionary Source="Resources/DevUIResources.xaml" />
-    </ContentView.Resources>
-
     <Grid ColumnDefinitions="240,1,*,1,360"
           RowDefinitions="48,*">
 

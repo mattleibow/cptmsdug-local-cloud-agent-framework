@@ -12,80 +12,9 @@
     <Color x:Key="DevUI.Warning">#F97316</Color>
     <Color x:Key="DevUI.Info">#3B82F6</Color>
 
-    <!-- === Theme-aware Colors === -->
-    <Color x:Key="DevUI.Background">
-        <Color.Light>#FFFFFF</Color.Light>
-        <Color.Dark>#0f0d1a</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.Surface">
-        <Color.Light>#f8f7fc</Color.Light>
-        <Color.Dark>#12101e</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.SurfaceAlt">
-        <Color.Light>#fafafa</Color.Light>
-        <Color.Dark>#12121e</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.TextPrimary">
-        <Color.Light>#1a1a2e</Color.Light>
-        <Color.Dark>#f0f0f0</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.TextSecondary">
-        <Color.Light>#666666</Color.Light>
-        <Color.Dark>#aaaaaa</Color.Dark>
-    </Color>
-
+    <!-- === Static Colors (use AppThemeBinding inline for theme-aware usage) === -->
     <Color x:Key="DevUI.TextMuted">#808080</Color>
-
-    <Color x:Key="DevUI.Border">
-        <Color.Light>#e0e0e0</Color.Light>
-        <Color.Dark>#2a2a3e</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.Divider">
-        <Color.Light>#e0e0e0</Color.Light>
-        <Color.Dark>#1e1e30</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.GraphEdge">
-        <Color.Light>#9CA3AF</Color.Light>
-        <Color.Dark>#6B7280</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.NodeBackground">
-        <Color.Light>#fafafa</Color.Light>
-        <Color.Dark>#1a1a2e</Color.Dark>
-    </Color>
-
     <Color x:Key="DevUI.NodeBorder">#6B7280</Color>
-
-    <Color x:Key="DevUI.UserBubble">
-        <Color.Light>#e8e0f5</Color.Light>
-        <Color.Dark>#3b2e6b</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.AssistantBubble">
-        <Color.Light>#f5f5fa</Color.Light>
-        <Color.Dark>#1e1e30</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.SelectedItem">
-        <Color.Light>#643FB220</Color.Light>
-        <Color.Dark>#643FB230</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.HowItWorksBg">
-        <Color.Light>#f8f7fc</Color.Light>
-        <Color.Dark>#1a1525</Color.Dark>
-    </Color>
-
-    <Color x:Key="DevUI.HowItWorksBorder">
-        <Color.Light>#e8e0f0</Color.Light>
-        <Color.Dark>#2a2040</Color.Dark>
-    </Color>
 
     <!-- === Converters === -->
     <local:NodeBorderColorConverter x:Key="NodeBorderColorConverter" />

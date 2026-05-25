@@ -5,10 +5,6 @@
              x:Class="Microsoft.Maui.AI.Agents.DevUI.Controls.ChatInputBar"
              x:Name="self">
 
-    <ContentView.Resources>
-        <ResourceDictionary Source="../Resources/DevUIResources.xaml" />
-    </ContentView.Resources>
-
     <Border StrokeShape="RoundRectangle 12"
             Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#2a2a3e}"
             StrokeThickness="1"
