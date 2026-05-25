@@ -14,6 +14,7 @@ public sealed class GraphView : ContentView
 
     private readonly GraphViewLayout _surface;
     private readonly GraphLayoutEngine _engine = new();
+    private readonly Dictionary<string, GraphNodeView> _nodeViews = new();
 
     private double _panStartX;
     private double _panStartY;
@@ -21,6 +22,9 @@ public sealed class GraphView : ContentView
     private Point _pinchOrigin;
     private double _pinchOriginTx;
     private double _pinchOriginTy;
+    private double _contentWidth;
+    private double _contentHeight;
+    private bool _userHasPanned;
 
     public static readonly BindableProperty GraphProperty =
         BindableProperty.Create(
@@ -49,6 +53,8 @@ public sealed class GraphView : ContentView
         IsClippedToBounds = true;
         BackgroundColor = Color.FromArgb("#0F0D1A");
 
+        SizeChanged += (_, _) => { if (!_userHasPanned) CenterGraph(); };
+
         var pan = new PanGestureRecognizer();
         pan.PanUpdated += OnPanUpdated;
         GestureRecognizers.Add(pan);
@@ -68,12 +74,16 @@ public sealed class GraphView : ContentView
     {
         _surface.Clear();
         _surface.ClearBounds();
+        _nodeViews.Clear();
+        _userHasPanned = false;
 
         var graph = Graph;
         if (graph is null || graph.Nodes.Count == 0)
         {
             _surface.WidthRequest = 0;
             _surface.HeightRequest = 0;
+            _contentWidth = 0;
+            _contentHeight = 0;
             return;
         }
 
@@ -96,14 +106,20 @@ public sealed class GraphView : ContentView
             if (!result.Nodes.TryGetValue(node.Id, out var pos))
                 continue;
             var view = new GraphNodeView { Text = node.Label };
+            _nodeViews[node.Id] = view;
             _surface.Add(view);
             _surface.SetBounds(view, new Rect(pos.X, pos.Y, pos.Width, pos.Height));
         }
 
+        _contentWidth = result.Width;
+        _contentHeight = result.Height;
         _surface.SetContentSize(new Size(result.Width, result.Height));
         _surface.WidthRequest = result.Width;
         _surface.HeightRequest = result.Height;
         _surface.InvalidateMeasure();
+
+        // Center the graph in the available pane
+        CenterGraph();
     }
 
     private static MShapes.Path BuildEdgePath(GraphEdgeLayout edge)
@@ -216,6 +232,48 @@ public sealed class GraphView : ContentView
         };
     }
 
+    /// <summary>Centers the graph content in the available space.</summary>
+    public void CenterGraph()
+    {
+        if (_contentWidth <= 0 || _contentHeight <= 0)
+            return;
+
+        var viewWidth = Width > 0 ? Width : 400;
+        var viewHeight = Height > 0 ? Height : 400;
+
+        // Scale to fit if content is larger than view
+        var scaleX = viewWidth / _contentWidth;
+        var scaleY = viewHeight / _contentHeight;
+        var scale = Math.Min(scaleX, scaleY) * 0.85; // 85% to add padding
+        scale = Math.Clamp(scale, MinScale, 1.5);
+
+        _surface.Scale = scale;
+        _surface.TranslationX = (viewWidth - _contentWidth * scale) / 2;
+        _surface.TranslationY = (viewHeight - _contentHeight * scale) / 2;
+    }
+
+    private static readonly Color PendingColor = Color.FromArgb("#7A6FE8");
+    private static readonly Color RunningColor = Color.FromArgb("#FFB300");
+    private static readonly Color CompletedColor = Color.FromArgb("#4CAF50");
+    private static readonly Color FailedColor = Color.FromArgb("#F44336");
+    private static readonly Color SkippedColor = Color.FromArgb("#666666");
+
+    /// <summary>Updates the visual status of a node by its ID.</summary>
+    public void UpdateNodeStatus(string nodeId, string status)
+    {
+        if (!_nodeViews.TryGetValue(nodeId, out var view))
+            return;
+
+        view.StatusColor = status switch
+        {
+            "running" => RunningColor,
+            "completed" => CompletedColor,
+            "failed" => FailedColor,
+            "skipped" => SkippedColor,
+            _ => PendingColor,
+        };
+    }
+
     private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)
     {
         switch (e.StatusType)
@@ -225,6 +283,7 @@ public sealed class GraphView : ContentView
                 _panStartY = _surface.TranslationY;
                 break;
             case GestureStatus.Running:
+                _userHasPanned = true;
                 _surface.TranslationX = _panStartX + e.TotalX;
                 _surface.TranslationY = _panStartY + e.TotalY;
                 break;
@@ -256,11 +315,9 @@ public sealed class GraphView : ContentView
         }
     }
 
-    /// <summary>Resets pan and zoom to their defaults.</summary>
+    /// <summary>Resets pan and zoom to centered defaults.</summary>
     public void ResetView()
     {
-        _surface.Scale = 1;
-        _surface.TranslationX = 0;
-        _surface.TranslationY = 0;
+        CenterGraph();
     }
 }

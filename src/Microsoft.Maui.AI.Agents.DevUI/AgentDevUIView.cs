@@ -350,7 +350,10 @@ public partial class AgentDevUIView : ContentView
             {
                 // Reset existing nodes to pending
                 foreach (var node in _workflowNodes)
+                {
                     node.Status = "pending";
+                    WorkflowGraphView.UpdateNodeStatus(node.Id, "pending");
+                }
             }
             AddEvent("workflow.started", $"{workflow.Kind} orchestration started");
             AddTrace("Agent", $"Orchestration: {workflow.Kind}");
@@ -426,6 +429,7 @@ public partial class AgentDevUIView : ContentView
                         {
                             node.Status = "running";
                             node.StartTime = DateTime.Now;
+                            WorkflowGraphView.UpdateNodeStatus(node.Id, "running");
                         });
                     }
                     else
@@ -446,6 +450,7 @@ public partial class AgentDevUIView : ContentView
                         {
                             node.Status = "completed";
                             node.EndTime = DateTime.Now;
+                            WorkflowGraphView.UpdateNodeStatus(node.Id, "completed");
                         });
                     }
                     else
@@ -458,10 +463,13 @@ public partial class AgentDevUIView : ContentView
                     {
                         var finalText = responseBuilders.TryGetValue(executorId, out var sb)
                             ? sb.ToString() : msg.Content;
+                        var tokenEst = finalText.Length > 0 ? finalText.Split(' ').Length * 2 : 0;
                         await RunOnUIAsync(() =>
                         {
                             msg.Content = finalText;
                             msg.IsStreaming = false;
+                            msg.TokenCount = tokenEst;
+                            TotalTokens += tokenEst;
                         });
                         activeMessages.Remove(executorId);
                         responseBuilders.Remove(executorId);
@@ -588,6 +596,7 @@ public partial class AgentDevUIView : ContentView
                         {
                             node.Status = "failed";
                             node.EndTime = DateTime.Now;
+                            WorkflowGraphView.UpdateNodeStatus(node.Id, "failed");
                         });
                     }
                     break;
@@ -615,7 +624,10 @@ public partial class AgentDevUIView : ContentView
             foreach (var node in _workflowNodes)
             {
                 if (node.Status == "pending")
+                {
                     node.Status = "skipped";
+                    WorkflowGraphView.UpdateNodeStatus(node.Id, "skipped");
+                }
             }
         });
     }
