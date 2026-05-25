@@ -70,6 +70,12 @@ public static class MauiProgram
 		// Register DevUI (auto-discovers agents and workflows from DI)
 		builder.Services.AddMauiAgentDevUI();
 
+		// Register optional demo metadata (descriptions, demo prompts for UI)
+		foreach (var wf in DemoWorkflows.Workflows)
+		{
+			builder.Services.AddDevUIWorkflowMetadata(wf.Id, wf.Description, wf.DemoPrompt);
+		}
+
 		builder.Services.AddTransient<MainPage>();
 
 #if DEBUG

@@ -12,11 +12,43 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the MAUI Agent DevUI services with auto-discovery from DI.
-    /// Agents and workflows registered via AddAIAgent/AddWorkflow are discovered automatically.
+    /// Scans the service collection for AIAgent and Workflow registrations.
     /// </summary>
     public static IServiceCollection AddMauiAgentDevUI(this IServiceCollection services)
     {
+        // Scan the service collection NOW to capture all keyed AIAgent and Workflow keys.
+        // GetKeyedServices<T>(AnyKey) doesn't enumerate all keyed registrations reliably,
+        // so we inspect ServiceDescriptors directly.
+        var agentKeys = new List<string>();
+        var workflowKeys = new List<string>();
+
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceKey is string key)
+            {
+                if (descriptor.ServiceType == typeof(AIAgent))
+                    agentKeys.Add(key);
+                else if (descriptor.ServiceType == typeof(Workflow))
+                    workflowKeys.Add(key);
+            }
+        }
+
+        services.AddSingleton(new DevUIRegisteredKeys(agentKeys, workflowKeys));
         services.AddSingleton<IDevUIEntityRegistry, DevUIEntityRegistry>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers optional demo metadata (descriptions, demo prompts) for workflows.
+    /// This supplements auto-discovery with UI-only metadata not stored in the Workflow object.
+    /// </summary>
+    public static IServiceCollection AddDevUIWorkflowMetadata(
+        this IServiceCollection services,
+        string workflowId,
+        string? description = null,
+        string? demoPrompt = null)
+    {
+        services.AddSingleton(new WorkflowDemoMetadata(workflowId, description, demoPrompt));
         return services;
     }
 }
@@ -34,55 +66,101 @@ public interface IDevUIEntityRegistry
 }
 
 /// <summary>
-/// Auto-discovers AIAgent and Workflow registrations from the DI container,
-/// mirroring the pattern used by the web DevUI (EntitiesApiExtensions).
+/// Optional UI metadata for a workflow (description, demo prompt).
+/// Supplements auto-discovery with data not stored in the Workflow object.
+/// </summary>
+public sealed record WorkflowDemoMetadata(string WorkflowId, string? Description, string? DemoPrompt);
+
+/// <summary>
+/// Captured keyed service keys from the IServiceCollection at registration time.
+/// </summary>
+internal sealed record DevUIRegisteredKeys(IReadOnlyList<string> AgentKeys, IReadOnlyList<string> WorkflowKeys);
+
+/// <summary>
+/// Auto-discovers AIAgent and Workflow registrations from the DI container
+/// using keys captured at registration time.
 /// </summary>
 internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
 {
     public IReadOnlyList<AgentInfo> Agents { get; }
     public IReadOnlyList<WorkflowInfo> Workflows { get; }
 
-    public DevUIEntityRegistry(IServiceProvider serviceProvider)
+    public DevUIEntityRegistry(IServiceProvider serviceProvider, DevUIRegisteredKeys registeredKeys)
     {
-        // Discover all Workflow instances from DI (keyed + default)
-        var workflows = GetRegisteredEntities<Workflow>(serviceProvider).ToList();
+        // Resolve workflows by their captured keys
         var workflowNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         var workflowInfos = new List<WorkflowInfo>();
-        foreach (var workflow in workflows)
-        {
-            var name = workflow.Name ?? workflow.StartExecutorId ?? "unnamed";
-            workflowNames.Add(name);
 
-            var info = MapWorkflow(workflow, serviceProvider);
-            workflowInfos.Add(info);
+        foreach (var key in registeredKeys.WorkflowKeys)
+        {
+            try
+            {
+                var workflow = serviceProvider.GetRequiredKeyedService<Workflow>(key);
+                workflowNames.Add(key);
+                var info = MapWorkflow(workflow, key, serviceProvider);
+                workflowInfos.Add(info);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DevUI] Failed to resolve workflow '{key}': {ex.Message}");
+            }
         }
 
-        // Discover all AIAgent instances (keyed + default), excluding workflow-wrapped agents
-        var agents = GetRegisteredEntities<AIAgent>(serviceProvider)
-            .Where(a => a.Name is not null && !workflowNames.Contains(a.Name))
-            .ToList();
+        // Build set of executor agent names (belong to workflows, not standalone)
+        // Workflow executor IDs from ReflectEdges() use internal IDs (with GUIDs) that
+        // don't match registered agent keys. Instead, filter by prefix: any agent key
+        // that starts with a workflow key prefix (e.g. "sequential-newsdesk-") is an executor.
+        var workflowPrefixes = workflowNames.Select(n => n + "-").ToList();
 
-        // Also exclude agents that are executors within workflows
-        var executorNames = workflowInfos
-            .SelectMany(w => w.Executors)
-            .Select(e => e.Id)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Resolve agents by their captured keys, filtering out workflow executors and wrappers
+        var agentInfos = new List<AgentInfo>();
+        foreach (var key in registeredKeys.AgentKeys)
+        {
+            // Skip agents that are workflow wrappers (same key as a workflow)
+            if (workflowNames.Contains(key))
+                continue;
 
-        var agentInfos = agents
-            .Where(a => !executorNames.Contains(a.Name!))
-            .Select(MapAgent)
-            .ToList();
+            // Skip agents that are executors within workflows (key starts with workflow prefix)
+            if (workflowPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            try
+            {
+                var agent = serviceProvider.GetRequiredKeyedService<AIAgent>(key);
+                agentInfos.Add(MapAgent(agent));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DevUI] Failed to resolve agent '{key}': {ex.Message}");
+            }
+        }
 
         Agents = agentInfos;
-        Workflows = workflowInfos;
-    }
 
-    private static IEnumerable<T> GetRegisteredEntities<T>(IServiceProvider serviceProvider)
-    {
-        var keyedEntities = serviceProvider.GetKeyedServices<T>(KeyedService.AnyKey);
-        var defaultEntities = serviceProvider.GetServices<T>() ?? [];
-        return keyedEntities.Concat(defaultEntities).Where(entity => entity is not null);
+        // Apply optional demo metadata (descriptions, demo prompts)
+        var metadataItems = serviceProvider.GetServices<WorkflowDemoMetadata>()?.ToList() ?? [];
+        foreach (var meta in metadataItems)
+        {
+            var idx = workflowInfos.FindIndex(w =>
+                string.Equals(w.Id, meta.WorkflowId, StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0)
+            {
+                var old = workflowInfos[idx];
+                workflowInfos[idx] = new WorkflowInfo
+                {
+                    Id = old.Id,
+                    Name = old.Name,
+                    Description = meta.Description ?? old.Description,
+                    Kind = old.Kind,
+                    Executors = old.Executors,
+                    EdgeGroups = old.EdgeGroups,
+                    StartExecutorId = old.StartExecutorId,
+                    DemoPrompt = meta.DemoPrompt ?? old.DemoPrompt
+                };
+            }
+        }
+
+        Workflows = workflowInfos;
     }
 
     private static AgentInfo MapAgent(AIAgent agent)
@@ -102,9 +180,9 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
         };
     }
 
-    private static WorkflowInfo MapWorkflow(Workflow workflow, IServiceProvider serviceProvider)
+    private static WorkflowInfo MapWorkflow(Workflow workflow, string registeredKey, IServiceProvider serviceProvider)
     {
-        var name = workflow.Name ?? workflow.StartExecutorId ?? "unnamed";
+        var name = registeredKey;
 
         // Get graph structure from ReflectEdges
         var reflectedEdges = workflow.ReflectEdges();
@@ -146,9 +224,13 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
             .Select(id =>
             {
                 string? prompt = null;
-                var agent = serviceProvider.GetKeyedService<AIAgent>(id);
-                if (agent is ChatClientAgent ca)
-                    prompt = ca.Instructions;
+                try
+                {
+                    var agent = serviceProvider.GetKeyedService<AIAgent>(id);
+                    if (agent is ChatClientAgent ca)
+                        prompt = ca.Instructions;
+                }
+                catch { /* agent might not be directly resolvable */ }
 
                 return new ExecutorInfo { Id = id, Name = id, SystemPrompt = prompt };
             })
@@ -159,7 +241,7 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
         return new WorkflowInfo
         {
             Id = name,
-            Name = name,
+            Name = workflow.Name ?? name,
             Description = workflow.Description,
             Kind = kind,
             StartExecutorId = workflow.StartExecutorId,

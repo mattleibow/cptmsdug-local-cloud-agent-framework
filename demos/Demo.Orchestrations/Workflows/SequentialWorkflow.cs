@@ -18,11 +18,15 @@ public static class SequentialWorkflow
             builder.AddAIAgent(agent.Name, agent.SystemPrompt);
         }
 
-        builder.AddWorkflow(def.Id, (sp, key) => AgentWorkflowBuilder.BuildSequential(
-            workflowName: key,
-            agents: def.Agents
+        builder.AddWorkflow(def.Id, (sp, key) =>
+        {
+            var agents = def.Agents
                 .Select(a => sp.GetRequiredKeyedService<AIAgent>(a.Name))
-                .ToArray()
-        )).AddAsAIAgent(def.Id);
+                .ToArray();
+            var workflow = AgentWorkflowBuilder.BuildSequential(
+                workflowName: key,
+                agents: agents);
+            return workflow;
+        }).AddAsAIAgent(def.Id);
     }
 }
