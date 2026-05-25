@@ -446,11 +446,11 @@ public partial class AgentDevUIView : ContentView
         var triageResult = await StreamResponseAsync(triage.Name, triageMessages, null);
         await SetNodeCompleted(triageNode);
 
-        // Determine route from triage result
+        // Determine route from triage result — look for specialist name anywhere in response
         var targetIdx = 1; // default to first specialist
         for (var i = 1; i < workflow.Executors.Count; i++)
         {
-            if (triageResult.Contains($"ROUTE:{workflow.Executors[i].Name}", StringComparison.OrdinalIgnoreCase))
+            if (triageResult.Contains(workflow.Executors[i].Name, StringComparison.OrdinalIgnoreCase))
             {
                 targetIdx = i;
                 break;
