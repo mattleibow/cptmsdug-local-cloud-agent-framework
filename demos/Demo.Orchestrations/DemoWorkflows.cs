@@ -1,19 +1,17 @@
-using System.ComponentModel;
-using Microsoft.Extensions.AI;
-
 namespace Demo.Orchestrations;
 
 /// <summary>
 /// Central registry of all demo orchestrations and their agent definitions.
 /// Both Demo1 (web/MAF) and Demo2 (native/MAUI) consume these definitions.
+/// Agent names are prefixed with workflow id to avoid collisions in a shared DI container.
 /// </summary>
 public static class DemoWorkflows
 {
     /// <summary>All standalone agents available for direct chat.</summary>
     public static IReadOnlyList<AgentDefinition> StandaloneAgents { get; } =
     [
-        new("writer", "You write short stories (300 words or less) about the specified topic."),
-        new("editor", "You edit short stories to improve grammar and style, ensuring the stories are less than 300 words. Once finished editing, you select a title and format the story for publishing.")
+        new("storyteller", "You are a creative storyteller. Write imaginative short stories (300 words or less) about any topic the user provides. Use vivid language and surprising twists."),
+        new("code-mentor", "You are a friendly coding mentor. Explain programming concepts clearly with examples. Help debug code and suggest best practices. Keep explanations concise and practical.")
     ];
 
     /// <summary>All workflow definitions.</summary>
@@ -26,83 +24,80 @@ public static class DemoWorkflows
     ];
 
     /// <summary>
-    /// Sequential: Story Pipeline (Writer -> Editor -> Publisher)
+    /// Sequential: News Desk (Reporter -> Fact-Checker -> Editor)
+    /// Theme: Journalism pipeline
     /// </summary>
     public static WorkflowDefinition Sequential { get; } = new(
-        Id: "sequential-story",
-        Name: "Story Pipeline",
-        Description: "Writer drafts, Editor refines, Publisher formats",
+        Id: "sequential-newsdesk",
+        Name: "News Desk",
+        Description: "Reporter writes, Fact-Checker verifies, Editor polishes",
         Kind: OrchestrationKind.Sequential,
-        DemoPrompt: "Write a short story about a robot learning to paint",
+        DemoPrompt: "Write a news article about a breakthrough in fusion energy",
         Agents:
         [
-            new("writer", "You write short stories (300 words or less) about the specified topic."),
-            new("editor", "You edit short stories to improve grammar and style, ensuring the stories are less than 300 words. Once finished editing, you select a title and format the story for publishing."),
-            new("publisher", "You take the final story and format it with a catchy headline and a brief teaser.")
-        ],
-        Tools: [AIFunctionFactory.Create(FormatStory)]);
+            new("sequential-newsdesk-reporter", "You are a news reporter. Write a concise news article (250 words) about the given topic. Include a headline, lead paragraph, and supporting details. Use journalistic style."),
+            new("sequential-newsdesk-factchecker", "You are a fact-checker. Review the article for accuracy, flag any unsupported claims, and add [VERIFIED] or [NEEDS SOURCE] annotations. Suggest corrections where needed."),
+            new("sequential-newsdesk-editor", "You are a senior editor. Polish the article for clarity and flow. Ensure the headline is compelling. Format the final version ready for publication.")
+        ]);
 
     /// <summary>
-    /// Concurrent: Research Briefing (parallel analysts + synthesizer)
+    /// Concurrent: Travel Planner (parallel specialists + coordinator)
+    /// Theme: Trip planning with domain experts
     /// </summary>
     public static WorkflowDefinition Concurrent { get; } = new(
-        Id: "concurrent-research",
-        Name: "Research Briefing",
-        Description: "Multiple analysts research in parallel, then merge findings",
+        Id: "concurrent-travel",
+        Name: "Travel Planner",
+        Description: "Multiple specialists plan in parallel, coordinator assembles itinerary",
         Kind: OrchestrationKind.Concurrent,
-        DemoPrompt: "Analyze the impact of quantum computing on cybersecurity",
+        DemoPrompt: "Plan a 5-day trip to Tokyo for a food-loving couple",
         Agents:
         [
-            new("technical-analyst", "You are a technical analyst. Analyze the technical aspects, feasibility, and implementation details of the given topic. Keep analysis to 150 words."),
-            new("market-analyst", "You are a market analyst. Analyze the market opportunity, competition, and business potential of the given topic. Keep analysis to 150 words."),
-            new("risk-analyst", "You are a risk analyst. Identify potential risks, challenges, and mitigation strategies for the given topic. Keep analysis to 150 words."),
-            new("synthesizer", "You are a synthesis expert. Take multiple analysis reports and combine them into a coherent executive briefing of 200 words or less.")
+            new("concurrent-travel-food", "You are a culinary travel expert. Recommend restaurants, food experiences, and local dishes for the destination. Include price range and booking tips. Keep to 150 words."),
+            new("concurrent-travel-culture", "You are a cultural travel expert. Recommend museums, temples, historical sites, and local experiences. Include opening hours and tips. Keep to 150 words."),
+            new("concurrent-travel-logistics", "You are a travel logistics expert. Recommend transportation, accommodation areas, and day-by-day routing for efficiency. Include budget estimates. Keep to 150 words."),
+            new("concurrent-travel-coordinator", "You are a trip coordinator. Take multiple specialist recommendations and weave them into a cohesive day-by-day itinerary. Resolve conflicts and balance the schedule. Keep to 250 words.")
         ]);
 
     /// <summary>
-    /// Handoff: Customer Support (triage routes to specialist)
+    /// Handoff: IT Help Desk (dispatcher routes to specialist)
+    /// Theme: Internal IT support
     /// </summary>
     public static WorkflowDefinition Handoff { get; } = new(
-        Id: "handoff-support",
-        Name: "Customer Support",
-        Description: "Triage agent routes to the right specialist based on issue",
+        Id: "handoff-helpdesk",
+        Name: "IT Help Desk",
+        Description: "Dispatcher routes tickets to the right IT specialist",
         Kind: OrchestrationKind.Handoff,
-        DemoPrompt: "I need to return a defective laptop that keeps crashing",
+        DemoPrompt: "My VPN keeps disconnecting every 10 minutes and I can't access the internal wiki",
         Agents:
         [
-            new("triage", """
-                You are a customer support triage agent. Analyze the customer's issue and determine which specialist should handle it.
-                Respond with EXACTLY one of these routing decisions:
-                - ROUTE:billing - for payment, subscription, or pricing issues
-                - ROUTE:technical - for bugs, errors, or technical problems
-                - ROUTE:account - for login, password, or account access issues
-                After the routing tag, briefly explain why you're routing there.
+            new("handoff-helpdesk-dispatcher", """
+                You are an IT help desk dispatcher. Analyze the user's issue and route to the correct specialist.
+                Available specialists and their domains:
+                - handoff-helpdesk-network: VPN, Wi-Fi, connectivity, firewall, DNS issues
+                - handoff-helpdesk-software: App crashes, installation, updates, licensing
+                - handoff-helpdesk-hardware: Laptop, monitor, peripherals, docking station issues
+                Route by responding with the specialist name and a brief reason.
                 """),
-            new("billing", "You are a billing specialist. Help customers with payment issues, subscription changes, refunds, and pricing questions. Be empathetic and solution-oriented. Keep responses under 200 words."),
-            new("technical", "You are a technical support specialist. Help customers debug issues, explain error messages, and provide step-by-step solutions. Be precise and technical. Keep responses under 200 words."),
-            new("account", "You are an account specialist. Help customers with login issues, password resets, account recovery, and access problems. Be patient and clear. Keep responses under 200 words.")
+            new("handoff-helpdesk-network", "You are a network support specialist. Troubleshoot VPN, Wi-Fi, DNS, firewall, and connectivity issues. Provide step-by-step diagnostic instructions. Ask clarifying questions if needed. Keep responses under 200 words."),
+            new("handoff-helpdesk-software", "You are a software support specialist. Help with application crashes, installation problems, update failures, and licensing. Provide clear fix steps. Keep responses under 200 words."),
+            new("handoff-helpdesk-hardware", "You are a hardware support specialist. Diagnose laptop, monitor, peripheral, and docking station problems. Determine if RMA is needed. Keep responses under 200 words.")
         ]);
 
     /// <summary>
-    /// GroupChat: Design Review (designer, engineer, PM collaborate)
+    /// GroupChat: Startup Pitch (Founder, Investor, Advisor debate)
+    /// Theme: Startup pitch feedback session
     /// </summary>
     public static WorkflowDefinition GroupChat { get; } = new(
-        Id: "groupchat-design",
-        Name: "Design Review",
-        Description: "Designer, Engineer, and PM collaborate on a feature",
+        Id: "groupchat-startup",
+        Name: "Startup Pitch",
+        Description: "Founder pitches, Investor challenges, Advisor mediates",
         Kind: OrchestrationKind.GroupChat,
-        DemoPrompt: "Design a mobile banking app for Gen Z users",
+        DemoPrompt: "Pitch an AI-powered personal finance app that uses on-device models for privacy",
         Agents:
         [
-            new("designer", "You are a UX designer in a product design review. Evaluate ideas from a usability, aesthetics, and user experience perspective. Challenge engineering constraints when they hurt UX. Keep contributions to 100 words. Address other participants by name."),
-            new("engineer", "You are a software engineer in a product design review. Evaluate ideas from a technical feasibility, performance, and maintainability perspective. Suggest alternatives when designs are too complex. Keep contributions to 100 words. Address other participants by name."),
-            new("product-manager", "You are a product manager in a product design review. Evaluate ideas from a business value, user impact, and timeline perspective. Mediate between design and engineering. Summarize decisions. Keep contributions to 100 words. Address other participants by name.")
+            new("groupchat-startup-founder", "You are a startup founder pitching your idea. Defend your vision passionately but acknowledge valid concerns. Explain your differentiation and go-to-market strategy. Keep contributions to 100 words. Address others by role."),
+            new("groupchat-startup-investor", "You are a VC investor evaluating the pitch. Ask tough questions about market size, unit economics, competition, and defensibility. Be skeptical but fair. Keep contributions to 100 words. Address others by role."),
+            new("groupchat-startup-advisor", "You are a seasoned startup advisor. Bridge the gap between founder optimism and investor skepticism. Suggest pivots or improvements. Summarize actionable next steps. Keep contributions to 100 words. Address others by role.")
         ]);
-
-    [Description("Formats the story for publication, revealing its title.")]
-    private static string FormatStory(string title, string story) => $"""
-        # {title}
-
-        {story}
-        """;
 }
+
