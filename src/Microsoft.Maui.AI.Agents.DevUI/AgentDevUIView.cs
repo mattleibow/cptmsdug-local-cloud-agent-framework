@@ -398,13 +398,20 @@ public partial class AgentDevUIView : ContentView
         // Use the Agent Framework's InProcessExecution to run the workflow with streaming events
         await using var run = await InProcessExecution.RunStreamingAsync(workflow, input);
 
+        // Sequential/chat-protocol workflows require a TurnToken to advance past the first executor.
+        // RunStreamingAsync only enqueues the input; we must send the TurnToken ourselves
+        // (RunAsync does this internally via BeginRunHandlingChatProtocolAsync but RunStreamingAsync does not).
+        await run.TrySendMessageAsync(new TurnToken(true));
+
         // Track the current streaming message per executor
         var activeMessages = new Dictionary<string, DevUIChatMessage>();
         var responseBuilders = new Dictionary<string, System.Text.StringBuilder>();
         var lastUIUpdate = DateTime.UtcNow;
+        var eventCount = 0;
 
         await foreach (var evt in run.WatchStreamAsync())
         {
+            eventCount++;
             switch (evt)
             {
                 case ExecutorInvokedEvent invoked:
@@ -440,6 +447,10 @@ public partial class AgentDevUIView : ContentView
                             node.Status = "completed";
                             node.EndTime = DateTime.Now;
                         });
+                    }
+                    else
+                    {
+                        AddEvent("executor.completed", $"\u2714 (unmatched: {executorId})");
                     }
 
                     // Finalize any active streaming message for this executor
@@ -519,8 +530,36 @@ public partial class AgentDevUIView : ContentView
                 case AgentResponseEvent responseComplete:
                 {
                     var executorId = responseComplete.ExecutorId;
-                    // Finalize the message
-                    if (activeMessages.TryGetValue(executorId, out var msg))
+                    var node = FindNodeByExecutorId(executorId);
+                    var label = node?.Name ?? executorId;
+
+                    // If no streaming message was created (EmitAgentUpdateEvents not set),
+                    // create a final message from the complete response
+                    if (!activeMessages.TryGetValue(executorId, out var msg))
+                    {
+                        var responseText = responseComplete.Response?.Messages
+                            ?.SelectMany(m => m.Contents?.OfType<TextContent>() ?? [])
+                            .Select(t => t.Text)
+                            .Where(t => !string.IsNullOrEmpty(t))
+                            .FirstOrDefault() ?? responseComplete.Response?.ToString() ?? "";
+
+                        if (!string.IsNullOrEmpty(responseText))
+                        {
+                            var tokenEst = responseText.Split(' ').Length * 2;
+                            var finalMsg = new DevUIChatMessage
+                            {
+                                Role = "assistant",
+                                Content = responseText,
+                                AgentLabel = label,
+                                Timestamp = DateTime.Now,
+                                IsStreaming = false,
+                                TokenCount = tokenEst
+                            };
+                            TotalTokens += tokenEst;
+                            await RunOnUIAsync(() => _messages.Add(finalMsg));
+                        }
+                    }
+                    else
                     {
                         var finalText = responseBuilders.TryGetValue(executorId, out var sb)
                             ? sb.ToString() : msg.Content;
@@ -538,6 +577,22 @@ public partial class AgentDevUIView : ContentView
                     break;
                 }
 
+                case ExecutorFailedEvent failed:
+                {
+                    var executorId = failed.ExecutorId;
+                    var node = FindNodeByExecutorId(executorId);
+                    AddEvent("executor.failed", $"\u2717 {node?.Name ?? executorId}: {failed.Data}");
+                    if (node is not null)
+                    {
+                        await RunOnUIAsync(() =>
+                        {
+                            node.Status = "failed";
+                            node.EndTime = DateTime.Now;
+                        });
+                    }
+                    break;
+                }
+
                 case WorkflowErrorEvent errorEvt:
                     AddEvent("workflow.error", $"Error: {errorEvt.Data}");
                     break;
@@ -545,8 +600,14 @@ public partial class AgentDevUIView : ContentView
                 case WorkflowStartedEvent:
                     AddEvent("workflow.running", "Workflow execution started");
                     break;
+
+                default:
+                    AddEvent("workflow.event", $"{evt.GetType().Name}: {evt.Data?.GetType().Name ?? "null"}");
+                    break;
             }
         }
+
+        AddEvent("workflow.completed", $"Sequential orchestration completed");
 
         // Mark any remaining pending nodes as skipped
         await RunOnUIAsync(() =>
@@ -571,10 +632,12 @@ public partial class AgentDevUIView : ContentView
         // MAF executor IDs use underscores and GUIDs: e.g. "handoff_helpdesk_network_293b3c9e..."
         // Our registered keys use dashes: "handoff-helpdesk-network"
         // Match by checking if executorId starts with a normalized version of the node ID
+        // with a boundary check (next char must be '_' or end of string)
         foreach (var node in _workflowNodes)
         {
             var normalized = node.Id.Replace("-", "_");
-            if (executorId.StartsWith(normalized, StringComparison.OrdinalIgnoreCase))
+            if (executorId.StartsWith(normalized, StringComparison.OrdinalIgnoreCase) &&
+                (executorId.Length == normalized.Length || executorId[normalized.Length] == '_'))
                 return node;
         }
 
