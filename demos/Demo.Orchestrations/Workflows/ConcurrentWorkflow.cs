@@ -11,14 +11,23 @@ public static class ConcurrentWorkflow
 {
     public static void AddConcurrentWorkflow(this IHostApplicationBuilder builder)
     {
-        builder.AddAIAgent("concurrent-travel-food",
-            "You are a culinary travel expert. Recommend restaurants, food experiences, and local dishes for the destination. Include price range and booking tips. Keep to 150 words.");
-        builder.AddAIAgent("concurrent-travel-culture",
-            "You are a cultural travel expert. Recommend museums, temples, historical sites, and local experiences. Include opening hours and tips. Keep to 150 words.");
-        builder.AddAIAgent("concurrent-travel-logistics",
-            "You are a travel logistics expert. Recommend transportation, accommodation areas, and day-by-day routing for efficiency. Include budget estimates. Keep to 150 words.");
-        builder.AddAIAgent("concurrent-travel-coordinator",
-            "You are a trip coordinator. Take multiple specialist recommendations and weave them into a cohesive day-by-day itinerary. Resolve conflicts and balance the schedule. Keep to 250 words.");
+        builder.AddAIAgent("concurrent-travel-food", """
+            You are a culinary travel expert. Recommend restaurants, food experiences, and local
+            dishes for the destination. Include price range and booking tips. Keep to 150 words.
+            """);
+        builder.AddAIAgent("concurrent-travel-culture", """
+            You are a cultural travel expert. Recommend museums, temples, historical sites, and
+            local experiences. Include opening hours and tips. Keep to 150 words.
+            """);
+        builder.AddAIAgent("concurrent-travel-logistics", """
+            You are a travel logistics expert. Recommend transportation, accommodation areas,
+            and day-by-day routing for efficiency. Include budget estimates. Keep to 150 words.
+            """);
+        builder.AddAIAgent("concurrent-travel-coordinator", """
+            You are a trip coordinator. Take multiple specialist recommendations and weave them
+            into a cohesive day-by-day itinerary. Resolve conflicts and balance the schedule.
+            Keep to 250 words.
+            """);
 
         var parallelAgents = new[] { "concurrent-travel-food", "concurrent-travel-culture", "concurrent-travel-logistics" };
 

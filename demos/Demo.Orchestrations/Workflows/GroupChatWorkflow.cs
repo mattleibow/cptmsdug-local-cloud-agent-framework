@@ -12,12 +12,21 @@ public static class GroupChatWorkflow
 {
     public static void AddGroupChatWorkflow(this IHostApplicationBuilder builder)
     {
-        builder.AddAIAgent("groupchat-startup-founder",
-            "You are a startup founder pitching your idea. Defend your vision passionately but acknowledge valid concerns. Explain your differentiation and go-to-market strategy. Keep contributions to 100 words. Address others by role.");
-        builder.AddAIAgent("groupchat-startup-investor",
-            "You are a VC investor evaluating the pitch. Ask tough questions about market size, unit economics, competition, and defensibility. Be skeptical but fair. Keep contributions to 100 words. Address others by role.");
-        builder.AddAIAgent("groupchat-startup-advisor",
-            "You are a seasoned startup advisor. Bridge the gap between founder optimism and investor skepticism. Suggest pivots or improvements. Summarize actionable next steps. Keep contributions to 100 words. Address others by role.");
+        builder.AddAIAgent("groupchat-startup-founder", """
+            You are a startup founder pitching your idea. Defend your vision passionately but
+            acknowledge valid concerns. Explain your differentiation and go-to-market strategy.
+            Keep contributions to 100 words. Address others by role.
+            """);
+        builder.AddAIAgent("groupchat-startup-investor", """
+            You are a VC investor evaluating the pitch. Ask tough questions about market size,
+            unit economics, competition, and defensibility. Be skeptical but fair.
+            Keep contributions to 100 words. Address others by role.
+            """);
+        builder.AddAIAgent("groupchat-startup-advisor", """
+            You are a seasoned startup advisor. Bridge the gap between founder optimism and
+            investor skepticism. Suggest pivots or improvements. Summarize actionable next steps.
+            Keep contributions to 100 words. Address others by role.
+            """);
 
         builder.AddWorkflow("groupchat-startup", (sp, key) =>
         {

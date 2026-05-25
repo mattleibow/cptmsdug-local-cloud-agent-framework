@@ -225,12 +225,6 @@ internal static class GraphLayoutEngine
     /// <summary>
     /// Group Chat: circular-style arrangement. Nodes in a column with
     /// bidirectional arrows indicating round-robin discussion.
-    ///
-    ///   [CEO] <--+
-    ///    |       |
-    ///   [CTO] --+
-    ///    |       |
-    ///   [CMO] --+
     /// </summary>
     private static GraphLayout LayoutGroupChat(WorkflowInfo workflow)
     {
