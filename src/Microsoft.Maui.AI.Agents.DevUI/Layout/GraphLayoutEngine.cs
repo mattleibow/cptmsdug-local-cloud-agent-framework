@@ -1,16 +1,16 @@
 namespace Microsoft.Maui.AI.Agents.DevUI;
 
 /// <summary>
-/// BFS-based graph layout engine that positions workflow nodes
-/// according to the orchestration topology. Uses compact vertical
-/// layouts suitable for narrow sidebar panels.
+/// Graph layout engine that positions workflow nodes according to
+/// the orchestration topology. Designed for a 280-300px wide panel.
 /// </summary>
 internal static class GraphLayoutEngine
 {
-    private const double NodeWidth = 170;
-    private const double NodeHeight = 60;
-    private const double HGap = 20;
-    private const double VGap = 28;
+    private const double NodeWidth = 160;
+    private const double NodeHeight = 56;
+    private const double HGap = 24;
+    private const double VGap = 32;
+    private const double Padding = 12;
 
     public static GraphLayout ComputeLayout(WorkflowInfo workflow)
     {
@@ -25,12 +25,18 @@ internal static class GraphLayoutEngine
     }
 
     /// <summary>
-    /// Sequential: vertical chain A ↓ B ↓ C
+    /// Sequential: vertical chain centered
+    ///   [A]
+    ///    |
+    ///   [B]
+    ///    |
+    ///   [C]
     /// </summary>
     private static GraphLayout LayoutSequential(WorkflowInfo workflow)
     {
         var nodes = new List<LayoutNode>();
         var edges = new List<LayoutEdge>();
+        var centerX = Padding;
 
         for (var i = 0; i < workflow.Executors.Count; i++)
         {
@@ -39,8 +45,8 @@ internal static class GraphLayoutEngine
             {
                 Id = exec.Id,
                 Name = exec.Name,
-                X = 0,
-                Y = i * (NodeHeight + VGap)
+                X = centerX,
+                Y = Padding + i * (NodeHeight + VGap)
             });
 
             if (i > 0)
@@ -57,19 +63,20 @@ internal static class GraphLayoutEngine
         {
             Nodes = nodes,
             Edges = edges,
-            Width = NodeWidth,
-            Height = nodes.Count * (NodeHeight + VGap) - VGap
+            Width = NodeWidth + Padding * 2,
+            Height = Padding * 2 + nodes.Count * (NodeHeight + VGap) - VGap
         };
     }
 
     /// <summary>
-    /// Concurrent: parallel column then merger below.
-    /// Layout:
-    ///   [A]
-    ///   [B]     (parallel analysts stacked)
-    ///   [C]
-    ///   ---
-    ///   [merger] (below with extra gap)
+    /// Concurrent: fan-out from implicit start, parallel nodes side-by-side,
+    /// then fan-in to merger.
+    ///
+    ///      [A] [B] [C]    (parallel, side-by-side or stacked if narrow)
+    ///        \  |  /
+    ///       [merger]
+    ///
+    /// With 300px width and 3 nodes: stack vertically with fan-in arrows.
     /// </summary>
     private static GraphLayout LayoutConcurrent(WorkflowInfo workflow)
     {
@@ -82,50 +89,88 @@ internal static class GraphLayoutEngine
         var parallelCount = workflow.Executors.Count - 1;
         var merger = workflow.Executors[^1];
 
-        for (var i = 0; i < parallelCount; i++)
+        // Can we fit side-by-side? Each node needs NodeWidth + HGap
+        var sideByWidth = parallelCount * NodeWidth + (parallelCount - 1) * HGap + Padding * 2;
+        var useSideBySide = sideByWidth <= 300 && parallelCount <= 3;
+
+        if (useSideBySide)
         {
-            var exec = workflow.Executors[i];
+            // Horizontal arrangement for parallel nodes
+            var startX = Padding;
+            for (var i = 0; i < parallelCount; i++)
+            {
+                var exec = workflow.Executors[i];
+                nodes.Add(new LayoutNode
+                {
+                    Id = exec.Id,
+                    Name = exec.Name,
+                    X = startX + i * (NodeWidth + HGap),
+                    Y = Padding
+                });
+                edges.Add(new LayoutEdge { SourceId = exec.Id, TargetId = merger.Id });
+            }
+
+            // Merger centered below
+            var mergerX = startX + (parallelCount - 1) * (NodeWidth + HGap) / 2.0;
             nodes.Add(new LayoutNode
             {
-                Id = exec.Id,
-                Name = exec.Name,
-                X = 0,
-                Y = i * (NodeHeight + VGap)
+                Id = merger.Id,
+                Name = merger.Name,
+                X = mergerX,
+                Y = Padding + NodeHeight + VGap * 1.5
             });
 
-            edges.Add(new LayoutEdge
+            return new GraphLayout
             {
-                SourceId = exec.Id,
-                TargetId = merger.Id
-            });
+                Nodes = nodes,
+                Edges = edges,
+                Width = sideByWidth,
+                Height = Padding * 2 + 2 * NodeHeight + VGap * 1.5
+            };
         }
-
-        // Merger below with extra spacing
-        var mergerY = parallelCount * (NodeHeight + VGap) + 10;
-        nodes.Add(new LayoutNode
+        else
         {
-            Id = merger.Id,
-            Name = merger.Name,
-            X = 0,
-            Y = mergerY
-        });
+            // Vertical stack with fan-in indicator
+            for (var i = 0; i < parallelCount; i++)
+            {
+                var exec = workflow.Executors[i];
+                nodes.Add(new LayoutNode
+                {
+                    Id = exec.Id,
+                    Name = exec.Name,
+                    X = Padding,
+                    Y = Padding + i * (NodeHeight + VGap * 0.6)
+                });
+                edges.Add(new LayoutEdge { SourceId = exec.Id, TargetId = merger.Id });
+            }
 
-        return new GraphLayout
-        {
-            Nodes = nodes,
-            Edges = edges,
-            Width = NodeWidth,
-            Height = mergerY + NodeHeight
-        };
+            var mergerY = Padding + parallelCount * (NodeHeight + VGap * 0.6) + VGap * 0.5;
+            nodes.Add(new LayoutNode
+            {
+                Id = merger.Id,
+                Name = merger.Name,
+                X = Padding,
+                Y = mergerY
+            });
+
+            return new GraphLayout
+            {
+                Nodes = nodes,
+                Edges = edges,
+                Width = NodeWidth + Padding * 2,
+                Height = mergerY + NodeHeight + Padding
+            };
+        }
     }
 
     /// <summary>
-    /// Handoff: triage at top, specialists below indented.
-    /// Layout:
-    ///  [triage]
-    ///    [specialist-1]
-    ///    [specialist-2]
-    ///    [specialist-3]
+    /// Handoff: dispatcher at top, branching arrows to specialists.
+    ///
+    ///       [dispatcher]
+    ///      /     |      \
+    ///   [net] [soft] [hard]
+    ///
+    /// If narrow, specialists stack vertically with indent.
     /// </summary>
     private static GraphLayout LayoutHandoff(WorkflowInfo workflow)
     {
@@ -138,17 +183,17 @@ internal static class GraphLayoutEngine
         var triage = workflow.Executors[0];
         var specialists = workflow.Executors.Skip(1).ToList();
 
-        // Triage at top
+        // Dispatcher centered at top
         nodes.Add(new LayoutNode
         {
             Id = triage.Id,
             Name = triage.Name,
-            X = 0,
-            Y = 0
+            X = Padding,
+            Y = Padding
         });
 
-        // Specialists below, slightly indented
-        var indent = 20.0;
+        // Specialists below with indent to show branching
+        var indent = 24.0;
         for (var i = 0; i < specialists.Count; i++)
         {
             var spec = specialists[i];
@@ -156,15 +201,15 @@ internal static class GraphLayoutEngine
             {
                 Id = spec.Id,
                 Name = spec.Name,
-                X = indent,
-                Y = (i + 1) * (NodeHeight + VGap)
+                X = Padding + indent,
+                Y = Padding + (i + 1) * (NodeHeight + VGap)
             });
 
             edges.Add(new LayoutEdge
             {
                 SourceId = triage.Id,
                 TargetId = spec.Id,
-                Label = spec.Name
+                Label = "route"
             });
         }
 
@@ -172,13 +217,20 @@ internal static class GraphLayoutEngine
         {
             Nodes = nodes,
             Edges = edges,
-            Width = NodeWidth + indent,
-            Height = (specialists.Count + 1) * (NodeHeight + VGap) - VGap
+            Width = NodeWidth + indent + Padding * 2,
+            Height = Padding * 2 + (specialists.Count + 1) * (NodeHeight + VGap) - VGap
         };
     }
 
     /// <summary>
-    /// Group Chat: vertical list with round-robin edges indicating cycling.
+    /// Group Chat: circular-style arrangement. Nodes in a column with
+    /// bidirectional arrows indicating round-robin discussion.
+    ///
+    ///   [CEO] <--+
+    ///    |       |
+    ///   [CTO] --+
+    ///    |       |
+    ///   [CMO] --+
     /// </summary>
     private static GraphLayout LayoutGroupChat(WorkflowInfo workflow)
     {
@@ -196,28 +248,36 @@ internal static class GraphLayoutEngine
             {
                 Id = exec.Id,
                 Name = exec.Name,
-                X = 0,
-                Y = i * (NodeHeight + VGap)
+                X = Padding,
+                Y = Padding + i * (NodeHeight + VGap)
             });
         }
 
-        // Round-robin edges
-        for (var i = 0; i < count; i++)
+        // Forward and loopback edges
+        for (var i = 0; i < count - 1; i++)
         {
             edges.Add(new LayoutEdge
             {
                 SourceId = workflow.Executors[i].Id,
-                TargetId = workflow.Executors[(i + 1) % count].Id,
-                IsBidirectional = true
+                TargetId = workflow.Executors[i + 1].Id
             });
         }
+
+        // Loopback from last to first (indicates rounds)
+        edges.Add(new LayoutEdge
+        {
+            SourceId = workflow.Executors[^1].Id,
+            TargetId = workflow.Executors[0].Id,
+            IsBidirectional = true,
+            Label = "next round"
+        });
 
         return new GraphLayout
         {
             Nodes = nodes,
             Edges = edges,
-            Width = NodeWidth,
-            Height = count * (NodeHeight + VGap) - VGap
+            Width = NodeWidth + Padding * 2,
+            Height = Padding * 2 + count * (NodeHeight + VGap) - VGap
         };
     }
 }

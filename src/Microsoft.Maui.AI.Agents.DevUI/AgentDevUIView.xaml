@@ -8,30 +8,46 @@
              x:Name="self"
              x:DataType="local:AgentDevUIView">
 
-    <Grid ColumnDefinitions="240,1,*,1,360"
-          RowDefinitions="48,*">
+    <Grid RowDefinitions="48,*">
 
         <!-- ===== HEADER ===== -->
-        <Border Grid.Row="0" Grid.ColumnSpan="5"
+        <Border Grid.Row="0"
                 BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}"
                 StrokeThickness="0">
-            <Grid ColumnDefinitions="*,Auto,Auto" Padding="16,0">
-                <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
-                    <Label Text="AG"
-                           FontSize="16"
-                           FontAttributes="Bold"
-                           TextColor="{StaticResource DevUI.Primary}"
-                           VerticalOptions="Center" />
-                    <Label x:Name="HeaderTitle"
-                           Text="Agent DevUI"
-                           FontSize="14"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light=#1a1a2e, Dark=#f0f0f0}"
-                           VerticalOptions="Center" />
-                </HorizontalStackLayout>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" Padding="16,0">
+                <!-- Picker trigger button -->
+                <Border StrokeShape="RoundRectangle 8"
+                        Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#2a2a3e}"
+                        StrokeThickness="1"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1a1a2e}"
+                        Padding="10,6"
+                        VerticalOptions="Center">
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="AG"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource DevUI.Primary}"
+                               VerticalOptions="Center" />
+                        <Label x:Name="HeaderTitle"
+                               Text="Select agent..."
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light=#1a1a2e, Dark=#f0f0f0}"
+                               VerticalOptions="Center" />
+                        <Label Text="&#x25BC;"
+                               FontSize="9"
+                               TextColor="{StaticResource DevUI.TextMuted}"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnPickerTapped" />
+                    </Border.GestureRecognizers>
+                </Border>
+
+                <!-- Spacer -->
+                <BoxView Grid.Column="1" Color="Transparent" />
 
                 <!-- Clear button -->
-                <Button Grid.Column="1"
+                <Button Grid.Column="2"
                         Text="Clear"
                         AutomationId="DevUI.ClearButton"
                         BackgroundColor="Transparent"
@@ -42,7 +58,7 @@
 
                 <!-- Token counter -->
                 <Label x:Name="TokenLabel"
-                       Grid.Column="2"
+                       Grid.Column="3"
                        Text="0 tokens"
                        FontSize="10"
                        TextColor="{StaticResource DevUI.TextMuted}"
@@ -51,46 +67,86 @@
             </Grid>
         </Border>
 
-        <!-- ===== LEFT SIDEBAR ===== -->
-        <Grid Grid.Row="1" Grid.Column="0"
-              RowDefinitions="*,Auto"
-              BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}">
+        <!-- ===== MAIN CONTENT ===== -->
+        <Grid Grid.Row="1"
+              x:Name="MainContentGrid"
+              ColumnDefinitions="*,1,360">
 
-            <!-- Agent/Workflow Selector -->
-            <controls:AgentSelectorView x:Name="SelectorView"
-                                        Grid.Row="0" />
+            <!-- Left area: Graph + Chat stacked -->
+            <Grid x:Name="LeftArea"
+                  ColumnDefinitions="Auto,1,*">
 
-            <!-- Workflow Graph (below selector when a workflow is selected) -->
-            <ScrollView Grid.Row="1"
-                        x:Name="GraphScrollView"
-                        IsVisible="False">
-                <layout:WorkflowGraphLayout x:Name="WorkflowGraph">
-                    <!-- Edge overlay (first child) -->
-                    <GraphicsView x:Name="GraphEdgeView"
-                                  InputTransparent="True" />
-                </layout:WorkflowGraphLayout>
-            </ScrollView>
+                <!-- Workflow Graph Panel (visible only when workflow selected) -->
+                <ScrollView x:Name="GraphScrollView"
+                            IsVisible="False"
+                            WidthRequest="300"
+                            BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}">
+                    <layout:WorkflowGraphLayout x:Name="WorkflowGraph"
+                                                Padding="12">
+                        <GraphicsView x:Name="GraphEdgeView"
+                                      InputTransparent="True" />
+                    </layout:WorkflowGraphLayout>
+                </ScrollView>
+
+                <!-- Graph splitter -->
+                <BoxView x:Name="GraphSplitter"
+                         Grid.Column="1"
+                         Color="{AppThemeBinding Light=#e0e0e0, Dark=#1e1e30}"
+                         WidthRequest="1"
+                         IsVisible="False" />
+
+                <!-- Chat Panel -->
+                <controls:ChatPanelView x:Name="ChatPanel"
+                                        Grid.Column="2"
+                                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0f0d1a}" />
+            </Grid>
+
+            <!-- Right splitter -->
+            <BoxView Grid.Column="1"
+                     Color="{AppThemeBinding Light=#e0e0e0, Dark=#1e1e30}"
+                     WidthRequest="1" />
+
+            <!-- Debug Panel -->
+            <controls:DebugPanelView x:Name="DebugPanel"
+                                     Grid.Column="2"
+                                     BackgroundColor="{AppThemeBinding Light=#fafafa, Dark=#12121e}" />
         </Grid>
 
-        <!-- Left splitter -->
-        <BoxView Grid.Row="1" Grid.Column="1"
-                 Color="{AppThemeBinding Light=#e0e0e0, Dark=#1e1e30}"
-                 WidthRequest="1" />
+        <!-- ===== PICKER OVERLAY ===== -->
+        <Border x:Name="PickerOverlay"
+                Grid.Row="1"
+                IsVisible="False"
+                StrokeShape="RoundRectangle 12,12,0,0"
+                Stroke="{AppThemeBinding Light=#e0e0e0, Dark=#2a2a3e}"
+                StrokeThickness="1"
+                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1a1a2e}"
+                VerticalOptions="End"
+                Margin="16,0,16,0"
+                Padding="0"
+                MaximumHeightRequest="320"
+                ZIndex="100">
+            <Grid RowDefinitions="44,*">
+                <!-- Overlay header -->
+                <Grid ColumnDefinitions="*,Auto" Padding="16,8">
+                    <Label Text="Select Agent or Workflow"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light=#1a1a2e, Dark=#f0f0f0}"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1"
+                            Text="&#x2715;"
+                            BackgroundColor="Transparent"
+                            TextColor="{StaticResource DevUI.TextMuted}"
+                            FontSize="14"
+                            Clicked="OnPickerDismissed"
+                            VerticalOptions="Center" />
+                </Grid>
 
-        <!-- ===== CHAT PANEL ===== -->
-        <controls:ChatPanelView x:Name="ChatPanel"
-                                Grid.Row="1" Grid.Column="2"
-                                BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0f0d1a}" />
-
-        <!-- Right splitter -->
-        <BoxView Grid.Row="1" Grid.Column="3"
-                 Color="{AppThemeBinding Light=#e0e0e0, Dark=#1e1e30}"
-                 WidthRequest="1" />
-
-        <!-- ===== DEBUG PANEL ===== -->
-        <controls:DebugPanelView x:Name="DebugPanel"
-                                 Grid.Row="1" Grid.Column="4"
-                                 BackgroundColor="{AppThemeBinding Light=#fafafa, Dark=#12121e}" />
+                <!-- Selector content -->
+                <controls:AgentSelectorView x:Name="SelectorView"
+                                            Grid.Row="1" />
+            </Grid>
+        </Border>
 
     </Grid>
 

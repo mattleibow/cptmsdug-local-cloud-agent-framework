@@ -1,5 +1,6 @@
 using Demo.Orchestrations;
 using Demo2.MauiAgent.Services;
+using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using Microsoft.Maui.AI.Agents.DevUI;
 using Microsoft.Maui.DevFlow.Agent;
@@ -32,9 +33,21 @@ public static class MauiProgram
 		builder.Services.AddSingleton<AIChatService>();
 		builder.Services.AddSingleton<IChatClient>(sp => sp.GetRequiredService<AIChatService>().ChatClient);
 
-		// Register DevUI with agent/workflow discovery from shared orchestrations
+		// Register standalone agents (same pattern as web app)
+		foreach (var agent in DemoWorkflows.StandaloneAgents)
+		{
+			builder.AddAIAgent(agent.Name, agent.SystemPrompt);
+		}
+
+		// Register all workflows (each in its own file, same as web app)
+		builder.AddSequentialWorkflow();
+		builder.AddConcurrentWorkflow();
+		builder.AddHandoffWorkflow();
+		builder.AddGroupChatWorkflow();
+
+		// Register DevUI with entities from shared definitions
 		builder.Services.AddMauiAgentDevUI();
-		RegisterDevUIEntities(builder.Services);
+		builder.Services.AddDemoDevUIEntities();
 
 		builder.Services.AddTransient<MainPage>();
 
@@ -45,9 +58,11 @@ public static class MauiProgram
 		return builder.Build();
 	}
 
-	private static void RegisterDevUIEntities(IServiceCollection services)
+	/// <summary>
+	/// Maps Demo.Orchestrations definitions into DevUI display entities.
+	/// </summary>
+	private static IServiceCollection AddDemoDevUIEntities(this IServiceCollection services)
 	{
-		// Register standalone agents from shared definitions
 		foreach (var agent in DemoWorkflows.StandaloneAgents)
 		{
 			services.AddDevUIAgent(new AgentInfo
@@ -59,7 +74,6 @@ public static class MauiProgram
 			});
 		}
 
-		// Register workflows from shared definitions
 		foreach (var wf in DemoWorkflows.Workflows)
 		{
 			services.AddDevUIWorkflow(new WorkflowInfo
@@ -77,5 +91,7 @@ public static class MauiProgram
 				}).ToList()
 			});
 		}
+
+		return services;
 	}
 }

@@ -118,6 +118,7 @@ public partial class AgentDevUIView : ContentView
                 ChatPanel.DemoPrompt = null;
                 ChatPanel.Placeholder = $"Ask {agent.Name}...";
                 GraphScrollView.IsVisible = false;
+                GraphSplitter.IsVisible = false;
                 break;
 
             case WorkflowInfo workflow:
@@ -132,12 +133,25 @@ public partial class AgentDevUIView : ContentView
                 // Show and configure the graph
                 WorkflowGraph.Workflow = workflow;
                 GraphScrollView.IsVisible = true;
+                GraphSplitter.IsVisible = true;
                 InitializeWorkflowNodes(workflow);
                 RefreshGraph();
                 break;
         }
 
+        // Dismiss picker overlay
+        PickerOverlay.IsVisible = false;
         ClearConversation();
+    }
+
+    private void OnPickerTapped(object? sender, EventArgs e)
+    {
+        PickerOverlay.IsVisible = !PickerOverlay.IsVisible;
+    }
+
+    private void OnPickerDismissed(object? sender, EventArgs e)
+    {
+        PickerOverlay.IsVisible = false;
     }
 
     private void RefreshGraph()

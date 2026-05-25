@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using System.Reflection;
 using Demo.Orchestrations;
 using Microsoft.Agents.AI;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 #pragma warning disable MAAIW001 // Experimental API
 
-namespace Demo1.BasicAgent.Workflows;
+namespace Demo.Orchestrations;
 
 public static class HandoffWorkflow
 {
