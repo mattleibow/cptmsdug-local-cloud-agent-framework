@@ -52,6 +52,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Microsoft.Maui.AI.Agents.DevUI\Microsoft.Maui.AI.Agents.DevUI.csproj" />
+		<ProjectReference Include="..\Demo.Orchestrations\Demo.Orchestrations.csproj" />
 	</ItemGroup>
 
 	<!-- WARNING: Embeds secrets.json into app binary. Local dev only. -->
