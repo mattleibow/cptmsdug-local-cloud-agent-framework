@@ -37,20 +37,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDevUIEntityRegistry, DevUIEntityRegistry>();
         return services;
     }
-
-    /// <summary>
-    /// Registers optional demo metadata (descriptions, demo prompts) for workflows.
-    /// This supplements auto-discovery with UI-only metadata not stored in the Workflow object.
-    /// </summary>
-    public static IServiceCollection AddDevUIWorkflowMetadata(
-        this IServiceCollection services,
-        string workflowId,
-        string? description = null,
-        string? demoPrompt = null)
-    {
-        services.AddSingleton(new WorkflowDemoMetadata(workflowId, description, demoPrompt));
-        return services;
-    }
 }
 
 /// <summary>
@@ -64,12 +50,6 @@ public interface IDevUIEntityRegistry
     /// <summary>Gets all registered workflows.</summary>
     IReadOnlyList<WorkflowInfo> Workflows { get; }
 }
-
-/// <summary>
-/// Optional UI metadata for a workflow (description, demo prompt).
-/// Supplements auto-discovery with data not stored in the Workflow object.
-/// </summary>
-public sealed record WorkflowDemoMetadata(string WorkflowId, string? Description, string? DemoPrompt);
 
 /// <summary>
 /// Captured keyed service keys from the IServiceCollection at registration time.
@@ -136,30 +116,6 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
         }
 
         Agents = agentInfos;
-
-        // Apply optional demo metadata (descriptions, demo prompts)
-        var metadataItems = serviceProvider.GetServices<WorkflowDemoMetadata>()?.ToList() ?? [];
-        foreach (var meta in metadataItems)
-        {
-            var idx = workflowInfos.FindIndex(w =>
-                string.Equals(w.Id, meta.WorkflowId, StringComparison.OrdinalIgnoreCase));
-            if (idx >= 0)
-            {
-                var old = workflowInfos[idx];
-                workflowInfos[idx] = new WorkflowInfo
-                {
-                    Id = old.Id,
-                    Name = old.Name,
-                    Description = meta.Description ?? old.Description,
-                    Kind = old.Kind,
-                    Executors = old.Executors,
-                    EdgeGroups = old.EdgeGroups,
-                    StartExecutorId = old.StartExecutorId,
-                    DemoPrompt = meta.DemoPrompt ?? old.DemoPrompt
-                };
-            }
-        }
-
         Workflows = workflowInfos;
     }
 

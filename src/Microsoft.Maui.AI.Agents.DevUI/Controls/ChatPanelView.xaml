@@ -50,10 +50,7 @@
             <CollectionView.EmptyView>
                 <controls:EmptyStateView
                     Title="{Binding EmptyTitle, Source={x:Reference self}}"
-                    Description="{Binding EmptyDescription, Source={x:Reference self}}"
-                    HowItWorks="{Binding EmptyHowItWorks, Source={x:Reference self}}"
-                    DemoPrompt="{Binding DemoPrompt, Source={x:Reference self}}"
-                    RunDemoCommand="{Binding RunDemoCommand, Source={x:Reference self}}" />
+                    Description="{Binding EmptyDescription, Source={x:Reference self}}" />
             </CollectionView.EmptyView>
         </CollectionView>
 

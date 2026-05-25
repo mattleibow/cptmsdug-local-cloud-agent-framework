@@ -23,15 +23,6 @@ public partial class ChatPanelView : ContentView
     public static readonly BindableProperty EmptyDescriptionProperty =
         BindableProperty.Create(nameof(EmptyDescription), typeof(string), typeof(ChatPanelView));
 
-    public static readonly BindableProperty EmptyHowItWorksProperty =
-        BindableProperty.Create(nameof(EmptyHowItWorks), typeof(string), typeof(ChatPanelView));
-
-    public static readonly BindableProperty DemoPromptProperty =
-        BindableProperty.Create(nameof(DemoPrompt), typeof(string), typeof(ChatPanelView));
-
-    public static readonly BindableProperty RunDemoCommandProperty =
-        BindableProperty.Create(nameof(RunDemoCommand), typeof(ICommand), typeof(ChatPanelView));
-
     public ObservableCollection<DevUIChatMessage>? Messages
     {
         get => (ObservableCollection<DevUIChatMessage>?)GetValue(MessagesProperty);
@@ -66,24 +57,6 @@ public partial class ChatPanelView : ContentView
     {
         get => (string?)GetValue(EmptyDescriptionProperty);
         set => SetValue(EmptyDescriptionProperty, value);
-    }
-
-    public string? EmptyHowItWorks
-    {
-        get => (string?)GetValue(EmptyHowItWorksProperty);
-        set => SetValue(EmptyHowItWorksProperty, value);
-    }
-
-    public string? DemoPrompt
-    {
-        get => (string?)GetValue(DemoPromptProperty);
-        set => SetValue(DemoPromptProperty, value);
-    }
-
-    public ICommand? RunDemoCommand
-    {
-        get => (ICommand?)GetValue(RunDemoCommandProperty);
-        set => SetValue(RunDemoCommandProperty, value);
     }
 
     public ChatPanelView()

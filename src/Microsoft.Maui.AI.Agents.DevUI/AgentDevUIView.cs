@@ -73,7 +73,6 @@ public partial class AgentDevUIView : ContentView
         ChatPanel.Messages = _messages;
         ChatPanel.IsSending = false;
         ChatPanel.SendCommand = new Command<string>(OnSendMessage);
-        ChatPanel.RunDemoCommand = new Command<string>(OnSendMessage);
 
         // Wire debug panel
         DebugPanel.Events = _events;
@@ -114,8 +113,6 @@ public partial class AgentDevUIView : ContentView
                 HeaderTitle.Text = agent.Name;
                 ChatPanel.EmptyTitle = agent.Name;
                 ChatPanel.EmptyDescription = agent.Description;
-                ChatPanel.EmptyHowItWorks = null;
-                ChatPanel.DemoPrompt = null;
                 ChatPanel.Placeholder = $"Ask {agent.Name}...";
                 GraphScrollView.IsVisible = false;
                 GraphSplitter.IsVisible = false;
@@ -126,8 +123,6 @@ public partial class AgentDevUIView : ContentView
                 HeaderTitle.Text = workflow.Name;
                 ChatPanel.EmptyTitle = workflow.Name;
                 ChatPanel.EmptyDescription = workflow.Description;
-                ChatPanel.EmptyHowItWorks = GetHowItWorks(workflow.Kind);
-                ChatPanel.DemoPrompt = workflow.DemoPrompt;
                 ChatPanel.Placeholder = $"Start {workflow.Name}...";
 
                 // Show and configure the graph
@@ -680,15 +675,6 @@ public partial class AgentDevUIView : ContentView
         try { return JsonSerializer.Serialize(args, new JsonSerializerOptions { WriteIndented = false }); }
         catch { return string.Join(", ", args.Select(kv => $"{kv.Key}: {kv.Value}")); }
     }
-
-    private static string GetHowItWorks(OrchestrationKind kind) => kind switch
-    {
-        OrchestrationKind.Sequential => "Agents execute one after another, each passing its output to the next.",
-        OrchestrationKind.Concurrent => "Multiple agents analyze in parallel, then a merger synthesizes results.",
-        OrchestrationKind.Handoff => "A dispatcher routes the request to the most appropriate specialist.",
-        OrchestrationKind.GroupChat => "Agents take turns contributing to a shared discussion over multiple rounds.",
-        _ => "Agents collaborate to produce a result."
-    };
 
     #endregion
 }

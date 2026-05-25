@@ -49,9 +49,6 @@ public class WorkflowInfo
 
     /// <summary>ID of the starting executor.</summary>
     public string? StartExecutorId { get; init; }
-
-    /// <summary>Example prompt to demonstrate this workflow.</summary>
-    public string? DemoPrompt { get; init; }
 }
 
 /// <summary>

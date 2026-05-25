@@ -67,20 +67,6 @@ public static class MauiProgram
 		// Register DevUI (auto-discovers agents and workflows from DI)
 		builder.Services.AddMauiAgentDevUI();
 
-		// Optional: demo prompts for the MAUI DevUI (not needed for discovery)
-		builder.Services.AddDevUIWorkflowMetadata("sequential-newsdesk",
-			"Reporter writes, Fact-Checker verifies, Editor polishes",
-			"Write a news article about a breakthrough in fusion energy");
-		builder.Services.AddDevUIWorkflowMetadata("concurrent-travel",
-			"Multiple specialists plan in parallel, coordinator assembles itinerary",
-			"Plan a 5-day trip to Tokyo for a food-loving couple");
-		builder.Services.AddDevUIWorkflowMetadata("handoff-helpdesk",
-			"Dispatcher routes tickets to the right IT specialist",
-			"My VPN keeps disconnecting every 10 minutes and I can't access the internal wiki");
-		builder.Services.AddDevUIWorkflowMetadata("groupchat-startup",
-			"Founder pitches, Investor challenges, Advisor mediates",
-			"Pitch an AI-powered personal finance app that uses on-device models for privacy");
-
 		builder.Services.AddTransient<MainPage>();
 
 #if DEBUG
