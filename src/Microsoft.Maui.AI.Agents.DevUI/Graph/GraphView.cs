@@ -108,11 +108,50 @@ public sealed class GraphView : ContentView
 
     private static MShapes.Path BuildEdgePath(GraphEdgeLayout edge)
     {
-        var figure = new PathFigure { StartPoint = new Point(edge.Waypoints[0].X, edge.Waypoints[0].Y) };
-        for (var i = 1; i < edge.Waypoints.Count; i++)
+        var pts = edge.Waypoints;
+        var figure = new PathFigure { StartPoint = new Point(pts[0].X, pts[0].Y) };
+
+        if (pts.Count == 2)
         {
-            figure.Segments.Add(new LineSegment { Point = new Point(edge.Waypoints[i].X, edge.Waypoints[i].Y) });
+            // Two points: use a cubic bezier with control points offset vertically
+            var p0 = pts[0];
+            var p1 = pts[1];
+            var midY = (p0.Y + p1.Y) / 2;
+            figure.Segments.Add(new BezierSegment
+            {
+                Point1 = new Point(p0.X, midY),
+                Point2 = new Point(p1.X, midY),
+                Point3 = new Point(p1.X, p1.Y),
+            });
         }
+        else
+        {
+            // Multiple waypoints: connect with bezier curves through midpoints
+            for (var i = 1; i < pts.Count - 1; i++)
+            {
+                var prev = pts[i - 1];
+                var curr = pts[i];
+                var next = pts[i + 1];
+                var midX = (curr.X + next.X) / 2;
+                var midY = (curr.Y + next.Y) / 2;
+                figure.Segments.Add(new BezierSegment
+                {
+                    Point1 = new Point(prev.X, curr.Y),
+                    Point2 = new Point(curr.X, curr.Y),
+                    Point3 = new Point(midX, midY),
+                });
+            }
+            // Final segment to last point
+            var last = pts[^1];
+            var secondLast = pts[^2];
+            figure.Segments.Add(new BezierSegment
+            {
+                Point1 = new Point(secondLast.X, last.Y),
+                Point2 = new Point(last.X, last.Y),
+                Point3 = new Point(last.X, last.Y),
+            });
+        }
+
         var geometry = new PathGeometry();
         geometry.Figures.Add(figure);
 
@@ -121,6 +160,7 @@ public sealed class GraphView : ContentView
             Data = geometry,
             Stroke = new SolidColorBrush(Color.FromArgb("#7A6FE8")),
             StrokeThickness = 1.5,
+            Fill = new SolidColorBrush(Colors.Transparent),
             InputTransparent = true,
         };
 

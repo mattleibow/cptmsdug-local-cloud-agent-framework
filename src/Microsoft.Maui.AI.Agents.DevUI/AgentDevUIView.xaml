@@ -74,13 +74,11 @@
 
             <!-- Left area: Graph + Chat stacked -->
             <Grid x:Name="LeftArea"
-                  ColumnDefinitions="Auto,1,*">
+                  ColumnDefinitions="*,1,*">
 
                 <!-- Workflow Graph Panel (visible only when workflow selected) -->
                 <graph:GraphView x:Name="WorkflowGraphView"
                                  IsVisible="False"
-                                 MinimumWidthRequest="280"
-                                 WidthRequest="320"
                                  BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}" />
 
                 <!-- Graph splitter -->
