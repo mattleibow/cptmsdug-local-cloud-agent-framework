@@ -22,10 +22,7 @@ var chatClient = new ChatClient(
 builder.Services.AddChatClient(chatClient);
 
 // Register standalone agents (direct chat)
-foreach (var agent in DemoWorkflows.StandaloneAgents)
-{
-    builder.AddAIAgent(agent.Name, agent.SystemPrompt);
-}
+builder.AddStandaloneAgents();
 
 // Register all workflows (each in its own file)
 builder.AddSequentialWorkflow();

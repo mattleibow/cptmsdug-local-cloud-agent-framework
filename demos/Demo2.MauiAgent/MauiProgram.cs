@@ -55,13 +55,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<AIChatService>();
 		builder.Services.AddSingleton<IChatClient>(sp => sp.GetRequiredService<AIChatService>().ChatClient);
 
-		// Register standalone agents (same pattern as web app)
-		foreach (var agent in DemoWorkflows.StandaloneAgents)
-		{
-			builder.AddAIAgent(agent.Name, agent.SystemPrompt);
-		}
+		// Register standalone agents
+		builder.AddStandaloneAgents();
 
-		// Register all workflows (each in its own file, same as web app)
+		// Register all workflows (each self-contained, same as web app)
 		builder.AddSequentialWorkflow();
 		builder.AddConcurrentWorkflow();
 		builder.AddHandoffWorkflow();
@@ -70,11 +67,19 @@ public static class MauiProgram
 		// Register DevUI (auto-discovers agents and workflows from DI)
 		builder.Services.AddMauiAgentDevUI();
 
-		// Register optional demo metadata (descriptions, demo prompts for UI)
-		foreach (var wf in DemoWorkflows.Workflows)
-		{
-			builder.Services.AddDevUIWorkflowMetadata(wf.Id, wf.Description, wf.DemoPrompt);
-		}
+		// Optional: demo prompts for the MAUI DevUI (not needed for discovery)
+		builder.Services.AddDevUIWorkflowMetadata("sequential-newsdesk",
+			"Reporter writes, Fact-Checker verifies, Editor polishes",
+			"Write a news article about a breakthrough in fusion energy");
+		builder.Services.AddDevUIWorkflowMetadata("concurrent-travel",
+			"Multiple specialists plan in parallel, coordinator assembles itinerary",
+			"Plan a 5-day trip to Tokyo for a food-loving couple");
+		builder.Services.AddDevUIWorkflowMetadata("handoff-helpdesk",
+			"Dispatcher routes tickets to the right IT specialist",
+			"My VPN keeps disconnecting every 10 minutes and I can't access the internal wiki");
+		builder.Services.AddDevUIWorkflowMetadata("groupchat-startup",
+			"Founder pitches, Investor challenges, Advisor mediates",
+			"Pitch an AI-powered personal finance app that uses on-device models for privacy");
 
 		builder.Services.AddTransient<MainPage>();
 
