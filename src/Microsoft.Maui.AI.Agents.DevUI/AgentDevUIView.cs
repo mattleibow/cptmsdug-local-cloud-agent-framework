@@ -111,6 +111,10 @@ public partial class AgentDevUIView : ContentView
                 ChatPanel.Placeholder = $"Ask {agent.Name}...";
                 WorkflowGraphView.IsVisible = false;
                 GraphSplitter.IsVisible = false;
+                LeftArea.ColumnDefinitions = new ColumnDefinitionCollection
+                {
+                    new ColumnDefinition(GridLength.Star),
+                };
                 break;
 
             case WorkflowInfo workflow:
@@ -123,6 +127,12 @@ public partial class AgentDevUIView : ContentView
                 // Show and configure the graph
                 WorkflowGraphView.IsVisible = true;
                 GraphSplitter.IsVisible = true;
+                LeftArea.ColumnDefinitions = new ColumnDefinitionCollection
+                {
+                    new ColumnDefinition(GridLength.Star),
+                    new ColumnDefinition(new GridLength(1, GridUnitType.Absolute)),
+                    new ColumnDefinition(GridLength.Star),
+                };
                 InitializeWorkflowNodes(workflow);
                 RefreshGraph();
                 break;
@@ -463,16 +473,28 @@ public partial class AgentDevUIView : ContentView
 
         await SetNodeRunning(triageNode, triage.Name);
 
+        // Build the list of specialist names for the dispatcher to choose from
+        var specialistList = string.Join(", ",
+            workflow.Executors.Skip(1).Select(e => e.Name));
+
         var triageMessages = new List<ChatMessage>
         {
-            new(ChatRole.System, triage.SystemPrompt ?? "Route the request."),
+            new(ChatRole.System, $"""
+                You are a routing dispatcher. Your ONLY job is to read the user's issue and respond
+                with EXACTLY the name of the specialist to route to. Do not say anything else.
+                Do not provide analysis, do not greet the user, do not explain your reasoning.
+                
+                Available specialists: {specialistList}
+                
+                Respond with only the specialist name, nothing else.
+                """),
             new(ChatRole.User, input)
         };
 
         var triageResult = await StreamResponseAsync(triage.Name, triageMessages, null);
         await SetNodeCompleted(triageNode);
 
-        // Determine route from triage result — look for specialist name anywhere in response
+        // Determine route — look for specialist name in the triage response
         var targetIdx = 1; // default to first specialist
         for (var i = 1; i < workflow.Executors.Count; i++)
         {
@@ -492,7 +514,7 @@ public partial class AgentDevUIView : ContentView
         var specMessages = new List<ChatMessage>
         {
             new(ChatRole.System, specialist.SystemPrompt ?? "Handle the customer issue."),
-            new(ChatRole.User, $"Customer issue: {input}\n\nTriage notes: {triageResult}")
+            new(ChatRole.User, $"Customer issue: {input}")
         };
 
         await StreamResponseAsync(specialist.Name, specMessages, null);

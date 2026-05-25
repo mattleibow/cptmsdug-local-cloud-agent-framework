@@ -74,7 +74,7 @@
 
             <!-- Left area: Graph + Chat stacked -->
             <Grid x:Name="LeftArea"
-                  ColumnDefinitions="*,1,*">
+                  ColumnDefinitions="*">
 
                 <!-- Workflow Graph Panel (visible only when workflow selected) -->
                 <graph:GraphView x:Name="WorkflowGraphView"
