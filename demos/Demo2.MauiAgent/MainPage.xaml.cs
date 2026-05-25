@@ -1,12 +1,18 @@
-using Demo2.MauiAgent.ViewModels;
+using Microsoft.Maui.AI.Agents.DevUI;
 
 namespace Demo2.MauiAgent;
 
 public partial class MainPage : ContentPage
 {
-	public MainPage(MainViewModel viewModel)
+	public MainPage(IDevUIEntityRegistry registry, IServiceProvider services)
 	{
-		InitializeComponent();
-		BindingContext = viewModel;
+		Title = "Agent Framework Dev UI";
+
+		var devUI = new AgentDevUIView
+		{
+			EntityRegistry = registry
+		};
+
+		Content = devUI;
 	}
 }

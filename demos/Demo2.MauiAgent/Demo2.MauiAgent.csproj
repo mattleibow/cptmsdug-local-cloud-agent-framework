@@ -48,7 +48,10 @@
 		<PackageReference Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.10.26274.3" />
 		<PackageReference Include="Microsoft.Maui.DevFlow.Logging" Version="0.1.0-preview.10.26274.3" />
 		<PackageReference Include="OpenAI" Version="2.10.0" />
-		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Microsoft.Maui.AI.Agents.DevUI\Microsoft.Maui.AI.Agents.DevUI.csproj" />
 	</ItemGroup>
 
 	<!-- WARNING: Embeds secrets.json into app binary. Local dev only. -->
