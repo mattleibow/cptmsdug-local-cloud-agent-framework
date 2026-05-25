@@ -2,13 +2,14 @@ namespace Microsoft.Maui.AI.Agents.DevUI.Layout;
 
 /// <summary>
 /// Draws edge lines and arrows between workflow nodes on a GraphicsView overlay.
+/// Uses bezier curves for a polished look.
 /// </summary>
 internal class GraphEdgeDrawable : IDrawable
 {
     private const double NodeWidth = 170;
     private const double NodeHeight = 60;
     private const double Padding = 10;
-    private const double ArrowSize = 6;
+    private const double ArrowSize = 7;
 
     public GraphLayout? Layout { get; set; }
     public bool IsDarkMode { get; set; }
@@ -18,12 +19,12 @@ internal class GraphEdgeDrawable : IDrawable
         if (Layout is null || Layout.Edges.Count == 0) return;
 
         var strokeColor = IsDarkMode
-            ? Color.FromArgb("#7c7c9c")
-            : Color.FromArgb("#9090b0");
+            ? Color.FromArgb("#9090b8")
+            : Color.FromArgb("#7070a0");
 
-        canvas.StrokeColor = strokeColor;
         canvas.StrokeSize = 2;
         canvas.StrokeLineCap = LineCap.Round;
+        canvas.StrokeLineJoin = LineJoin.Round;
 
         foreach (var edge in Layout.Edges)
         {
@@ -31,20 +32,77 @@ internal class GraphEdgeDrawable : IDrawable
             var toNode = Layout.Nodes.FirstOrDefault(n => n.Id == edge.TargetId);
             if (fromNode is null || toNode is null) continue;
 
+            // Use different colors for different edge types
+            var edgeColor = edge.IsBidirectional
+                ? Color.FromArgb(IsDarkMode ? "#8B5CF6" : "#7C3AED")
+                : edge.Label == "route"
+                    ? Color.FromArgb(IsDarkMode ? "#F59E0B" : "#D97706")
+                    : strokeColor;
+
+            canvas.StrokeColor = edgeColor;
+
             var fromCenterX = (float)(fromNode.X + Padding + NodeWidth / 2);
             var fromCenterY = (float)(fromNode.Y + Padding + NodeHeight / 2);
             var toCenterX = (float)(toNode.X + Padding + NodeWidth / 2);
             var toCenterY = (float)(toNode.Y + Padding + NodeHeight / 2);
 
-            // Calculate edge endpoints at node borders
             var (startX, startY) = GetBorderPoint(fromCenterX, fromCenterY, toCenterX, toCenterY);
             var (endX, endY) = GetBorderPoint(toCenterX, toCenterY, fromCenterX, fromCenterY);
 
-            canvas.DrawLine(startX, startY, endX, endY);
+            // Determine if this is a loopback edge (target above source)
+            if (edge.IsBidirectional || toNode.Y < fromNode.Y)
+            {
+                DrawCurvedEdge(canvas, startX, startY, endX, endY, isLoopback: true);
+            }
+            else if (Math.Abs(fromCenterX - toCenterX) > 10)
+            {
+                // Non-vertical edge: draw bezier curve
+                DrawCurvedEdge(canvas, startX, startY, endX, endY, isLoopback: false);
+            }
+            else
+            {
+                // Straight vertical edge
+                canvas.DrawLine(startX, startY, endX, endY);
+            }
 
             // Draw arrowhead
-            DrawArrow(canvas, startX, startY, endX, endY, strokeColor);
+            DrawArrow(canvas, startX, startY, endX, endY, edgeColor);
+
+            // Draw label if present
+            if (!string.IsNullOrEmpty(edge.Label))
+            {
+                var midX = (startX + endX) / 2;
+                var midY = (startY + endY) / 2;
+                canvas.FontSize = 9;
+                canvas.FontColor = edgeColor;
+                canvas.DrawString(edge.Label, midX - 20, midY - 12, 40, 12, HorizontalAlignment.Center, VerticalAlignment.Center);
+            }
         }
+    }
+
+    private static void DrawCurvedEdge(ICanvas canvas, float startX, float startY, float endX, float endY, bool isLoopback)
+    {
+        var path = new PathF();
+        path.MoveTo(startX, startY);
+
+        if (isLoopback)
+        {
+            // Loopback curve: arc to the right of the nodes
+            var offsetX = 60f;
+            var cp1X = startX + offsetX;
+            var cp1Y = startY;
+            var cp2X = endX + offsetX;
+            var cp2Y = endY;
+            path.CurveTo(cp1X, cp1Y, cp2X, cp2Y, endX, endY);
+        }
+        else
+        {
+            // Standard bezier: control points create a smooth S-curve
+            var midY = (startY + endY) / 2;
+            path.CurveTo(startX, midY, endX, midY, endX, endY);
+        }
+
+        canvas.DrawPath(path);
     }
 
     private static (float x, float y) GetBorderPoint(float cx, float cy, float targetX, float targetY)
@@ -57,7 +115,6 @@ internal class GraphEdgeDrawable : IDrawable
         if (Math.Abs(dx) < 0.01 && Math.Abs(dy) < 0.01)
             return (cx, cy);
 
-        // Use the ratio to determine which edge is hit
         var scaleX = Math.Abs(dx) > 0 ? halfW / Math.Abs(dx) : float.MaxValue;
         var scaleY = Math.Abs(dy) > 0 ? halfH / Math.Abs(dy) : float.MaxValue;
         var scale = Math.Min(scaleX, scaleY);

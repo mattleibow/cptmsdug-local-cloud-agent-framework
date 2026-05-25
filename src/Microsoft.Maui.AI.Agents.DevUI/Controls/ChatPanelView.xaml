@@ -16,11 +16,33 @@
                         ItemsUpdatingScrollMode="KeepLastItemInView">
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="local:DevUIChatMessage">
-                    <Grid Padding="12,4">
-                        <Border StrokeShape="RoundRectangle 12"
+                    <Grid Padding="12,4"
+                          ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+
+                        <!-- Avatar circle (left for assistant, hidden for user) -->
+                        <Border Grid.Column="0"
+                                StrokeShape="RoundRectangle 16"
+                                StrokeThickness="0"
+                                WidthRequest="32"
+                                HeightRequest="32"
+                                VerticalOptions="Start"
+                                BackgroundColor="{Binding AvatarColor}"
+                                IsVisible="{Binding IsUser, Converter={StaticResource InvertBooleanConverter}}">
+                            <Label Text="{Binding AvatarInitials}"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   TextColor="White"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center" />
+                        </Border>
+
+                        <!-- Message bubble -->
+                        <Border Grid.Column="1"
+                                StrokeShape="RoundRectangle 12"
                                 StrokeThickness="0"
                                 Padding="12,8"
-                                MaximumWidthRequest="500"
+                                MaximumWidthRequest="460"
                                 HorizontalOptions="{Binding IsUser, Converter={StaticResource MessageAlignConverter}}"
                                 BackgroundColor="{Binding IsUser, Converter={StaticResource MessageBackgroundConverter}}">
                             <VerticalStackLayout Spacing="4">
@@ -29,7 +51,7 @@
                                        IsVisible="{Binding AgentLabel, Converter={StaticResource NotNullOrEmptyConverter}}"
                                        FontSize="10"
                                        FontAttributes="Bold"
-                                       TextColor="{StaticResource DevUI.Primary}" />
+                                       TextColor="{Binding AvatarColor}" />
                                 <!-- Content -->
                                 <Label Text="{Binding Content}"
                                        FontSize="13"

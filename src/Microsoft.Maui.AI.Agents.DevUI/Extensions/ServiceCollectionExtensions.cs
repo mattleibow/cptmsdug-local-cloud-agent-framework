@@ -188,7 +188,7 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
                 }
                 catch { /* agent might not be directly resolvable */ }
 
-                return new ExecutorInfo { Id = id, Name = id, SystemPrompt = prompt };
+                return new ExecutorInfo { Id = id, Name = CleanExecutorName(id, registeredKey), SystemPrompt = prompt };
             })
             .ToList();
 
@@ -249,5 +249,29 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
             return EdgeGroupType.FanIn;
 
         return EdgeGroupType.Single;
+    }
+
+    /// <summary>
+    /// Cleans internal executor IDs (e.g. "sequential_newsdesk_reporter_c3d7e12be5b4...")
+    /// into human-readable names by stripping workflow prefix and GUID suffix,
+    /// then replacing underscores with spaces and title-casing.
+    /// </summary>
+    private static string CleanExecutorName(string executorId, string workflowKey)
+    {
+        var name = executorId;
+
+        // Strip trailing GUID (32 hex chars, no dashes)
+        if (name.Length > 32 && name[^32..].All(c => char.IsAsciiHexDigit(c)))
+            name = name[..^32].TrimEnd('_');
+
+        // Strip workflow prefix (with underscores)
+        var prefix = workflowKey.Replace('-', '_') + "_";
+        if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            name = name[prefix.Length..];
+
+        // Replace underscores with spaces and title-case
+        var words = name.Split('_', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(" ", words.Select(w =>
+            w.Length > 0 ? char.ToUpper(w[0]) + w[1..] : w));
     }
 }

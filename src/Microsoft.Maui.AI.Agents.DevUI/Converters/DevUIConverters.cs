@@ -49,7 +49,8 @@ internal sealed class MessageBackgroundConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
-        if (value?.ToString() == "user")
+        var isUser = value is true or "True" or "user";
+        if (isUser)
             return Color.FromArgb(isDark ? "#3b2e6b" : "#e8e0f5");
         return Color.FromArgb(isDark ? "#1e1e30" : "#f5f5fa");
     }
@@ -61,7 +62,10 @@ internal sealed class MessageBackgroundConverter : IValueConverter
 internal sealed class MessageAlignConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value?.ToString() == "user" ? LayoutOptions.End : LayoutOptions.Start;
+    {
+        var isUser = value is true or "True" or "user";
+        return isUser ? LayoutOptions.End : LayoutOptions.Start;
+    }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();

@@ -45,6 +45,38 @@ public sealed class DevUIChatMessage : INotifyPropertyChanged
 
     /// <summary>Whether this is a user message.</summary>
     public bool IsUser => Role == "user";
+
+    /// <summary>Initials for the avatar circle (1-2 chars).</summary>
+    public string AvatarInitials => IsUser ? "U" : GetInitials(AgentLabel ?? "AI");
+
+    /// <summary>Background color for the avatar circle, deterministic per agent name.</summary>
+    public Color AvatarColor => IsUser
+        ? Color.FromArgb("#643FB2")
+        : GetColorForName(AgentLabel ?? "AI");
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(['-', '_', ' '], StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{char.ToUpper(parts[0][0])}{char.ToUpper(parts[^1][0])}";
+        return name.Length >= 2
+            ? $"{char.ToUpper(name[0])}{char.ToUpper(name[1])}"
+            : name[..1].ToUpper();
+    }
+
+    private static readonly string[] s_avatarColors =
+    [
+        "#2563EB", "#7C3AED", "#DC2626", "#059669",
+        "#D97706", "#0891B2", "#BE185D", "#4F46E5",
+        "#15803D", "#9333EA", "#B91C1C", "#0D9488"
+    ];
+
+    private static Color GetColorForName(string name)
+    {
+        var hash = name.GetHashCode(StringComparison.OrdinalIgnoreCase);
+        var idx = Math.Abs(hash) % s_avatarColors.Length;
+        return Color.FromArgb(s_avatarColors[idx]);
+    }
 }
 
 /// <summary>
