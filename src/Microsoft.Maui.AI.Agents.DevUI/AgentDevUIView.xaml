@@ -79,7 +79,7 @@
                 <!-- Workflow Graph Panel (visible only when workflow selected) -->
                 <ScrollView x:Name="GraphScrollView"
                             IsVisible="False"
-                            WidthRequest="300"
+                            MinimumWidthRequest="280"
                             BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}">
                     <layout:WorkflowGraphLayout x:Name="WorkflowGraph"
                                                 Padding="12">

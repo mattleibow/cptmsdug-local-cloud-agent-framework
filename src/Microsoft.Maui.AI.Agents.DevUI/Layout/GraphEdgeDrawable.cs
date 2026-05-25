@@ -6,8 +6,8 @@ namespace Microsoft.Maui.AI.Agents.DevUI.Layout;
 /// </summary>
 internal class GraphEdgeDrawable : IDrawable
 {
-    private const double NodeWidth = 170;
-    private const double NodeHeight = 60;
+    private const double NodeWidth = 140;
+    private const double NodeHeight = 48;
     private const double Padding = 10;
     private const double ArrowSize = 7;
 

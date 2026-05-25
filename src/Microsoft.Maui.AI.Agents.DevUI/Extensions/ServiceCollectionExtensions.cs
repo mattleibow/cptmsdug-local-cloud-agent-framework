@@ -104,6 +104,10 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
             if (workflowPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
                 continue;
 
+            // Skip internal pseudo-agents (e.g. HandoffStart entry point)
+            if (key.Equals("HandoffStart", StringComparison.OrdinalIgnoreCase))
+                continue;
+
             try
             {
                 var agent = serviceProvider.GetRequiredKeyedService<AIAgent>(key);

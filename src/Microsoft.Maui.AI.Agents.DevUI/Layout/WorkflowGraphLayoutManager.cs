@@ -8,8 +8,8 @@ namespace Microsoft.Maui.AI.Agents.DevUI.Layout;
 /// </summary>
 internal class WorkflowGraphLayoutManager : ILayoutManager
 {
-    private const double NodeWidth = 170;
-    private const double NodeHeight = 60;
+    private const double NodeWidth = 140;
+    private const double NodeHeight = 48;
     private const double Padding = 10;
 
     private readonly WorkflowGraphLayout _layout;

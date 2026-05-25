@@ -1,278 +1,156 @@
+using Microsoft.Msagl.Core.Geometry;
+using Microsoft.Msagl.Core.Geometry.Curves;
+using Microsoft.Msagl.Core.Layout;
+using Microsoft.Msagl.Layout.Layered;
+using MsaglNode = Microsoft.Msagl.Core.Layout.Node;
+using MsaglEdge = Microsoft.Msagl.Core.Layout.Edge;
+
 namespace Microsoft.Maui.AI.Agents.DevUI;
 
 /// <summary>
-/// Graph layout engine that positions workflow nodes according to
-/// the orchestration topology. Designed for a 280-300px wide panel.
+/// Graph layout engine using MSAGL (Microsoft Automatic Graph Layout)
+/// for proper layered/Sugiyama graph positioning.
 /// </summary>
 internal static class GraphLayoutEngine
 {
-    private const double NodeWidth = 160;
-    private const double NodeHeight = 56;
-    private const double HGap = 24;
-    private const double VGap = 32;
-    private const double Padding = 12;
+    private const double NodeWidth = 140;
+    private const double NodeHeight = 48;
+    private const double Padding = 20;
 
     public static GraphLayout ComputeLayout(WorkflowInfo workflow)
     {
-        return workflow.Kind switch
+        if (workflow.Executors.Count == 0)
+            return new GraphLayout { Nodes = [], Edges = [] };
+
+        var graph = new GeometryGraph();
+        var msaglNodes = new Dictionary<string, MsaglNode>();
+
+        // Create MSAGL nodes
+        foreach (var exec in workflow.Executors)
         {
-            OrchestrationKind.Sequential => LayoutSequential(workflow),
-            OrchestrationKind.Concurrent => LayoutConcurrent(workflow),
-            OrchestrationKind.Handoff => LayoutHandoff(workflow),
-            OrchestrationKind.GroupChat => LayoutGroupChat(workflow),
-            _ => LayoutSequential(workflow)
-        };
-    }
+            var node = new MsaglNode(CurveFactory.CreateRectangle(NodeWidth, NodeHeight, new Microsoft.Msagl.Core.Geometry.Point(0, 0)), exec.Id);
+            graph.Nodes.Add(node);
+            msaglNodes[exec.Id] = node;
+        }
 
-    /// <summary>
-    /// Sequential: vertical chain centered
-    ///   [A]
-    ///    |
-    ///   [B]
-    ///    |
-    ///   [C]
-    /// </summary>
-    private static GraphLayout LayoutSequential(WorkflowInfo workflow)
-    {
-        var nodes = new List<LayoutNode>();
-        var edges = new List<LayoutEdge>();
-        var centerX = Padding;
+        // Create edges based on workflow topology
+        var edgeMeta = new List<(string src, string tgt, string? label, bool bidir)>();
 
-        for (var i = 0; i < workflow.Executors.Count; i++)
+        switch (workflow.Kind)
         {
-            var exec = workflow.Executors[i];
-            nodes.Add(new LayoutNode
-            {
-                Id = exec.Id,
-                Name = exec.Name,
-                X = centerX,
-                Y = Padding + i * (NodeHeight + VGap)
-            });
+            case OrchestrationKind.Sequential:
+                BuildSequentialEdges(workflow, edgeMeta);
+                break;
+            case OrchestrationKind.Concurrent:
+                BuildConcurrentEdges(workflow, edgeMeta);
+                break;
+            case OrchestrationKind.Handoff:
+                BuildHandoffEdges(workflow, edgeMeta);
+                break;
+            case OrchestrationKind.GroupChat:
+                BuildGroupChatEdges(workflow, edgeMeta);
+                break;
+            default:
+                BuildSequentialEdges(workflow, edgeMeta);
+                break;
+        }
 
-            if (i > 0)
+        // Add edges to MSAGL graph
+        foreach (var (src, tgt, _, _) in edgeMeta)
+        {
+            if (msaglNodes.TryGetValue(src, out var srcNode) && msaglNodes.TryGetValue(tgt, out var tgtNode))
             {
-                edges.Add(new LayoutEdge
-                {
-                    SourceId = workflow.Executors[i - 1].Id,
-                    TargetId = exec.Id
-                });
+                var edge = new MsaglEdge(srcNode, tgtNode);
+                graph.Edges.Add(edge);
             }
         }
 
+        // Run Sugiyama layered layout
+        var settings = new SugiyamaLayoutSettings
+        {
+            LayerSeparation = 60,
+            NodeSeparation = 40,
+            EdgeRoutingSettings = { EdgeRoutingMode = Microsoft.Msagl.Core.Routing.EdgeRoutingMode.Spline }
+        };
+
+        var layout = new LayeredLayout(graph, settings);
+        layout.Run();
+
+        // Extract positioned nodes (translate so min is at Padding)
+        var minX = graph.Nodes.Min(n => n.Center.X - NodeWidth / 2);
+        var minY = graph.Nodes.Min(n => n.Center.Y - NodeHeight / 2);
+
+        var layoutNodes = new List<LayoutNode>();
+        foreach (var exec in workflow.Executors)
+        {
+            var msaglNode = msaglNodes[exec.Id];
+            layoutNodes.Add(new LayoutNode
+            {
+                Id = exec.Id,
+                Name = exec.Name,
+                X = msaglNode.Center.X - NodeWidth / 2 - minX + Padding,
+                Y = msaglNode.Center.Y - NodeHeight / 2 - minY + Padding
+            });
+        }
+
+        // Convert edge metadata to layout edges
+        var layoutEdges = edgeMeta.Select(e => new LayoutEdge
+        {
+            SourceId = e.src,
+            TargetId = e.tgt,
+            Label = e.label,
+            IsBidirectional = e.bidir
+        }).ToList();
+
+        var maxX = layoutNodes.Max(n => n.X) + NodeWidth + Padding;
+        var maxY = layoutNodes.Max(n => n.Y) + NodeHeight + Padding;
+
         return new GraphLayout
         {
-            Nodes = nodes,
-            Edges = edges,
-            Width = NodeWidth + Padding * 2,
-            Height = Padding * 2 + nodes.Count * (NodeHeight + VGap) - VGap
+            Nodes = layoutNodes,
+            Edges = layoutEdges,
+            Width = maxX,
+            Height = maxY
         };
     }
 
-    /// <summary>
-    /// Concurrent: fan-out from implicit start, parallel nodes side-by-side,
-    /// then fan-in to merger.
-    ///
-    ///      [A] [B] [C]    (parallel, side-by-side or stacked if narrow)
-    ///        \  |  /
-    ///       [merger]
-    ///
-    /// With 300px width and 3 nodes: stack vertically with fan-in arrows.
-    /// </summary>
-    private static GraphLayout LayoutConcurrent(WorkflowInfo workflow)
+    private static void BuildSequentialEdges(WorkflowInfo workflow, List<(string, string, string?, bool)> edges)
     {
-        var nodes = new List<LayoutNode>();
-        var edges = new List<LayoutEdge>();
+        for (var i = 0; i < workflow.Executors.Count - 1; i++)
+            edges.Add((workflow.Executors[i].Id, workflow.Executors[i + 1].Id, null, false));
+    }
 
-        if (workflow.Executors.Count == 0)
-            return new GraphLayout { Nodes = nodes, Edges = edges };
+    private static void BuildConcurrentEdges(WorkflowInfo workflow, List<(string, string, string?, bool)> edges)
+    {
+        if (workflow.Executors.Count < 2) return;
 
-        var parallelCount = workflow.Executors.Count - 1;
+        // Last executor is the merger; all others fan into it
         var merger = workflow.Executors[^1];
-
-        // Can we fit side-by-side? Each node needs NodeWidth + HGap
-        var sideByWidth = parallelCount * NodeWidth + (parallelCount - 1) * HGap + Padding * 2;
-        var useSideBySide = sideByWidth <= 300 && parallelCount <= 3;
-
-        if (useSideBySide)
-        {
-            // Horizontal arrangement for parallel nodes
-            var startX = Padding;
-            for (var i = 0; i < parallelCount; i++)
-            {
-                var exec = workflow.Executors[i];
-                nodes.Add(new LayoutNode
-                {
-                    Id = exec.Id,
-                    Name = exec.Name,
-                    X = startX + i * (NodeWidth + HGap),
-                    Y = Padding
-                });
-                edges.Add(new LayoutEdge { SourceId = exec.Id, TargetId = merger.Id });
-            }
-
-            // Merger centered below
-            var mergerX = startX + (parallelCount - 1) * (NodeWidth + HGap) / 2.0;
-            nodes.Add(new LayoutNode
-            {
-                Id = merger.Id,
-                Name = merger.Name,
-                X = mergerX,
-                Y = Padding + NodeHeight + VGap * 1.5
-            });
-
-            return new GraphLayout
-            {
-                Nodes = nodes,
-                Edges = edges,
-                Width = sideByWidth,
-                Height = Padding * 2 + 2 * NodeHeight + VGap * 1.5
-            };
-        }
-        else
-        {
-            // Vertical stack with fan-in indicator
-            for (var i = 0; i < parallelCount; i++)
-            {
-                var exec = workflow.Executors[i];
-                nodes.Add(new LayoutNode
-                {
-                    Id = exec.Id,
-                    Name = exec.Name,
-                    X = Padding,
-                    Y = Padding + i * (NodeHeight + VGap * 0.6)
-                });
-                edges.Add(new LayoutEdge { SourceId = exec.Id, TargetId = merger.Id });
-            }
-
-            var mergerY = Padding + parallelCount * (NodeHeight + VGap * 0.6) + VGap * 0.5;
-            nodes.Add(new LayoutNode
-            {
-                Id = merger.Id,
-                Name = merger.Name,
-                X = Padding,
-                Y = mergerY
-            });
-
-            return new GraphLayout
-            {
-                Nodes = nodes,
-                Edges = edges,
-                Width = NodeWidth + Padding * 2,
-                Height = mergerY + NodeHeight + Padding
-            };
-        }
+        for (var i = 0; i < workflow.Executors.Count - 1; i++)
+            edges.Add((workflow.Executors[i].Id, merger.Id, null, false));
     }
 
-    /// <summary>
-    /// Handoff: dispatcher at top, branching arrows to specialists.
-    ///
-    ///       [dispatcher]
-    ///      /     |      \
-    ///   [net] [soft] [hard]
-    ///
-    /// If narrow, specialists stack vertically with indent.
-    /// </summary>
-    private static GraphLayout LayoutHandoff(WorkflowInfo workflow)
+    private static void BuildHandoffEdges(WorkflowInfo workflow, List<(string, string, string?, bool)> edges)
     {
-        var nodes = new List<LayoutNode>();
-        var edges = new List<LayoutEdge>();
+        if (workflow.Executors.Count < 2) return;
 
-        if (workflow.Executors.Count == 0)
-            return new GraphLayout { Nodes = nodes, Edges = edges };
-
-        var triage = workflow.Executors[0];
-        var specialists = workflow.Executors.Skip(1).ToList();
-
-        // Dispatcher centered at top
-        nodes.Add(new LayoutNode
-        {
-            Id = triage.Id,
-            Name = triage.Name,
-            X = Padding,
-            Y = Padding
-        });
-
-        // Specialists below with indent to show branching
-        var indent = 24.0;
-        for (var i = 0; i < specialists.Count; i++)
-        {
-            var spec = specialists[i];
-            nodes.Add(new LayoutNode
-            {
-                Id = spec.Id,
-                Name = spec.Name,
-                X = Padding + indent,
-                Y = Padding + (i + 1) * (NodeHeight + VGap)
-            });
-
-            edges.Add(new LayoutEdge
-            {
-                SourceId = triage.Id,
-                TargetId = spec.Id,
-                Label = "route"
-            });
-        }
-
-        return new GraphLayout
-        {
-            Nodes = nodes,
-            Edges = edges,
-            Width = NodeWidth + indent + Padding * 2,
-            Height = Padding * 2 + (specialists.Count + 1) * (NodeHeight + VGap) - VGap
-        };
+        // First executor is dispatcher; rest are specialists
+        var dispatcher = workflow.Executors[0];
+        for (var i = 1; i < workflow.Executors.Count; i++)
+            edges.Add((dispatcher.Id, workflow.Executors[i].Id, "route", false));
     }
 
-    /// <summary>
-    /// Group Chat: circular-style arrangement. Nodes in a column with
-    /// bidirectional arrows indicating round-robin discussion.
-    /// </summary>
-    private static GraphLayout LayoutGroupChat(WorkflowInfo workflow)
+    private static void BuildGroupChatEdges(WorkflowInfo workflow, List<(string, string, string?, bool)> edges)
     {
-        var nodes = new List<LayoutNode>();
-        var edges = new List<LayoutEdge>();
-
         var count = workflow.Executors.Count;
-        if (count == 0)
-            return new GraphLayout { Nodes = nodes, Edges = edges };
+        if (count < 2) return;
 
-        for (var i = 0; i < count; i++)
-        {
-            var exec = workflow.Executors[i];
-            nodes.Add(new LayoutNode
-            {
-                Id = exec.Id,
-                Name = exec.Name,
-                X = Padding,
-                Y = Padding + i * (NodeHeight + VGap)
-            });
-        }
-
-        // Forward and loopback edges
+        // Chain forward
         for (var i = 0; i < count - 1; i++)
-        {
-            edges.Add(new LayoutEdge
-            {
-                SourceId = workflow.Executors[i].Id,
-                TargetId = workflow.Executors[i + 1].Id
-            });
-        }
+            edges.Add((workflow.Executors[i].Id, workflow.Executors[i + 1].Id, null, false));
 
-        // Loopback from last to first (indicates rounds)
-        edges.Add(new LayoutEdge
-        {
-            SourceId = workflow.Executors[^1].Id,
-            TargetId = workflow.Executors[0].Id,
-            IsBidirectional = true,
-            Label = "next round"
-        });
-
-        return new GraphLayout
-        {
-            Nodes = nodes,
-            Edges = edges,
-            Width = NodeWidth + Padding * 2,
-            Height = Padding * 2 + count * (NodeHeight + VGap) - VGap
-        };
+        // Loopback from last to first
+        edges.Add((workflow.Executors[^1].Id, workflow.Executors[0].Id, "next round", true));
     }
 }
 
