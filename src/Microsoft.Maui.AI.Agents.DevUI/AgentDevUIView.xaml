@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Microsoft.Maui.AI.Agents.DevUI"
              xmlns:controls="clr-namespace:Microsoft.Maui.AI.Agents.DevUI.Controls"
-             xmlns:layout="clr-namespace:Microsoft.Maui.AI.Agents.DevUI.Layout"
+             xmlns:graph="clr-namespace:Microsoft.Maui.AI.Agents.DevUI.Graph"
              x:Class="Microsoft.Maui.AI.Agents.DevUI.AgentDevUIView"
              x:Name="self"
              x:DataType="local:AgentDevUIView"
@@ -77,13 +77,11 @@
                   ColumnDefinitions="Auto,1,*">
 
                 <!-- Workflow Graph Panel (visible only when workflow selected) -->
-                <ScrollView x:Name="GraphScrollView"
-                            IsVisible="False"
-                            MinimumWidthRequest="280"
-                            BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}">
-                    <layout:WorkflowGraphLayout x:Name="WorkflowGraph"
-                                                Padding="12" />
-                </ScrollView>
+                <graph:GraphView x:Name="WorkflowGraphView"
+                                 IsVisible="False"
+                                 MinimumWidthRequest="280"
+                                 WidthRequest="320"
+                                 BackgroundColor="{AppThemeBinding Light=#f8f7fc, Dark=#12101e}" />
 
                 <!-- Graph splitter -->
                 <BoxView x:Name="GraphSplitter"

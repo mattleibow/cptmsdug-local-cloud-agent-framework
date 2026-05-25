@@ -4,7 +4,7 @@ using System.Windows.Input;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.AI.Agents.DevUI.Controls;
-using Microsoft.Maui.AI.Agents.DevUI.Layout;
+using Microsoft.Maui.AI.Agents.DevUI.Graph;
 
 namespace Microsoft.Maui.AI.Agents.DevUI;
 
@@ -109,7 +109,7 @@ public partial class AgentDevUIView : ContentView
                 ChatPanel.EmptyTitle = agent.Name;
                 ChatPanel.EmptyDescription = agent.Description;
                 ChatPanel.Placeholder = $"Ask {agent.Name}...";
-                GraphScrollView.IsVisible = false;
+                WorkflowGraphView.IsVisible = false;
                 GraphSplitter.IsVisible = false;
                 break;
 
@@ -121,8 +121,7 @@ public partial class AgentDevUIView : ContentView
                 ChatPanel.Placeholder = $"Start {workflow.Name}...";
 
                 // Show and configure the graph
-                WorkflowGraph.Workflow = workflow;
-                GraphScrollView.IsVisible = true;
+                WorkflowGraphView.IsVisible = true;
                 GraphSplitter.IsVisible = true;
                 InitializeWorkflowNodes(workflow);
                 RefreshGraph();
@@ -146,34 +145,61 @@ public partial class AgentDevUIView : ContentView
 
     private void RefreshGraph()
     {
-        // Clear all children (edges + nodes)
-        foreach (var child in WorkflowGraph.Children.ToList())
+        if (_selectedWorkflow is null) return;
+
+        var workflow = _selectedWorkflow;
+        var nodes = workflow.Executors
+            .Select(e => new GraphNodeDef(e.Id, e.Name))
+            .ToList();
+
+        var edges = workflow.EdgeGroups
+            .SelectMany(g => g.Edges)
+            .Select(e => new GraphEdgeDef(e.SourceId, e.TargetId, e.Condition))
+            .ToList();
+
+        // If no edges defined, infer from orchestration kind
+        if (edges.Count == 0 && nodes.Count > 0)
         {
-            if (child is Controls.WorkflowNodeView oldView)
-                oldView.Node = null;
-        }
-        WorkflowGraph.Children.Clear();
-        WorkflowGraph.EdgeCount = 0;
-
-        if (WorkflowGraph.ComputedLayout is null) return;
-
-        var isDarkMode = Application.Current?.RequestedTheme == AppTheme.Dark;
-        var layout = WorkflowGraph.ComputedLayout;
-
-        // Add edge Path shapes first
-        var edgePaths = EdgePathBuilder.CreateEdgePaths(layout, isDarkMode);
-        foreach (var path in edgePaths)
-            WorkflowGraph.Children.Add(path);
-        WorkflowGraph.EdgeCount = edgePaths.Count;
-
-        // Add node views
-        foreach (var node in _workflowNodes)
-        {
-            var nodeView = new Controls.WorkflowNodeView { Node = node };
-            WorkflowGraph.Children.Add(nodeView);
+            edges = InferEdges(workflow.Kind, workflow.Executors);
         }
 
-        WorkflowGraph.InvalidateMeasure();
+        WorkflowGraphView.Graph = new GraphDefinition(nodes, edges);
+    }
+
+    private static List<GraphEdgeDef> InferEdges(OrchestrationKind kind, IReadOnlyList<ExecutorInfo> executors)
+    {
+        var edges = new List<GraphEdgeDef>();
+        if (executors.Count < 2) return edges;
+
+        switch (kind)
+        {
+            case OrchestrationKind.Sequential:
+                for (int i = 0; i < executors.Count - 1; i++)
+                    edges.Add(new GraphEdgeDef(executors[i].Id, executors[i + 1].Id));
+                break;
+
+            case OrchestrationKind.Concurrent:
+                // All workers fan into the last node (merger)
+                var merger = executors[^1];
+                for (int i = 0; i < executors.Count - 1; i++)
+                    edges.Add(new GraphEdgeDef(executors[i].Id, merger.Id));
+                break;
+
+            case OrchestrationKind.Handoff:
+                // First is dispatcher, rest are specialists
+                var dispatcher = executors[0];
+                for (int i = 1; i < executors.Count; i++)
+                    edges.Add(new GraphEdgeDef(dispatcher.Id, executors[i].Id));
+                break;
+
+            case OrchestrationKind.GroupChat:
+                // Ring: each talks to next, last talks to first
+                for (int i = 0; i < executors.Count; i++)
+                    edges.Add(new GraphEdgeDef(executors[i].Id, executors[(i + 1) % executors.Count].Id));
+                break;
+        }
+
+        return edges;
     }
 
     private void OnClearClicked(object? sender, EventArgs e) => ClearConversation();

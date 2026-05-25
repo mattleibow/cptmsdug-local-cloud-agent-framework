@@ -12,10 +12,6 @@
             Shell.NavBarIsVisible="False"
             ContentTemplate="{DataTemplate local:MainPage}"
             Route="MainPage" />
-        <ShellContent
-            Title="Graph Test"
-            ContentTemplate="{DataTemplate local:GraphTestPage}"
-            Route="GraphTestPage" />
     </TabBar>
 
 </Shell>
