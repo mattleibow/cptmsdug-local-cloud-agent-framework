@@ -35,19 +35,26 @@ public static class HandoffWorkflow
             docking station problems. Determine if RMA is needed. Keep responses under 200 words.
             """);
 
-        // HandoffWorkflowBuilder doesn't support WithName (MAF API gap),
-        // so we register the workflow directly as a keyed singleton.
+        // Register the workflow. The HandoffWorkflowBuilder creates an internal
+        // "HandoffStart" entry point. We name the workflow and expose it as an AIAgent.
         builder.Services.AddKeyedSingleton<Workflow>("handoff-helpdesk", (sp, _) =>
         {
             var dispatcher = sp.GetRequiredKeyedService<AIAgent>("handoff-helpdesk-dispatcher");
-            var specialists = new[] { "handoff-helpdesk-network", "handoff-helpdesk-software", "handoff-helpdesk-hardware" }
-                .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
-                .ToArray();
+            var network = sp.GetRequiredKeyedService<AIAgent>("handoff-helpdesk-network");
+            var software = sp.GetRequiredKeyedService<AIAgent>("handoff-helpdesk-software");
+            var hardware = sp.GetRequiredKeyedService<AIAgent>("handoff-helpdesk-hardware");
 
-            return AgentWorkflowBuilder.CreateHandoffBuilderWith(dispatcher)
-                .WithHandoffs(dispatcher, specialists)
+            var workflow = AgentWorkflowBuilder.CreateHandoffBuilderWith(dispatcher)
+                .WithHandoffs(dispatcher, [network, software, hardware])
+                .WithHandoffs([network, software, hardware], dispatcher)
                 .Build();
+
+            return workflow;
         });
+
+        // Also register the "HandoffStart" pseudo-agent to satisfy the workflow entry point
+        builder.Services.AddKeyedSingleton<AIAgent>("HandoffStart", (sp, _) =>
+            sp.GetRequiredKeyedService<AIAgent>("handoff-helpdesk-dispatcher"));
 
         builder.Services.AddKeyedSingleton<AIAgent>("handoff-helpdesk", (sp, _) =>
             sp.GetRequiredKeyedService<Workflow>("handoff-helpdesk").AsAIAgent(name: "handoff-helpdesk"));
