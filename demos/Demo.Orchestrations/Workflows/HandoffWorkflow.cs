@@ -3,6 +3,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
+using Microsoft.Extensions.AI;
+using Demo.Orchestrations.Tools;
 
 #pragma warning disable MAAIW001 // Experimental API
 
@@ -26,37 +28,57 @@ public static class HandoffWorkflow
             description: "IT help desk dispatcher that routes incoming issues to the right specialist.",
             chatClientServiceKey: null);
 
-        // The Description on each specialist becomes the description of the
-        // generated handoff_to_<n> tool, which is what the dispatcher uses to
-        // pick the right target. Make it specific.
-        builder.AddAIAgent(
-            name: "handoff-helpdesk-network",
-            instructions: """
-                You are a network support specialist. Troubleshoot VPN, Wi-Fi, DNS, firewall, and
-                connectivity issues. Provide step-by-step diagnostic instructions. Ask clarifying
-                questions if needed. Keep responses under 200 words.
-                """,
+        // Network specialist with KB search and system status tools
+        builder.AddAIAgent("handoff-helpdesk-network", (sp, key) => new ChatClientAgent(
+            sp.GetRequiredService<IChatClient>(),
+            name: key,
             description: "Network specialist. Handles VPN, Wi-Fi, connectivity, firewall, and DNS issues.",
-            chatClientServiceKey: null);
-
-        builder.AddAIAgent(
-            name: "handoff-helpdesk-software",
             instructions: """
-                You are a software support specialist. Help with application crashes, installation
-                problems, update failures, and licensing. Provide clear fix steps. Keep responses
-                under 200 words.
+                You are a network support specialist. Use the SearchKnowledgeBase tool to find
+                relevant solutions, and CheckSystemStatus to verify if there are known outages.
+                Provide step-by-step diagnostic instructions. If you cannot resolve the issue,
+                use CreateTicket to escalate. Keep responses under 200 words.
                 """,
+            tools: [
+                AIFunctionFactory.Create(HelpDeskTools.SearchKnowledgeBase),
+                AIFunctionFactory.Create(HelpDeskTools.CheckSystemStatus),
+                AIFunctionFactory.Create(HelpDeskTools.CreateTicket)
+            ]
+        ));
+
+        // Software specialist with KB search and ticket tools
+        builder.AddAIAgent("handoff-helpdesk-software", (sp, key) => new ChatClientAgent(
+            sp.GetRequiredService<IChatClient>(),
+            name: key,
             description: "Software specialist. Handles application crashes, installation, updates, and licensing.",
-            chatClientServiceKey: null);
-
-        builder.AddAIAgent(
-            name: "handoff-helpdesk-hardware",
             instructions: """
-                You are a hardware support specialist. Diagnose laptop, monitor, peripheral, and
-                docking station problems. Determine if RMA is needed. Keep responses under 200 words.
+                You are a software support specialist. Use SearchKnowledgeBase to find known fixes
+                for application issues. Help with crashes, installation problems, and updates.
+                Create a ticket with CreateTicket if the issue requires further investigation.
+                Keep responses under 200 words.
                 """,
+            tools: [
+                AIFunctionFactory.Create(HelpDeskTools.SearchKnowledgeBase),
+                AIFunctionFactory.Create(HelpDeskTools.CreateTicket)
+            ]
+        ));
+
+        // Hardware specialist with KB search and ticket tools
+        builder.AddAIAgent("handoff-helpdesk-hardware", (sp, key) => new ChatClientAgent(
+            sp.GetRequiredService<IChatClient>(),
+            name: key,
             description: "Hardware specialist. Handles laptop, monitor, peripheral, and docking-station problems.",
-            chatClientServiceKey: null);
+            instructions: """
+                You are a hardware support specialist. Use SearchKnowledgeBase to find diagnostic
+                steps for hardware issues. Diagnose laptop, monitor, peripheral, and docking
+                station problems. If RMA is needed, use CreateTicket to initiate the process.
+                Keep responses under 200 words.
+                """,
+            tools: [
+                AIFunctionFactory.Create(HelpDeskTools.SearchKnowledgeBase),
+                AIFunctionFactory.Create(HelpDeskTools.CreateTicket)
+            ]
+        ));
 
         builder.AddWorkflow("handoff-helpdesk", (sp, key) =>
         {

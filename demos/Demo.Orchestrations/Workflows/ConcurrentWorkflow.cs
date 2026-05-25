@@ -29,7 +29,11 @@ public static class ConcurrentWorkflow
             Keep to 250 words.
             """);
 
-        var parallelAgents = new[] { "concurrent-travel-food", "concurrent-travel-culture", "concurrent-travel-logistics" };
+        var parallelAgents = new[] {
+            "concurrent-travel-food",
+            "concurrent-travel-culture",
+            "concurrent-travel-logistics"
+        };
 
         builder.AddWorkflow("concurrent-travel", (sp, key) => AgentWorkflowBuilder.BuildConcurrent(
             workflowName: key,

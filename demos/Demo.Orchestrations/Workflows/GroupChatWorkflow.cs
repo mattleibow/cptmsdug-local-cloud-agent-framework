@@ -30,7 +30,11 @@ public static class GroupChatWorkflow
 
         builder.AddWorkflow("groupchat-startup", (sp, key) =>
         {
-            var participants = new[] { "groupchat-startup-founder", "groupchat-startup-investor", "groupchat-startup-advisor" }
+            var participants = new[] {
+                    "groupchat-startup-founder",
+                    "groupchat-startup-investor",
+                    "groupchat-startup-advisor"
+                }
                 .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
                 .ToArray();
 
