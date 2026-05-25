@@ -117,7 +117,7 @@ public partial class AgentDevUIView : ContentView
                 ChatPanel.EmptyHowItWorks = null;
                 ChatPanel.DemoPrompt = null;
                 ChatPanel.Placeholder = $"Ask {agent.Name}...";
-                WorkflowGraph.IsVisible = false;
+                GraphScrollView.IsVisible = false;
                 break;
 
             case WorkflowInfo workflow:
@@ -131,7 +131,7 @@ public partial class AgentDevUIView : ContentView
 
                 // Show and configure the graph
                 WorkflowGraph.Workflow = workflow;
-                WorkflowGraph.IsVisible = true;
+                GraphScrollView.IsVisible = true;
                 InitializeWorkflowNodes(workflow);
                 RefreshGraph();
                 break;
@@ -149,16 +149,21 @@ public partial class AgentDevUIView : ContentView
             GraphEdgeView.Invalidate();
         }
 
-        // Rebuild node views in the layout
-        // Remove old node views (keep GraphicsView at index 0)
+        // Remove old node views (keep GraphicsView at index 0), unhooking events
         while (WorkflowGraph.Children.Count > 1)
+        {
+            if (WorkflowGraph.Children[^1] is WorkflowNodeView oldView)
+                oldView.Node = null;
             WorkflowGraph.Children.RemoveAt(WorkflowGraph.Children.Count - 1);
+        }
 
         foreach (var node in _workflowNodes)
         {
             var nodeView = new WorkflowNodeView { Node = node };
             WorkflowGraph.Children.Add(nodeView);
         }
+
+        WorkflowGraph.InvalidateMeasure();
     }
 
     private void OnClearClicked(object? sender, EventArgs e) => ClearConversation();
@@ -250,7 +255,7 @@ public partial class AgentDevUIView : ContentView
             await RunOnUIAsync(() => _messages.Add(new DevUIChatMessage
             {
                 Role = "assistant",
-                Content = $"\u2716 Error: {ex.Message}"
+                Content = $"\u2717 Error: {ex.Message}"
             }));
         }
         finally
@@ -282,6 +287,7 @@ public partial class AgentDevUIView : ContentView
                 (_workflowNodes.Count > 0 && _workflowNodes[0].Id != workflow.Executors[0].Id))
             {
                 InitializeWorkflowNodes(workflow);
+                RefreshGraph();
             }
             else
             {
@@ -316,7 +322,7 @@ public partial class AgentDevUIView : ContentView
             await RunOnUIAsync(() => _messages.Add(new DevUIChatMessage
             {
                 Role = "assistant",
-                Content = $"\u2716 Error: {ex.Message}"
+                Content = $"\u2717 Error: {ex.Message}"
             }));
         }
         finally
@@ -554,7 +560,7 @@ public partial class AgentDevUIView : ContentView
                 foreach (var fc in update.Contents.OfType<FunctionCallContent>())
                 {
                     var argsJson = FormatArguments(fc.Arguments);
-                    AddEvent("function_call", $"\u26A1 {fc.Name}({argsJson})");
+                    AddEvent("function_call", $"fn: {fc.Name}({argsJson})");
                     AddTrace("Tool", fc.Name);
                     var toolCall = new DevUIToolCall
                     {

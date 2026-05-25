@@ -13,6 +13,7 @@
             Margin="16,8">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
             <Entry x:Name="MessageEntry"
+                   AutomationId="DevUI.MessageEntry"
                    Placeholder="{Binding Placeholder, Source={x:Reference self}}"
                    FontSize="14"
                    VerticalOptions="Center"
@@ -20,7 +21,8 @@
                    Completed="OnEntryCompleted" />
 
             <Button Grid.Column="1"
-                    Text="&#x27A4;"
+                    AutomationId="DevUI.SendButton"
+                    Text="&#x25B6;"
                     Style="{StaticResource DevUI.SendButton}"
                     VerticalOptions="Center"
                     IsEnabled="{Binding IsSending, Source={x:Reference self}, Converter={StaticResource InvertBooleanConverter}}"

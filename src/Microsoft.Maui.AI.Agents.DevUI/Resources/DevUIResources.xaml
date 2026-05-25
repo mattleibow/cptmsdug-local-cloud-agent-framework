@@ -18,17 +18,11 @@
 
     <!-- === Converters === -->
     <local:NodeBorderColorConverter x:Key="NodeBorderColorConverter" />
-    <local:NodeBackgroundConverter x:Key="NodeBackgroundConverter" />
     <local:MessageBackgroundConverter x:Key="MessageBackgroundConverter" />
     <local:MessageAlignConverter x:Key="MessageAlignConverter" />
-    <local:IsAssistantRoleConverter x:Key="IsAssistantRoleConverter" />
     <local:NotNullOrEmptyConverter x:Key="NotNullOrEmptyConverter" />
     <local:InvertBooleanConverter x:Key="InvertBooleanConverter" />
     <local:EventTypeColorConverter x:Key="EventTypeColorConverter" />
-    <local:RunningOpacityConverter x:Key="RunningOpacityConverter" />
-    <local:MarkdownCleanConverter x:Key="MarkdownCleanConverter" />
-    <local:TabActiveColorConverter x:Key="TabActiveColorConverter" />
-    <local:BoolToFontAttributeConverter x:Key="BoolToFontAttributeConverter" />
 
     <!-- === Base Styles === -->
     <Style x:Key="DevUI.SectionHeader" TargetType="Label">

@@ -33,6 +33,7 @@
                 <!-- Clear button -->
                 <Button Grid.Column="1"
                         Text="Clear"
+                        AutomationId="DevUI.ClearButton"
                         BackgroundColor="Transparent"
                         TextColor="{StaticResource DevUI.TextMuted}"
                         FontSize="11"
@@ -60,13 +61,15 @@
                                         Grid.Row="0" />
 
             <!-- Workflow Graph (below selector when a workflow is selected) -->
-            <layout:WorkflowGraphLayout x:Name="WorkflowGraph"
-                                        Grid.Row="1"
-                                        IsVisible="False">
-                <!-- Edge overlay (first child) -->
-                <GraphicsView x:Name="GraphEdgeView"
-                              InputTransparent="True" />
-            </layout:WorkflowGraphLayout>
+            <ScrollView Grid.Row="1"
+                        x:Name="GraphScrollView"
+                        IsVisible="False">
+                <layout:WorkflowGraphLayout x:Name="WorkflowGraph">
+                    <!-- Edge overlay (first child) -->
+                    <GraphicsView x:Name="GraphEdgeView"
+                                  InputTransparent="True" />
+                </layout:WorkflowGraphLayout>
+            </ScrollView>
         </Grid>
 
         <!-- Left splitter -->

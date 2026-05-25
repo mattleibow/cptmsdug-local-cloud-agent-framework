@@ -11,16 +11,19 @@
         <!-- Tab Bar -->
         <Grid ColumnDefinitions="*,*,*" Padding="4,0">
             <Button Text="Events"
+                    AutomationId="DevUI.Tab.Events"
                     Style="{StaticResource DevUI.TabButtonActive}"
                     x:Name="EventsTabBtn"
                     Clicked="OnEventsTabClicked" />
             <Button Grid.Column="1"
                     Text="Traces"
+                    AutomationId="DevUI.Tab.Traces"
                     Style="{StaticResource DevUI.TabButton}"
                     x:Name="TracesTabBtn"
                     Clicked="OnTracesTabClicked" />
             <Button Grid.Column="2"
                     Text="Tools"
+                    AutomationId="DevUI.Tab.Tools"
                     Style="{StaticResource DevUI.TabButton}"
                     x:Name="ToolsTabBtn"
                     Clicked="OnToolsTabClicked" />

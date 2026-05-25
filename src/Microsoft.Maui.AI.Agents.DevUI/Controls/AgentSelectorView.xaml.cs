@@ -117,14 +117,15 @@ public partial class AgentSelectorView : ContentView
 
         if (!string.IsNullOrEmpty(description))
         {
-            stack.Add(new Label
+            var descLabel = new Label
             {
                 Text = description,
                 FontSize = 10,
-                TextColor = Colors.Gray,
                 LineBreakMode = LineBreakMode.TailTruncation,
                 MaxLines = 2
-            });
+            };
+            descLabel.SetAppThemeColor(Label.TextColorProperty, Color.FromArgb("#777777"), Color.FromArgb("#999999"));
+            stack.Add(descLabel);
         }
 
         border.Content = stack;
@@ -135,7 +136,8 @@ public partial class AgentSelectorView : ContentView
             if (_selectedBorder is not null)
                 _selectedBorder.BackgroundColor = Colors.Transparent;
 
-            border.BackgroundColor = Color.FromArgb("#643FB220");
+            var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+            border.BackgroundColor = Color.FromArgb(isDark ? "#643FB240" : "#643FB215");
             _selectedBorder = border;
             onTap();
         };
