@@ -837,7 +837,7 @@ var chat = client.GetChatClient("phi-4-mini");`,
   });
 
   // Left: stacked provider boxes feeding into MAF
-  const lx = 0.6, lw = 3.5;
+  const lx = 0.6, lw = 3.0;
   const tiers = [
     { label: "OS Local",   note: "Apple · Phi Silica · Gemini Nano", color: C.coral },
     { label: "BYO Local",  note: "Foundry Local · ONNX · custom",     color: C.amber },
@@ -876,7 +876,7 @@ var chat = client.GetChatClient("phi-4-mini");`,
   });
 
   // MAF central block
-  const mx = ax + 0.55, mw = 3.6;
+  const mx = ax + 0.55, mw = 3.0;
   s.addShape("roundRect", {
     x: mx, y: 2.6, w: mw, h: 3.15,
     fill: { color: C.indigoDeep }, line: { color: C.indigoDeep },
@@ -903,10 +903,9 @@ var chat = client.GetChatClient("phi-4-mini");`,
     rectRadius: 0.1,
   });
   s.addText(
-`AIAgent agent = chatClient
-    .CreateAIAgent(
-        instructions: "You are a helpful assistant.",
-        name: "assistant");
+`AIAgent agent = chatClient.CreateAIAgent(
+    instructions: "You are helpful.",
+    name: "assistant");
 
 await foreach (var update in
     agent.RunStreamingAsync(prompt))
