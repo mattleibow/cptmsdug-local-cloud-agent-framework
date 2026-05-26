@@ -541,15 +541,15 @@ public partial class AgentDevUIView : ContentView
                         foreach (var fr in update.Contents.OfType<FunctionResultContent>())
                         {
                             var resultText = fr.Result?.ToString() ?? "";
-                            var truncated = resultText.Length > 500 ? resultText[..500] + "..." : resultText;
+                            var truncated = resultText.Length > 200 ? resultText[..200] + "..." : resultText;
                             AddEvent("function_result", $"fn: {fr.CallId} → {truncated}");
 
-                            // Match result to existing tool call by CallId
+                            // Match result to existing tool call by CallId (store FULL result)
                             await RunOnUIAsync(() =>
                             {
                                 var match = _toolCalls.FirstOrDefault(tc => tc.CallId == fr.CallId);
                                 if (match != null)
-                                    match.Result = truncated;
+                                    match.Result = resultText;
                             });
                         }
                     }
@@ -723,13 +723,13 @@ public partial class AgentDevUIView : ContentView
                 foreach (var fr in update.Contents.OfType<FunctionResultContent>())
                 {
                     var resultText = fr.Result?.ToString() ?? "";
-                    var truncated = resultText.Length > 500 ? resultText[..500] + "..." : resultText;
+                    var truncated = resultText.Length > 200 ? resultText[..200] + "..." : resultText;
                     AddEvent("function_result", $"fn: {fr.CallId} → {truncated}");
                     await RunOnUIAsync(() =>
                     {
                         var match = _toolCalls.FirstOrDefault(tc => tc.CallId == fr.CallId);
                         if (match != null)
-                            match.Result = truncated;
+                            match.Result = resultText;
                     });
                 }
             }

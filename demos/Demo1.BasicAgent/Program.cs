@@ -19,7 +19,10 @@ var chatClient = new ChatClient(
         new OpenAIClientOptions { Endpoint = azureOpenAIEndpoint })
     .AsIChatClient();
 
-builder.Services.AddChatClient(chatClient);
+builder.Services.AddChatClient(sp =>
+    chatClient.AsBuilder()
+        .UseFunctionInvocation()
+        .Build(sp));
 
 // Register standalone agents (direct chat)
 builder.AddStandaloneAgents();

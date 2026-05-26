@@ -130,6 +130,7 @@ public sealed class DevUITraceSpan
 public sealed class DevUIToolCall : INotifyPropertyChanged
 {
     private string? _result;
+    private bool _isExpanded;
 
     /// <summary>Function name.</summary>
     public required string Name { get; init; }
@@ -145,6 +146,13 @@ public sealed class DevUIToolCall : INotifyPropertyChanged
     {
         get => _result;
         set { _result = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Result))); }
+    }
+
+    /// <summary>Whether the card is expanded to show full args/result.</summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set { _isExpanded = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded))); }
     }
 
     /// <summary>When the tool was called.</summary>

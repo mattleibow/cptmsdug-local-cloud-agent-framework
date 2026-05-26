@@ -1,4 +1,5 @@
 using System.Collections;
+using Microsoft.Maui.AI.Agents.DevUI;
 
 namespace Microsoft.Maui.AI.Agents.DevUI.Controls;
 
@@ -56,5 +57,11 @@ public partial class DebugPanelView : ContentView
     {
         btn.TextColor = active ? Color.FromArgb("#643FB2") : Colors.Gray;
         btn.FontAttributes = active ? FontAttributes.Bold : FontAttributes.None;
+    }
+
+    private void OnToolCallTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is BindableObject bo && bo.BindingContext is DevUIToolCall tc)
+            tc.IsExpanded = !tc.IsExpanded;
     }
 }
