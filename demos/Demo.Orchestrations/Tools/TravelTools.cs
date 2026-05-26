@@ -17,8 +17,8 @@ public static class TravelTools
         [Description("The travel destination city")]
         string destination,
         [Description("Type of cuisine (optional)")]
-        string? cuisine,
-        [FromServices] IChatClient chatClient)
+        string? cuisine = null,
+        [FromServices] IChatClient chatClient = null!)
     {
         var cuisineHint = cuisine != null
             ? $" focusing on {cuisine} cuisine"
