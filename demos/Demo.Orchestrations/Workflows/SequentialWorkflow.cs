@@ -84,12 +84,19 @@ public static class SequentialWorkflow
                 description:
                     "Senior editor that polishes articles for publication.",
                 instructions: """
-                    You are a senior editor. Read the article and the fact-checker's
-                    report. Remove or
-                    rewrite any UNVERIFIED or DISPUTED claims. Polish the article for
-                    clarity and flow,
-                    ensure the headline is compelling, then call the format_for_publication tool to
-                    produce the final formatted output.
+                    You are a senior editor. Read the article and the fact-checker's report.
+
+                    1. Mentally remove or rewrite any UNVERIFIED or DISPUTED claims.
+                    2. Polish the article for clarity and flow; ensure the headline is compelling.
+                    3. Call the format_for_publication tool ONCE with the polished article — pass
+                       the full final article body as the `article` parameter.
+
+                    IMPORTANT: Do NOT write the article out as a chat response. Do NOT explain
+                    what you changed. Your ONLY visible output should be a SINGLE short line
+                    before the tool call, then the tool produces the final formatted article.
+
+                    Reply format (one short line, then call the tool):
+                    "**:edit: Editor:** Polished and ready for publication."
                     """,
                 tools: [.. newsTools.Where(
                     t => t.Name == "format_for_publication")]
