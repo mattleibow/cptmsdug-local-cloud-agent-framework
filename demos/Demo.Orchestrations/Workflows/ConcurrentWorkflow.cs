@@ -92,47 +92,59 @@ public static class ConcurrentWorkflow
 
         builder.AddWorkflow("concurrent-travel", (sp, key) =>
         {
+            // Capture the chat client so the aggregator can call the AI to synthesize
+            var chatClient = sp.GetRequiredService<IChatClient>();
+
             var workflow = AgentWorkflowBuilder.BuildConcurrent(
                 workflowName: key,
                 agents: parallelAgents
-                    .Select(n =>
-                        sp.GetRequiredKeyedService<AIAgent>(n))
+                    .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
                     .ToArray(),
                 aggregator: results =>
                 {
-                    // Combine specialist outputs into one response
-                    var sections = new[]
+                    // Build the labeled prompt: each specialist's last assistant message
+                    var labels = new[] { "FOOD EXPERT", "CULTURE EXPERT", "LOGISTICS EXPERT" };
+                    var promptBuilder = new System.Text.StringBuilder();
+                    for (int i = 0; i < results.Count && i < labels.Length; i++)
                     {
-                        "🍽️ Food & Dining",
-                        "🏛️ Culture & Sites",
-                        "🚗 Logistics & Routing"
-                    };
-                    var combined = new List<ChatMessage>();
-                    var summary = new System.Text.StringBuilder();
-                    summary.AppendLine("## Trip Planning Summary\n");
-
-                    for (int i = 0;
-                         i < results.Count && i < sections.Length;
-                         i++)
-                    {
-                        var agentMessages = results[i];
-                        var lastMsg = agentMessages.LastOrDefault(
-                            m => m.Role == ChatRole.Assistant);
-                        if (lastMsg != null)
-                        {
-                            summary.AppendLine($"### {sections[i]}");
-                            summary.AppendLine(lastMsg.Text);
-                            summary.AppendLine();
-                        }
+                        var last = results[i].LastOrDefault(m => m.Role == ChatRole.Assistant);
+                        if (last is null) continue;
+                        promptBuilder.AppendLine($"=== {labels[i]} ===");
+                        promptBuilder.AppendLine(last.Text);
+                        promptBuilder.AppendLine();
                     }
 
-                    combined.Add(new ChatMessage(
-                        ChatRole.Assistant, summary.ToString()));
-                    return combined;
+                    // True fan-in: use the AI to weave the 3 specialists' outputs into one plan
+                    var response = chatClient.GetResponseAsync(
+                    [
+                        new(ChatRole.System, """
+                            You are a senior travel coordinator. Three specialists (food, culture,
+                            logistics) have each provided independent input for a trip. Your job is
+                            to weave their inputs into ONE cohesive, well-formatted trip plan.
+
+                            Required output structure (use Markdown):
+                              # Trip Plan: <destination>
+                              ## Overview
+                              (2-3 sentence summary of the trip vibe)
+                              ## Day-by-Day Itinerary
+                              (suggested days that interleave attractions, meals, and transport
+                              — using the specialists' inputs as source material)
+                              ## Where to Stay
+                              ## Estimated Budget
+                              ## Quick Tips
+
+                            Do NOT just concatenate the specialists' outputs. Synthesize, prioritise,
+                            and remove duplicates. If a specialist mentioned something irrelevant,
+                            drop it. Aim for 350-500 words total.
+                            """),
+                        new(ChatRole.User, promptBuilder.ToString())
+                    ]).GetAwaiter().GetResult();
+
+                    return [new ChatMessage(ChatRole.Assistant, response.Text ?? "")];
                 });
             workflow.SetDescription(
-                "Food, culture, and logistics experts plan your trip in parallel, then " +
-                "results collected.");
+                "Food, culture, and logistics experts fan out, then a coordinator AI " +
+                "fans in to synthesise one polished trip plan.");
             return workflow;
         }).AddAsAIAgent();
     }
