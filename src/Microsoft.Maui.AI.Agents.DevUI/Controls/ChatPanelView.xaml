@@ -52,8 +52,8 @@
                                        FontSize="10"
                                        FontAttributes="Bold"
                                        TextColor="{Binding AvatarColor}" />
-                                <!-- Content -->
-                                <Label Text="{Binding Content}"
+                                <!-- Content (Markdown-rendered) -->
+                                <controls:MarkdownLabel Markdown="{Binding Content}"
                                        FontSize="13"
                                        TextColor="{AppThemeBinding Light=#1a1a2e, Dark=#f0f0f0}"
                                        LineBreakMode="WordWrap" />
