@@ -120,7 +120,7 @@ function darkBg(slide) {
   slide.background = { color: C.indigoDeep };
 }
 
-const TOTAL = 12;
+const TOTAL = 13;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLIDE 1 — TITLE
@@ -356,7 +356,7 @@ const TOTAL = 12;
 
   const providers = [
     ["Azure OpenAI / AI Foundry", C.indigoBright, "GPT-4o, GPT-5, o-series"],
-    ["AWS Bedrock",               C.amber,        "Claude, Llama, Titan, Mistral"],
+    ["AWS Bedrock",               C.amber,        "Nova, Claude, Llama, Mistral"],
     ["Google Vertex AI",          C.coral,        "Gemini Pro / Flash, Model Garden"],
   ];
   providers.forEach(([name, color, models], i) => {
@@ -387,7 +387,7 @@ const TOTAL = 12;
     fontSize: 11, bold: true, color: C.indigoBright, charSpacing: 2, fontFace: F.body,
   });
   s.addText(
-    "Frontier reasoning\nMassive context windows\nMultimodal · tool calling\nAlways up-to-date",
+    "Frontier reasoning\nMassive context windows\nMultimodal · tool calling\nLatest frontier models",
     {
       x: px + 0.2, y: 5.05, w: 3.2, h: 1.5,
       fontSize: 13, color: C.textDark, fontFace: F.body, paraSpaceAfter: 4,
@@ -447,9 +447,9 @@ const TOTAL = 12;
   s.addText(
 `var client = new AzureOpenAIClient(
     new Uri(endpoint),
-    new ApiKeyCredential(key));
+    new DefaultAzureCredential());
 
-var chat = client.GetChatClient("gpt-4o");
+var chat = client.GetChatClient("gpt-4.1");
 
 var response = await chat.CompleteChatAsync(
     "Summarise the agenda for today.");
@@ -505,27 +505,27 @@ Console.WriteLine(response.Value.Content[0].Text);`,
   // Three OS columns
   const cols = [
     {
-      icon: "",
       vendor: "Apple",
       product: "Apple Intelligence",
       api: "FoundationModels (Swift)",
-      detail: "iOS 26 · macOS Tahoe\n~3B params · multilingual\nLoRA adapters · tool calls\nServer fallback via Private Cloud Compute",
+      detail: "iOS 26 · macOS Tahoe\n~3B params · multilingual\nLoRA adapters · tool calls",
+      status: "✅  shipped",
       color: C.coral,
     },
     {
-      icon: "⊞",
       vendor: "Microsoft",
       product: "Phi Silica",
       api: "Windows AI APIs (.NET)",
-      detail: "Copilot+ PCs · NPU-accelerated\n~3.8B Phi-class model\nWinML / ONNX Runtime path\nSummarize, rewrite, generate",
+      detail: "Copilot+ PCs · NPU-accelerated\n~3.3B Phi-3.5-class model\nSummarize · rewrite · generate",
+      status: "🔜  maui-labs PR #178",
       color: C.indigoBright,
     },
     {
-      icon: "▲",
       vendor: "Google",
       product: "ML Kit + Gemini Nano",
       api: "ML Kit (Kotlin/Java)",
-      detail: "Android · AICore service\n~3B Gemini Nano\nSummarize · proofread · rewrite\nPrompt API (alpha)",
+      detail: "Android · AICore service\nCompact Gemini Nano\nSummarize · proofread · rewrite",
+      status: "🔬  .NET wrapper in scope",
       color: C.amber,
     },
   ];
@@ -535,7 +535,7 @@ Console.WriteLine(response.Value.Content[0].Text);`,
     const x = startX + i * (colW + gap);
     // card
     s.addShape("roundRect", {
-      x, y: 2.5, w: colW, h: 4.3,
+      x, y: 2.5, w: colW, h: 3.9,
       fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
       rectRadius: 0.12,
     });
@@ -566,10 +566,33 @@ Console.WriteLine(response.Value.Content[0].Text);`,
     });
     // detail
     s.addText(c.detail, {
-      x: x + 0.3, y: 4.45, w: colW - 0.6, h: 2.2,
+      x: x + 0.3, y: 4.45, w: colW - 0.6, h: 1.45,
       fontSize: 13, color: C.textDark, fontFace: F.body, paraSpaceAfter: 4,
     });
+    // status pill
+    s.addText(c.status, {
+      x: x + 0.3, y: 5.95, w: colW - 0.6, h: 0.35,
+      fontSize: 12, bold: true, color: c.color, fontFace: F.body,
+    });
   });
+
+  // Bottom unifier banner
+  s.addShape("roundRect", {
+    x: 0.6, y: 6.55, w: W - 1.2, h: 0.55,
+    fill: { color: C.indigoDeep }, line: { color: C.indigoDeep },
+    rectRadius: 0.08,
+  });
+  s.addText(
+    [
+      { text: "Unified for .NET MAUI:  ", options: { color: C.textOnDarkMuted } },
+      { text: "Microsoft.Maui.Essentials.AI", options: { color: C.coral, bold: true, fontFace: F.mono } },
+      { text: "  →  one IChatClient shape, Apple today · Phi Silica next · Gemini in scope", options: { color: C.textOnDarkMuted, italic: true } },
+    ],
+    {
+      x: 0.6, y: 6.55, w: W - 1.2, h: 0.55,
+      fontSize: 13, fontFace: F.body, align: "center", valign: "middle",
+    }
+  );
 
   addMotif(s);
   addFooter(s, 6, TOTAL);
@@ -604,21 +627,22 @@ Console.WriteLine(response.Value.Content[0].Text);`,
     rectRadius: 0.1,
   });
   s.addText(
-`import FoundationModels
+`using Microsoft.Maui.Essentials.AI;
+using Microsoft.Extensions.AI;
 
-let session = LanguageModelSession()
+IChatClient chat = new AppleIntelligenceChatClient();
 
-let result = try await session.respond(
-    to: "Summarise the agenda for today.")
+var response = await chat.GetResponseAsync(
+    "Summarise the agenda for today.");
 
-print(result.content)
+Console.WriteLine(response.Text);
 
 // ✈️  Works in airplane mode
 // 🆓  No API key, no per-token cost
 // 🔒  Data never leaves the device`,
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
-      fontSize: 14, fontFace: F.mono, color: C.textOnDark,
+      fontSize: 13, fontFace: F.mono, color: C.textOnDark,
       paraSpaceAfter: 2,
     }
   );
@@ -754,20 +778,21 @@ print(result.content)
     rectRadius: 0.1,
   });
   s.addText(
-`# Start a local model
+`# Start a local model from the CLI
 > foundry model run phi-4-mini
 
-# Same OpenAI shape, different base URL
-var client = new OpenAIClient(
-    new Uri("http://localhost:5273/v1"),
-    new ApiKeyCredential("local"));
+// Manager owns the dynamic endpoint + key
+var manager = await FoundryLocalManager
+    .StartModelAsync("phi-4-mini");
 
-var chat = client.GetChatClient("phi-4-mini");
-var response = await chat.CompleteChatAsync(
-    "Summarise the agenda for today.");`,
+var client = new OpenAIClient(
+    new ApiKeyCredential(manager.ApiKey),
+    new OpenAIClientOptions { Endpoint = manager.Endpoint });
+
+var chat = client.GetChatClient("phi-4-mini");`,
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
-      fontSize: 13, fontFace: F.mono, color: C.textOnDark,
+      fontSize: 12, fontFace: F.mono, color: C.textOnDark,
       paraSpaceAfter: 2,
     }
   );
@@ -886,7 +911,7 @@ var response = await chat.CompleteChatAsync(
 await foreach (var update in
     agent.RunStreamingAsync(prompt))
 {
-    Console.Write(update);
+    Console.Write(update.Text);
 }`,
     {
       x: rx + 0.2, y: 2.75, w: rw - 0.4, h: 2.85,
@@ -933,17 +958,17 @@ await foreach (var update in
   const items = [
     {
       tier: "OS Local",
-      code: `chatClient = new AppleIntelligence\n    .FoundationModelsClient();`,
+      code: `chatClient = new AppleIntelligenceChatClient();\n//  Microsoft.Maui.Essentials.AI`,
       color: C.coral,
     },
     {
       tier: "BYO Local",
-      code: `chatClient = new OpenAIClient(\n    new Uri("http://localhost:5273/v1"),\n    new ApiKeyCredential("local"))\n    .GetChatClient("phi-4-mini")\n    .AsIChatClient();`,
+      code: `chatClient = new OpenAIClient(\n    new ApiKeyCredential("not-used"),\n    new OpenAIClientOptions {\n      Endpoint = manager.Endpoint\n    })\n    .GetChatClient("phi-4-mini")\n    .AsIChatClient();`,
       color: C.amber,
     },
     {
       tier: "Cloud",
-      code: `chatClient = new AzureOpenAIClient(\n    endpoint, credential)\n    .GetChatClient("gpt-4o")\n    .AsIChatClient();`,
+      code: `chatClient = new AzureOpenAIClient(\n    endpoint, new DefaultAzureCredential())\n    .GetChatClient("gpt-4.1")\n    .AsIChatClient();`,
       color: C.indigoBright,
     },
   ];
@@ -984,7 +1009,99 @@ await foreach (var update in
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 12 — RULES OF THUMB + RESOURCES (closing, dark)
+// SLIDE 12 — BUILT WITH (maui-labs credits)
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = pptx.addSlide();
+  s.background = { color: C.bgLight };
+  eyebrow(s, "Built With", C.coral);
+  title(s, "Standing on the shoulders of maui-labs");
+
+  s.addText(
+    "Everything you saw runs on experimental packages from " +
+    "github.com/dotnet/maui-labs — try them, file issues, send PRs.",
+    {
+      x: 0.6, y: 1.75, w: 12, h: 0.55,
+      fontSize: 15, italic: true, color: C.textMuted, fontFace: F.body,
+    }
+  );
+
+  const pkgs = [
+    {
+      name: "Microsoft.Maui.Essentials.AI",
+      ver:  "11.0.0-preview.4",
+      desc: "Wraps Apple Intelligence as a standard IChatClient — same code path as your cloud client. No key, no cloud, works offline.",
+      color: C.coral,
+    },
+    {
+      name: "Microsoft.Maui.AI.Attributes",
+      ver:  "0.1.0-preview.10",
+      desc: "Source generator: decorate a C# method with [ExportAIFunction] and it becomes a strongly-typed AI tool. AOT-safe, zero reflection.",
+      color: C.indigoBright,
+    },
+    {
+      name: "Phi Silica  ·  PR #178",
+      ver:  "draft / in flight",
+      desc: "Brings the same IChatClient wrapper to Windows Copilot+ PCs via Windows AI APIs. Adds Phi Silica as another local provider.",
+      color: C.amber,
+    },
+    {
+      name: "Microsoft.Maui.DevFlow.Agent",
+      ver:  "0.1.0-preview.10",
+      desc: "Playwright-for-MAUI + MCP server. AI agents (Copilot, Claude) can drive the live app — this entire app was built that way.",
+      color: C.coral,
+    },
+  ];
+
+  // 2×2 grid
+  const cols = 2, rows = 2;
+  const cardW = 6.05, cardH = 1.9, gx = 0.3, gy = 0.2;
+  const startX = 0.6, startY = 2.45;
+
+  pkgs.forEach((p, i) => {
+    const cx = i % cols, cy = Math.floor(i / cols);
+    const x = startX + cx * (cardW + gx);
+    const y = startY + cy * (cardH + gy);
+
+    s.addShape("roundRect", {
+      x, y, w: cardW, h: cardH,
+      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
+      rectRadius: 0.1,
+    });
+    // left color bar
+    s.addShape("rect", {
+      x, y, w: 0.15, h: cardH,
+      fill: { color: p.color }, line: { color: p.color },
+    });
+    // package name
+    s.addText(p.name, {
+      x: x + 0.35, y: y + 0.2, w: cardW - 0.6, h: 0.45,
+      fontSize: 16, bold: true, color: C.textDark, fontFace: F.mono,
+    });
+    // version
+    s.addText(p.ver, {
+      x: x + 0.35, y: y + 0.65, w: cardW - 0.6, h: 0.35,
+      fontSize: 11, italic: true, color: p.color, fontFace: F.body,
+    });
+    // description
+    s.addText(p.desc, {
+      x: x + 0.35, y: y + 1.05, w: cardW - 0.6, h: cardH - 1.15,
+      fontSize: 13, color: C.textDark, fontFace: F.body,
+    });
+  });
+
+  // Bottom call-to-action
+  s.addText("github.com/dotnet/maui-labs", {
+    x: 0.6, y: 6.6, w: W - 1.2, h: 0.4,
+    fontSize: 15, bold: true, color: C.coral, fontFace: F.mono, align: "center",
+  });
+
+  addMotif(s);
+  addFooter(s, 12, TOTAL);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLIDE 13 — RULES OF THUMB + RESOURCES (closing, dark)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
