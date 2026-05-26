@@ -49,9 +49,32 @@ public sealed class GraphView : ContentView
             AnchorY = 0,
         };
 
-        Content = _surface;
+        // Zoom control buttons
+        var zoomIn = new Button { Text = "+", FontSize = 16, WidthRequest = 36, HeightRequest = 36, CornerRadius = 18, Padding = 0 };
+        var zoomOut = new Button { Text = "−", FontSize = 16, WidthRequest = 36, HeightRequest = 36, CornerRadius = 18, Padding = 0 };
+        var zoomFit = new Button { Text = "⊡", FontSize = 14, WidthRequest = 36, HeightRequest = 36, CornerRadius = 18, Padding = 0 };
+
+        zoomIn.Clicked += (_, _) => ZoomBy(1.3);
+        zoomOut.Clicked += (_, _) => ZoomBy(0.7);
+        zoomFit.Clicked += (_, _) => { _userHasPanned = false; CenterGraph(); };
+
+        var zoomPanel = new VerticalStackLayout
+        {
+            Spacing = 4,
+            HorizontalOptions = LayoutOptions.End,
+            VerticalOptions = LayoutOptions.End,
+            Margin = new Thickness(0, 0, 8, 8),
+        };
+        zoomPanel.Add(zoomIn);
+        zoomPanel.Add(zoomOut);
+        zoomPanel.Add(zoomFit);
+
+        var container = new Grid();
+        container.Add(_surface);
+        container.Add(zoomPanel);
+
+        Content = container;
         IsClippedToBounds = true;
-        BackgroundColor = Color.FromArgb("#0F0D1A");
 
         SizeChanged += (_, _) => { if (!_userHasPanned) CenterGraph(); };
 
@@ -62,6 +85,21 @@ public sealed class GraphView : ContentView
         var pinch = new PinchGestureRecognizer();
         pinch.PinchUpdated += OnPinchUpdated;
         GestureRecognizers.Add(pinch);
+    }
+
+    private void ZoomBy(double factor)
+    {
+        var newScale = Math.Clamp(_surface.Scale * factor, MinScale, MaxScale);
+        // Zoom around center of view
+        var viewWidth = Width > 0 ? Width : 400;
+        var viewHeight = Height > 0 ? Height : 400;
+        var cx = viewWidth / 2;
+        var cy = viewHeight / 2;
+        var ratio = newScale / _surface.Scale;
+        _surface.TranslationX = cx - (cx - _surface.TranslationX) * ratio;
+        _surface.TranslationY = cy - (cy - _surface.TranslationY) * ratio;
+        _surface.Scale = newScale;
+        _userHasPanned = true;
     }
 
     private static void OnGraphChanged(BindableObject bindable, object oldValue, object newValue)
@@ -105,7 +143,9 @@ public sealed class GraphView : ContentView
         {
             if (!result.Nodes.TryGetValue(node.Id, out var pos))
                 continue;
+            var isDark = Application.Current?.RequestedTheme != AppTheme.Light;
             var view = new GraphNodeView { Text = node.Label, DescriptionText = node.Description };
+            view.SetStatus("pending", isDark);
             _nodeViews[node.Id] = view;
             _surface.Add(view);
             _surface.SetBounds(view, new Rect(pos.X, pos.Y, pos.Width, pos.Height));
@@ -252,26 +292,14 @@ public sealed class GraphView : ContentView
         _surface.TranslationY = (viewHeight - _contentHeight * scale) / 2;
     }
 
-    private static readonly Color PendingColor = Color.FromArgb("#7A6FE8");
-    private static readonly Color RunningColor = Color.FromArgb("#FFB300");
-    private static readonly Color CompletedColor = Color.FromArgb("#4CAF50");
-    private static readonly Color FailedColor = Color.FromArgb("#F44336");
-    private static readonly Color SkippedColor = Color.FromArgb("#666666");
-
     /// <summary>Updates the visual status of a node by its ID.</summary>
     public void UpdateNodeStatus(string nodeId, string status)
     {
         if (!_nodeViews.TryGetValue(nodeId, out var view))
             return;
 
-        view.StatusColor = status switch
-        {
-            "running" => RunningColor,
-            "completed" => CompletedColor,
-            "failed" => FailedColor,
-            "skipped" => SkippedColor,
-            _ => PendingColor,
-        };
+        var isDark = Application.Current?.RequestedTheme != AppTheme.Light;
+        view.SetStatus(status, isDark);
     }
 
     private void OnPanUpdated(object? sender, PanUpdatedEventArgs e)

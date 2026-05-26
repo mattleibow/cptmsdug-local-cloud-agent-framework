@@ -3,39 +3,53 @@ using Microsoft.Maui.Controls.Shapes;
 namespace Microsoft.Maui.AI.Agents.DevUI.Graph;
 
 /// <summary>
-/// A simple Border-based node view: rounded rect, label, description tooltip, status color stripe.
+/// A simple Border-based node view: rounded rect with full background color for status,
+/// label (2-line wrap), and description subtitle.
 /// </summary>
 public sealed class GraphNodeView : Border
 {
     private readonly Label _label;
     private readonly Label _description;
-    private readonly BoxView _statusStripe;
+
+    // Status-based colors
+    private static readonly Color PendingBg = Color.FromArgb("#1B1830");
+    private static readonly Color PendingBgLight = Color.FromArgb("#F3F1FA");
+    private static readonly Color RunningBg = Color.FromArgb("#2D2200");
+    private static readonly Color RunningBgLight = Color.FromArgb("#FFF3D0");
+    private static readonly Color CompletedBg = Color.FromArgb("#0D2818");
+    private static readonly Color CompletedBgLight = Color.FromArgb("#D9F2E0");
+    private static readonly Color FailedBg = Color.FromArgb("#2D0A0A");
+    private static readonly Color FailedBgLight = Color.FromArgb("#FDDEDE");
+    private static readonly Color SkippedBg = Color.FromArgb("#1A1A1A");
+    private static readonly Color SkippedBgLight = Color.FromArgb("#EEEEEE");
+
+    private static readonly Color PendingStroke = Color.FromArgb("#7A6FE8");
+    private static readonly Color RunningStroke = Color.FromArgb("#FFB300");
+    private static readonly Color CompletedStroke = Color.FromArgb("#4CAF50");
+    private static readonly Color FailedStroke = Color.FromArgb("#F44336");
+    private static readonly Color SkippedStroke = Color.FromArgb("#666666");
+
+    private bool _isDarkMode = true;
 
     public GraphNodeView()
     {
         StrokeShape = new RoundRectangle { CornerRadius = 10 };
-        Stroke = new SolidColorBrush(Color.FromArgb("#7A6FE8"));
-        StrokeThickness = 1.5;
-        BackgroundColor = Color.FromArgb("#1B1830");
-        Padding = new Thickness(0);
-
-        _statusStripe = new BoxView
-        {
-            Color = Color.FromArgb("#7A6FE8"),
-            WidthRequest = 4,
-            HorizontalOptions = LayoutOptions.Start,
-        };
+        Stroke = new SolidColorBrush(PendingStroke);
+        StrokeThickness = 2;
+        BackgroundColor = PendingBg;
+        Padding = new Thickness(12, 8);
+        MinimumWidthRequest = 100;
 
         _label = new Label
         {
-            FontSize = 13,
+            FontSize = 12,
             FontAttributes = FontAttributes.Bold,
             TextColor = Colors.White,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
             HorizontalTextAlignment = TextAlignment.Center,
-            LineBreakMode = LineBreakMode.TailTruncation,
-            Padding = new Thickness(12, 4, 12, 0),
+            LineBreakMode = LineBreakMode.WordWrap,
+            MaxLines = 2,
         };
 
         _description = new Label
@@ -47,7 +61,7 @@ public sealed class GraphNodeView : Border
             HorizontalTextAlignment = TextAlignment.Center,
             LineBreakMode = LineBreakMode.TailTruncation,
             MaxLines = 1,
-            Padding = new Thickness(12, 0, 12, 4),
+            Margin = new Thickness(0, 2, 0, 0),
             IsVisible = false,
         };
 
@@ -59,18 +73,7 @@ public sealed class GraphNodeView : Border
         textStack.Add(_label);
         textStack.Add(_description);
 
-        var grid = new Grid
-        {
-            ColumnDefinitions =
-            {
-                new ColumnDefinition(GridLength.Auto),
-                new ColumnDefinition(GridLength.Star),
-            },
-        };
-        grid.Add(_statusStripe, 0, 0);
-        grid.Add(textStack, 1, 0);
-
-        Content = grid;
+        Content = textStack;
     }
 
     public string Text
@@ -86,16 +89,30 @@ public sealed class GraphNodeView : Border
         {
             _description.Text = value;
             _description.IsVisible = !string.IsNullOrEmpty(value);
-            // Adjust label padding when description is shown
-            _label.Padding = string.IsNullOrEmpty(value)
-                ? new Thickness(12, 4)
-                : new Thickness(12, 4, 12, 0);
         }
     }
 
+    public void SetStatus(string status, bool isDark)
+    {
+        _isDarkMode = isDark;
+        var (bg, stroke, textColor) = status switch
+        {
+            "running" => (isDark ? RunningBg : RunningBgLight, RunningStroke, isDark ? Colors.White : Colors.Black),
+            "completed" => (isDark ? CompletedBg : CompletedBgLight, CompletedStroke, isDark ? Colors.White : Colors.Black),
+            "failed" => (isDark ? FailedBg : FailedBgLight, FailedStroke, isDark ? Colors.White : Colors.Black),
+            "skipped" => (isDark ? SkippedBg : SkippedBgLight, SkippedStroke, isDark ? Color.FromArgb("#999999") : Color.FromArgb("#666666")),
+            _ => (isDark ? PendingBg : PendingBgLight, PendingStroke, isDark ? Colors.White : Colors.Black),
+        };
+
+        BackgroundColor = bg;
+        Stroke = new SolidColorBrush(stroke);
+        _label.TextColor = textColor;
+        _description.TextColor = isDark ? Color.FromArgb("#AAAAAA") : Color.FromArgb("#666666");
+    }
+
+    // Keep backward compat — defaults to dark mode
     public Color StatusColor
     {
-        get => _statusStripe.Color;
-        set => _statusStripe.Color = value;
+        set => Stroke = new SolidColorBrush(value);
     }
 }

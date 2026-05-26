@@ -44,17 +44,6 @@ public static class ConcurrentWorkflow
             chatClientServiceKey: null,
             lifetime: ServiceLifetime.Transient);
 
-        builder.AddAIAgent(
-            name: "concurrent-travel-coordinator",
-            instructions: """
-                You are a trip coordinator. Take multiple specialist recommendations and weave them
-                into a cohesive day-by-day itinerary. Resolve conflicts and balance the schedule.
-                Keep to 250 words.
-                """,
-            description: "Trip coordinator that synthesizes specialist input into a cohesive plan.",
-            chatClientServiceKey: null,
-            lifetime: ServiceLifetime.Transient);
-
         var parallelAgents = new[] {
             "concurrent-travel-food",
             "concurrent-travel-culture",
@@ -70,13 +59,28 @@ public static class ConcurrentWorkflow
                     .ToArray(),
                 aggregator: results =>
                 {
-                    var combined = results.SelectMany(r => r).ToList();
-                    combined.Add(new ChatMessage(
-                        ChatRole.User,
-                        "Synthesize the above specialist recommendations into a cohesive plan."));
+                    // Combine all specialist outputs into a single formatted response
+                    var sections = new[] { "🍽️ Food & Dining", "🏛️ Culture & Sites", "🚗 Logistics & Routing" };
+                    var combined = new List<ChatMessage>();
+                    var summary = new System.Text.StringBuilder();
+                    summary.AppendLine("## Trip Planning Summary\n");
+
+                    for (int i = 0; i < results.Count && i < sections.Length; i++)
+                    {
+                        var agentMessages = results[i];
+                        var lastMsg = agentMessages.LastOrDefault(m => m.Role == ChatRole.Assistant);
+                        if (lastMsg != null)
+                        {
+                            summary.AppendLine($"### {sections[i]}");
+                            summary.AppendLine(lastMsg.Text);
+                            summary.AppendLine();
+                        }
+                    }
+
+                    combined.Add(new ChatMessage(ChatRole.Assistant, summary.ToString()));
                     return combined;
                 });
-            workflow.SetDescription("Food, culture, and logistics experts plan in parallel, then a coordinator merges results.");
+            workflow.SetDescription("Food, culture, and logistics experts plan your trip in parallel, then results are collected.");
             return workflow;
         }).AddAsAIAgent();
     }

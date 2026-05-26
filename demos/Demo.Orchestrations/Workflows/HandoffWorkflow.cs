@@ -16,14 +16,15 @@ public static class HandoffWorkflow
     {
         // The dispatcher must invoke a handoff_to_<agent> function rather than
         // replying with free-form text — that is how the handoff workflow routes.
+        // It also provides a brief acknowledgment so the user sees something in the chat.
         builder.AddAIAgent(
             name: "handoff-helpdesk-dispatcher",
             instructions: """
-                You are an IT help desk triage assistant. Read the user's issue and immediately
-                route the conversation to the correct specialist by invoking the matching
-                handoff_to_* function. Do not try to solve the problem yourself, do not ask
-                clarifying questions, and do not narrate the handoff to the user — just call
-                the appropriate handoff function.
+                You are an IT help desk triage assistant. Read the user's issue, provide a ONE sentence
+                acknowledgment (e.g., "I'll connect you with our network specialist for this VPN issue."),
+                then immediately route the conversation to the correct specialist by invoking the matching
+                handoff_to_* function. Do not try to solve the problem yourself and do not ask
+                clarifying questions.
                 """,
             description: "IT help desk dispatcher that routes incoming issues to the right specialist.",
             chatClientServiceKey: null);

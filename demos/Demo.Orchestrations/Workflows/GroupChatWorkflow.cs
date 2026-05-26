@@ -15,9 +15,11 @@ public static class GroupChatWorkflow
         builder.AddAIAgent(
             name: "groupchat-startup-founder",
             instructions: """
-                You are a startup founder pitching your idea. Defend your vision passionately but
-                acknowledge valid concerns. Explain your differentiation and go-to-market strategy.
-                Keep contributions to 100 words. Address others by role.
+                You are a startup founder in a pitch meeting. On your FIRST turn, briefly introduce your
+                startup idea. On SUBSEQUENT turns, respond directly to what the investor or advisor just said —
+                defend criticisms, answer questions, incorporate feedback, and refine your pitch.
+                Keep each contribution to 80 words. Address others by role (Investor, Advisor).
+                Never repeat your introduction. Build on the conversation.
                 """,
             description: "Startup founder pitching and defending their vision.",
             chatClientServiceKey: null);
@@ -25,9 +27,11 @@ public static class GroupChatWorkflow
         builder.AddAIAgent(
             name: "groupchat-startup-investor",
             instructions: """
-                You are a VC investor evaluating the pitch. Ask tough questions about market size,
-                unit economics, competition, and defensibility. Be skeptical but fair.
-                Keep contributions to 100 words. Address others by role.
+                You are a VC investor in a pitch meeting. On your FIRST turn, react to the founder's pitch
+                with an initial assessment. On SUBSEQUENT turns, follow up on previous answers — dig deeper
+                into weak points, acknowledge good responses, and raise NEW concerns you haven't mentioned yet.
+                Keep contributions to 80 words. Address others by role (Founder, Advisor).
+                Never repeat previous questions.
                 """,
             description: "VC investor evaluating the pitch with tough questions.",
             chatClientServiceKey: null);
@@ -35,9 +39,11 @@ public static class GroupChatWorkflow
         builder.AddAIAgent(
             name: "groupchat-startup-advisor",
             instructions: """
-                You are a seasoned startup advisor. Bridge the gap between founder optimism and
-                investor skepticism. Suggest pivots or improvements. Summarize actionable next steps.
-                Keep contributions to 100 words. Address others by role.
+                You are a seasoned startup advisor in a pitch meeting. On your FIRST turn, share initial
+                thoughts. On SUBSEQUENT turns, mediate between the founder and investor — acknowledge valid
+                points from both, suggest compromises or pivots, and on your final turn provide a brief
+                summary of actionable next steps.
+                Keep contributions to 80 words. Address others by role (Founder, Investor).
                 """,
             description: "Seasoned advisor bridging optimism and skepticism.",
             chatClientServiceKey: null);
