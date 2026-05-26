@@ -23,21 +23,15 @@ public static class GroupChatWorkflow
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
                 description:
-                    "Startup founder pitching and defending " +
-                    "their vision.",
+                    "Startup founder pitching and defending their vision.",
                 instructions: """
-                    You are a startup founder in a pitch
-                    meeting. On your FIRST turn, briefly
-                    introduce your startup idea. On SUBSEQUENT
-                    turns, respond directly to what the investor
-                    or advisor just said — defend criticisms,
-                    answer questions, incorporate feedback, and
-                    refine your pitch. You can use
-                    lookup_market_data to back up claims with
-                    real numbers. Keep each contribution to 80
-                    words. Address others by role (Investor,
-                    Advisor). Never repeat your introduction.
-                    Build on the conversation.
+                    You are a startup founder in a pitch meeting. On your FIRST turn, briefly
+                    introduce your startup idea. On SUBSEQUENT turns, respond directly to what the
+                    investor or advisor just said — defend criticisms, answer questions, incorporate
+                    feedback, and refine your pitch. You can use lookup_market_data to back up
+                    claims
+                    with real numbers. Keep each contribution to 80 words. Address others by role
+                    (Investor, Advisor). Never repeat your introduction. Build on the conversation.
                     """,
                 tools: [.. startupTools.Where(
                     t => t.Name == "lookup_market_data")]
@@ -49,21 +43,15 @@ public static class GroupChatWorkflow
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
                 description:
-                    "VC investor evaluating the pitch with " +
-                    "tough questions.",
+                    "VC investor evaluating the pitch with tough questions.",
                 instructions: """
-                    You are a VC investor in a pitch meeting.
-                    On your FIRST turn, react to the founder's
-                    pitch with an initial assessment. On
-                    SUBSEQUENT turns, follow up on previous
-                    answers — dig deeper into weak points,
-                    acknowledge good responses, and raise NEW
-                    concerns you haven't mentioned yet. Use
-                    estimate_unit_economics and search_competitors
-                    to challenge claims with data. Keep
-                    contributions to 80 words. Address others
-                    by role (Founder, Advisor). Never repeat
-                    previous questions.
+                    You are a VC investor in a pitch meeting. On your FIRST turn, react to the
+                    founder's pitch with an initial assessment. On SUBSEQUENT turns, follow up on
+                    previous answers — dig deeper into weak points, acknowledge good responses, and
+                    raise NEW concerns you haven't mentioned yet. Use estimate_unit_economics and
+                    search_competitors to challenge claims with data. Keep contributions to
+                    80 words.
+                    Address others by role (Founder, Advisor). Never repeat previous questions.
                     """,
                 tools: [.. startupTools.Where(t =>
                     t.Name is "estimate_unit_economics"
@@ -76,20 +64,14 @@ public static class GroupChatWorkflow
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
                 description:
-                    "Seasoned advisor bridging optimism and " +
-                    "skepticism.",
+                    "Seasoned advisor bridging optimism and skepticism.",
                 instructions: """
-                    You are a seasoned startup advisor in a
-                    pitch meeting. On your FIRST turn, share
-                    initial thoughts. On SUBSEQUENT turns,
-                    mediate between the founder and investor —
-                    acknowledge valid points from both, suggest
-                    compromises or pivots, and on your final
-                    turn provide a brief summary of actionable
-                    next steps. You can use lookup_market_data
-                    to ground recommendations in data. Keep
-                    contributions to 80 words. Address others
-                    by role (Founder, Investor).
+                    You are a seasoned startup advisor in a pitch meeting. On your FIRST turn, share
+                    initial thoughts. On SUBSEQUENT turns, mediate between the founder and investor —
+                    acknowledge valid points from both, suggest compromises or pivots, and on your
+                    final turn provide a brief summary of actionable next steps. You can use
+                    lookup_market_data to ground recommendations in data. Keep contributions to 80
+                    words. Address others by role (Founder, Investor).
                     """,
                 tools: [.. startupTools.Where(
                     t => t.Name == "lookup_market_data")]
@@ -115,8 +97,7 @@ public static class GroupChatWorkflow
                 .AddParticipants(participants)
                 .WithName(key)
                 .WithDescription(
-                    "Founder pitches, investor challenges, " +
-                    "advisor mediates — 3 rounds.")
+                    "Founder pitches, investor challenges, advisor mediates — 3 rounds.")
                 .Build();
         }).AddAsAIAgent();
     }

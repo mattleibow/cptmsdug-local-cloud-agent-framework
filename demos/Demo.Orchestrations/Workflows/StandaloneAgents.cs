@@ -17,8 +17,7 @@ public static class StandaloneAgents
                 surprising twists.
                 """,
             description:
-                "Creative storyteller that writes imaginative " +
-                "short stories with vivid language.",
+                "Creative storyteller that writes imaginative short stories with vivid language.",
             chatClientServiceKey: null);
 
         builder.AddAIAgent(
@@ -30,8 +29,7 @@ public static class StandaloneAgents
                 Keep explanations concise and practical.
                 """,
             description:
-                "Coding mentor that explains concepts clearly " +
-                "and helps debug code.",
+                "Coding mentor that explains concepts clearly and helps debug code.",
             chatClientServiceKey: null);
     }
 }

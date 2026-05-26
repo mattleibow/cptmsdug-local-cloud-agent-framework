@@ -10,9 +10,8 @@ namespace Demo.Orchestrations.Tools;
 /// </summary>
 public static class HelpDeskTools
 {
-    [Description(
-        "Searches the internal IT knowledge base for solutions " +
-        "to common problems. Returns matching articles.")]
+    [Description("Searches the internal IT knowledge base for solutions to common " +
+        "problems. Returns matching articles.")]
     [ExportAIFunction("search_knowledge_base")]
     public static async Task<string> SearchKnowledgeBase(
         string issue,
@@ -34,9 +33,8 @@ public static class HelpDeskTools
         return response.Text ?? $"KB-0000: No match found for \"{issue}\"";
     }
 
-    [Description(
-        "Creates a support ticket in the ticketing system. " +
-        "Returns the ticket ID for tracking.")]
+    [Description("Creates a support ticket in the ticketing system. Returns the ticket " +
+        "ID for tracking.")]
     [ExportAIFunction("create_ticket")]
     public static string CreateTicket(
         string summary, string priority, string assignedTeam)
@@ -59,9 +57,7 @@ public static class HelpDeskTools
             """;
     }
 
-    [Description(
-        "Checks the current system status for known outages " +
-        "or maintenance windows.")]
+    [Description("Checks the current system status for known outages or maintenance windows.")]
     [ExportAIFunction("check_system_status")]
     public static async Task<string> CheckSystemStatus(
         [FromServices] IChatClient chatClient)
@@ -69,11 +65,10 @@ public static class HelpDeskTools
         var response = await chatClient.GetResponseAsync(
         [
             new(ChatRole.System, """
-                You are a system status dashboard. Generate a
-                realistic IT status report showing 5-7 services
-                (Email, VPN, Teams, SharePoint, Azure DevOps,
-                etc.) with most operational (✓) and 1-2 degraded
-                (⚠) or down (✗). Include a timestamp. Be concise.
+                You are a system status dashboard. Generate a realistic IT status report showing 5-7
+                services (Email, VPN, Teams, SharePoint, Azure DevOps, etc.) with most
+                operational (✓)
+                and 1-2 degraded (⚠) or down (✗). Include a timestamp. Be concise.
                 """),
             new(ChatRole.User, "Show current system status")
         ],

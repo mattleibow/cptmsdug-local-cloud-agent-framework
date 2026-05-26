@@ -25,19 +25,14 @@ public static class HandoffWorkflow
         builder.AddAIAgent(
             name: "handoff-helpdesk-dispatcher",
             instructions: """
-                You are an IT help desk triage assistant. Read
-                the user's issue, provide a ONE sentence
-                acknowledgment (e.g., "I'll connect you with
-                our network specialist for this VPN issue."),
-                then immediately route the conversation to the
-                correct specialist by invoking the matching
-                handoff_to_* function. Do not try to solve the
-                problem yourself and do not ask clarifying
-                questions.
+                You are an IT help desk triage assistant. Read the user's issue, provide a ONE
+                sentence acknowledgment (e.g., "I'll connect you with our network specialist for
+                this VPN issue."), then immediately route the conversation to the correct specialist
+                by invoking the matching handoff_to_* function. Do not try to solve the problem
+                yourself and do not ask clarifying questions.
                 """,
             description:
-                "IT help desk dispatcher that routes incoming " +
-                "issues to the right specialist.",
+                "IT help desk dispatcher that routes incoming issues to the right specialist.",
             chatClientServiceKey: null);
 
         // Network specialist with KB search and system status
@@ -47,17 +42,15 @@ public static class HandoffWorkflow
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
                 description:
-                    "Network specialist. Handles VPN, Wi-Fi, " +
-                    "connectivity, firewall, and DNS issues.",
+                    "Network specialist. Handles VPN, Wi-Fi, connectivity, firewall, and DNS " +
+                    "issues.",
                 instructions: """
-                    You are a network support specialist. Use
-                    the search_knowledge_base tool to find
-                    relevant solutions, and check_system_status
-                    to verify if there are known outages.
-                    Provide step-by-step diagnostic instructions.
-                    If you cannot resolve the issue, use
-                    create_ticket to escalate. Keep responses
-                    under 200 words.
+                    You are a network support specialist. Use the search_knowledge_base tool to find
+                    relevant solutions, and check_system_status to verify if there are
+                    known outages.
+                    Provide step-by-step diagnostic instructions. If you cannot resolve the
+                    issue, use
+                    create_ticket to escalate. Keep responses under 200 words.
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base"
@@ -72,17 +65,13 @@ public static class HandoffWorkflow
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
                 description:
-                    "Software specialist. Handles application " +
-                    "crashes, installation, updates, and " +
-                    "licensing.",
+                    "Software specialist. Handles application crashes, installation, updates, " +
+                    "and licensing.",
                 instructions: """
-                    You are a software support specialist. Use
-                    search_knowledge_base to find known fixes
-                    for application issues. Help with crashes,
-                    installation problems, and updates. Create
-                    a ticket with create_ticket if the issue
-                    requires further investigation. Keep
-                    responses under 200 words.
+                    You are a software support specialist. Use search_knowledge_base to find known
+                    fixes for application issues. Help with crashes, installation problems, and
+                    updates. Create a ticket with create_ticket if the issue requires further
+                    investigation. Keep responses under 200 words.
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base"
@@ -96,17 +85,16 @@ public static class HandoffWorkflow
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
                 description:
-                    "Hardware specialist. Handles laptop, " +
-                    "monitor, peripheral, and docking-station " +
-                    "problems.",
+                    "Hardware specialist. Handles laptop, monitor, peripheral, and " +
+                    "docking-station problems.",
                 instructions: """
-                    You are a hardware support specialist. Use
-                    search_knowledge_base to find diagnostic
-                    steps for hardware issues. Diagnose laptop,
-                    monitor, peripheral, and docking station
-                    problems. If RMA is needed, use create_ticket
-                    to initiate the process. Keep responses
-                    under 200 words.
+                    You are a hardware support specialist. Use search_knowledge_base to find
+                    diagnostic
+                    steps for hardware issues. Diagnose laptop, monitor, peripheral, and
+                    docking
+                    station problems. If RMA is needed, use create_ticket to initiate the
+                    process. Keep
+                    responses under 200 words.
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base"
@@ -137,8 +125,8 @@ public static class HandoffWorkflow
                 .GetProperty(nameof(Workflow.Name))!
                 .SetValue(workflow, key);
             workflow.SetDescription(
-                "Dispatcher triages issues and hands off to " +
-                "network, software, or hardware specialists.");
+                "Dispatcher triages issues and hands off to network, software, or hardware " +
+                "specialists.");
             return workflow;
         }).AddAsAIAgent();
     }

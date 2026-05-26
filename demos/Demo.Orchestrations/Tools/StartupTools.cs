@@ -11,9 +11,7 @@ namespace Demo.Orchestrations.Tools;
 /// </summary>
 public static class StartupTools
 {
-    [Description(
-        "Looks up market size and growth data for a specific " +
-        "industry or segment.")]
+    [Description("Looks up market size and growth data for a specific industry or segment.")]
     [ExportAIFunction("lookup_market_data")]
     public static async Task<string> LookupMarketData(
         [Description("The industry or market segment")]
@@ -37,9 +35,8 @@ public static class StartupTools
             ?? $"No market data available for: {market}";
     }
 
-    [Description(
-        "Estimates unit economics for a consumer app based on " +
-        "pricing model and target audience.")]
+    [Description("Estimates unit economics for a consumer app based on pricing model " +
+        "and target audience.")]
     [ExportAIFunction("estimate_unit_economics")]
     public static async Task<string> EstimateUnitEconomics(
         [Description("Pricing model: freemium, subscription, transaction")]
@@ -69,9 +66,7 @@ public static class StartupTools
         return response.Text ?? "Unable to estimate unit economics";
     }
 
-    [Description(
-        "Searches for competitor information and recent funding " +
-        "rounds in a space.")]
+    [Description("Searches for competitor information and recent funding rounds in a space.")]
     [ExportAIFunction("search_competitors")]
     public static async Task<string> SearchCompetitors(
         [Description("Product category or space to search")]

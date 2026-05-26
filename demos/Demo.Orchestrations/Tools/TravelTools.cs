@@ -10,9 +10,8 @@ namespace Demo.Orchestrations.Tools;
 /// </summary>
 public static class TravelTools
 {
-    [Description(
-        "Searches for restaurants and food experiences at a " +
-        "destination. Returns top-rated options with prices.")]
+    [Description("Searches for restaurants and food experiences at a destination. " +
+        "Returns top-rated options with prices.")]
     [ExportAIFunction("search_restaurants")]
     public static async Task<string> SearchRestaurants(
         [Description("The travel destination city")]
@@ -43,9 +42,8 @@ public static class TravelTools
             ?? $"No restaurants found in {destination}";
     }
 
-    [Description(
-        "Checks transport options and approximate costs between " +
-        "locations at the destination.")]
+    [Description("Checks transport options and approximate costs between locations at " +
+        "the destination.")]
     [ExportAIFunction("check_transport")]
     public static async Task<string> CheckTransport(
         [Description("The travel destination city")]
@@ -72,9 +70,7 @@ public static class TravelTools
             ?? $"No transport info available for {destination}";
     }
 
-    [Description(
-        "Looks up current pricing and availability for " +
-        "accommodations at a destination.")]
+    [Description("Looks up current pricing and availability for accommodations at a destination.")]
     [ExportAIFunction("check_accommodation")]
     public static async Task<string> CheckAccommodation(
         [Description("The travel destination city")]
