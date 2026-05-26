@@ -215,18 +215,16 @@ public static class HandoffWorkflow
             var software = sp.GetRequiredKeyedService<AIAgent>("handoff-helpdesk-software");
             var hardware = sp.GetRequiredKeyedService<AIAgent>("handoff-helpdesk-hardware");
 
-            var workflow = AgentWorkflowBuilder
+            return AgentWorkflowBuilder
                 .CreateHandoffBuilderWith(dispatcher)
+                .WithName(key)
+                .WithDescription(
+                    "Dispatcher triages issues and hands off to network, software, or " +
+                    "hardware specialists.")
                 .WithHandoffs(dispatcher, [network, software, hardware])
                 .WithHandoffs([network, software, hardware], dispatcher)
                 .EmitAgentResponseEvents()
                 .Build();
-
-            typeof(Workflow).GetProperty(nameof(Workflow.Name))!.SetValue(workflow, key);
-            workflow.SetDescription(
-                "Dispatcher triages issues and hands off to network, software, or hardware " +
-                "specialists.");
-            return workflow;
         }).AddAsAIAgent();
     }
 }
