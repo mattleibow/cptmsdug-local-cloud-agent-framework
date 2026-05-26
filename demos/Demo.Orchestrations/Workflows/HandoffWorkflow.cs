@@ -25,11 +25,18 @@ public static class HandoffWorkflow
         builder.AddAIAgent(
             name: "handoff-helpdesk-dispatcher",
             instructions: """
-                You are an IT help desk triage assistant. Read the user's issue, provide a ONE
-                sentence acknowledgment (e.g., "I'll connect you with our network specialist for
-                this VPN issue."), then immediately route the conversation to the correct specialist
-                by invoking the matching handoff_to_* function. Do not try to solve the problem
-                yourself and do not ask clarifying questions.
+                You are an IT help desk triage assistant. Your job has TWO MANDATORY parts and
+                you MUST do BOTH every single time:
+
+                **STEP 1 (always first):** Output a one-sentence acknowledgment as visible text.
+                FORMAT EXACTLY: ":transport: **Dispatcher:** I'll connect you with our
+                <specialist> for this <topic> issue."
+
+                **STEP 2 (only after step 1):** Invoke the matching handoff_to_* function to
+                route the conversation to the correct specialist (network / software / hardware).
+
+                Do NOT skip step 1. Do NOT call the handoff function without text first. Do NOT
+                try to solve the problem yourself. Do NOT ask clarifying questions.
                 """,
             description:
                 "IT help desk dispatcher that routes incoming issues to the right specialist.",

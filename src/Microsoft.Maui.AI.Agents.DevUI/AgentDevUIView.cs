@@ -651,8 +651,13 @@ public partial class AgentDevUIView : ContentView
 
                 case WorkflowOutputEvent output:
                 {
-                    // The workflow's final aggregated result (e.g. concurrent aggregator output).
-                    // Display it as a final consolidated assistant message in the chat.
+                    // The workflow's final aggregated result.
+                    // We log it as an event but DO NOT add a chat bubble — for every workflow
+                    // shape we currently support, the per-executor AgentResponseEvent chat
+                    // bubbles already show what the user needs. Re-adding the final output
+                    // would be a duplicate (the synthesizer's bubble in sequential, the
+                    // specialist's bubble in handoff, or the concatenated specialist content
+                    // in concurrent).
                     string? consolidatedText = null;
                     if (output.Data is List<ChatMessage> msgs)
                     {
@@ -669,22 +674,7 @@ public partial class AgentDevUIView : ContentView
                     }
 
                     if (!string.IsNullOrWhiteSpace(consolidatedText))
-                    {
-                        AddEvent("workflow.output", $"Final consolidated result ({consolidatedText.Length} chars)");
-                        var tokenEst = consolidatedText.Split(' ').Length * 2;
-                        await RunOnUIAsync(() =>
-                        {
-                            _messages.Add(new DevUIChatMessage
-                            {
-                                Role = "assistant",
-                                Content = consolidatedText,
-                                AgentLabel = "Coordinator",
-                                Timestamp = DateTime.Now,
-                                TokenCount = tokenEst
-                            });
-                            TotalTokens += tokenEst;
-                        });
-                    }
+                        AddEvent("workflow.output", $"Final result ({consolidatedText.Length} chars)");
                     break;
                 }
             }
