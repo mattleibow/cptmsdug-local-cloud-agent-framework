@@ -628,6 +628,45 @@ public partial class AgentDevUIView : ContentView
                 case WorkflowStartedEvent:
                     AddEvent("workflow.running", "Workflow execution started");
                     break;
+
+                case WorkflowOutputEvent output:
+                {
+                    // The workflow's final aggregated result (e.g. concurrent aggregator output).
+                    // Display it as a final consolidated assistant message in the chat.
+                    string? consolidatedText = null;
+                    if (output.Data is List<ChatMessage> msgs)
+                    {
+                        var lastAssistant = msgs.LastOrDefault(m => m.Role == ChatRole.Assistant);
+                        consolidatedText = lastAssistant?.Text;
+                    }
+                    else if (output.Data is ChatMessage singleMsg)
+                    {
+                        consolidatedText = singleMsg.Text;
+                    }
+                    else if (output.Data is string s)
+                    {
+                        consolidatedText = s;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(consolidatedText))
+                    {
+                        AddEvent("workflow.output", $"Final consolidated result ({consolidatedText.Length} chars)");
+                        var tokenEst = consolidatedText.Split(' ').Length * 2;
+                        await RunOnUIAsync(() =>
+                        {
+                            _messages.Add(new DevUIChatMessage
+                            {
+                                Role = "assistant",
+                                Content = consolidatedText,
+                                AgentLabel = "Coordinator",
+                                Timestamp = DateTime.Now,
+                                TokenCount = tokenEst
+                            });
+                            TotalTokens += tokenEst;
+                        });
+                    }
+                    break;
+                }
             }
         }
 
