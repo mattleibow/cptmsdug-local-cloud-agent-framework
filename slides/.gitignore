@@ -1,0 +1,5 @@
+node_modules/
+*.pdf
+slide-*.jpg
+slide-*.png
+contact-sheet*.jpg
