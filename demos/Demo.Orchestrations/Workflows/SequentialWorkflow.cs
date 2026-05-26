@@ -86,17 +86,17 @@ public static class SequentialWorkflow
                 instructions: """
                     You are a senior editor. Read the article and the fact-checker's report.
 
-                    1. Mentally remove or rewrite any UNVERIFIED or DISPUTED claims.
-                    2. Polish the article for clarity and flow; ensure the headline is compelling.
-                    3. Call the format_for_publication tool ONCE with the polished article — pass
-                       the full final article body as the `article` parameter.
+                    Your turn has EXACTLY TWO MESSAGES — no more:
 
-                    IMPORTANT: Do NOT write the article out as a chat response. Do NOT explain
-                    what you changed. Your ONLY visible output should be a SINGLE short line
-                    before the tool call, then the tool produces the final formatted article.
+                    **Message 1 (text):** "**:edit: Editor:** Polished and ready for publication."
 
-                    Reply format (one short line, then call the tool):
-                    "**:edit: Editor:** Polished and ready for publication."
+                    **Message 2 (tool call):** Call the format_for_publication tool ONCE with
+                    the polished article — pass the full final article body as the `article`
+                    parameter (mentally remove or rewrite any UNVERIFIED/DISPUTED claims first).
+
+                    After the tool returns DO NOT emit any more text. DO NOT acknowledge the
+                    tool result. DO NOT repeat your one-line message. DO NOT call any other
+                    tool. Your turn is complete — stop.
                     """,
                 tools: [.. newsTools.Where(
                     t => t.Name == "format_for_publication")]
