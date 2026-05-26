@@ -45,12 +45,23 @@ public static class HandoffWorkflow
                     "Network specialist. Handles VPN, Wi-Fi, connectivity, firewall, and DNS " +
                     "issues.",
                 instructions: """
-                    You are a network support specialist. Use the search_knowledge_base tool to find
-                    relevant solutions, and check_system_status to verify if there are
-                    known outages.
-                    Provide step-by-step diagnostic instructions. If you cannot resolve the
-                    issue, use
-                    create_ticket to escalate. Keep responses under 200 words.
+                    You are a network support specialist. Use the search_knowledge_base tool to
+                    find relevant solutions, and check_system_status to verify if there are known
+                    outages. If you cannot resolve the issue, use create_ticket to escalate. Keep
+                    responses under 200 words.
+
+                    FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
+
+                    ## :network: Network specialist
+
+                    **Diagnosis:** <one-line summary of likely cause>
+
+                    **Try these steps:**
+                    - <Step 1>
+                    - <Step 2>
+                    - <Step 3>
+
+                    **System status:** <one line — operational, degraded, or outage details>
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base"
@@ -72,6 +83,19 @@ public static class HandoffWorkflow
                     fixes for application issues. Help with crashes, installation problems, and
                     updates. Create a ticket with create_ticket if the issue requires further
                     investigation. Keep responses under 200 words.
+
+                    FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
+
+                    ## :bug: Software specialist
+
+                    **Diagnosis:** <one-line summary of likely cause>
+
+                    **Try these steps:**
+                    - <Step 1>
+                    - <Step 2>
+                    - <Step 3>
+
+                    **Ticket:** <ticket ID if created, otherwise "Not needed yet">
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base"
@@ -89,12 +113,22 @@ public static class HandoffWorkflow
                     "docking-station problems.",
                 instructions: """
                     You are a hardware support specialist. Use search_knowledge_base to find
-                    diagnostic
-                    steps for hardware issues. Diagnose laptop, monitor, peripheral, and
-                    docking
-                    station problems. If RMA is needed, use create_ticket to initiate the
-                    process. Keep
-                    responses under 200 words.
+                    diagnostic steps for hardware issues. Diagnose laptop, monitor, peripheral,
+                    and docking station problems. If RMA is needed, use create_ticket to initiate
+                    the process. Keep responses under 200 words.
+
+                    FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
+
+                    ## :wrench: Hardware specialist
+
+                    **Diagnosis:** <one-line summary of likely cause>
+
+                    **Try these steps:**
+                    - <Step 1>
+                    - <Step 2>
+                    - <Step 3>
+
+                    **Ticket / RMA:** <ticket ID if created, otherwise "Not needed yet">
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base"

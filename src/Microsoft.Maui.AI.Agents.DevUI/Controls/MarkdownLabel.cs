@@ -96,7 +96,14 @@ public sealed class MarkdownLabel : Label
                     if (!firstItem)
                         fs.Spans.Add(new Span { Text = "\n" });
                     firstItem = false;
-                    fs.Spans.Add(new Span { Text = "  • " });
+                    // Use Material Icons "fiber_manual_record" (small filled dot)
+                    fs.Spans.Add(new Span
+                    {
+                        Text = "  \ue061  ",
+                        FontFamily = GlyphShortcodes.FontFamily,
+                        FontSize = FontSize * sizeMultiplier * 0.55,
+                        TextColor = TextColor,
+                    });
                     if (item is ListItemBlock li)
                     {
                         foreach (var sub in li)
@@ -192,6 +199,59 @@ public sealed class MarkdownLabel : Label
     }
 
     private void AppendSpan(FormattedString fs, string text, double sizeMultiplier, FontAttributes? attrs)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        // Split text into runs of normal text + glyph spans wherever a :shortcode: is found
+        int pos = 0;
+        while (pos < text.Length)
+        {
+            int open = text.IndexOf(':', pos);
+            if (open < 0)
+            {
+                AppendTextRun(fs, text[pos..], sizeMultiplier, attrs);
+                break;
+            }
+            int close = text.IndexOf(':', open + 1);
+            if (close < 0)
+            {
+                AppendTextRun(fs, text[pos..], sizeMultiplier, attrs);
+                break;
+            }
+            var name = text[(open + 1)..close];
+            // Shortcodes are letters/digits/underscores only — skip false positives like "10:30"
+            bool valid = name.Length > 0 && name.Length <= 32;
+            if (valid)
+            {
+                foreach (var ch in name)
+                {
+                    if (!(char.IsLetterOrDigit(ch) || ch == '_')) { valid = false; break; }
+                }
+            }
+            var glyph = valid ? GlyphShortcodes.TryGet(name) : null;
+            if (glyph is null)
+            {
+                // Not a known shortcode — emit literal up to and including the first colon, keep scanning
+                AppendTextRun(fs, text[pos..(open + 1)], sizeMultiplier, attrs);
+                pos = open + 1;
+                continue;
+            }
+            // Append leading text + glyph span
+            if (open > pos)
+                AppendTextRun(fs, text[pos..open], sizeMultiplier, attrs);
+            fs.Spans.Add(new Span
+            {
+                Text = glyph,
+                FontFamily = GlyphShortcodes.FontFamily,
+                FontSize = FontSize * sizeMultiplier * 1.05,
+                TextColor = TextColor,
+            });
+            pos = close + 1;
+        }
+    }
+
+    private void AppendTextRun(FormattedString fs, string text, double sizeMultiplier, FontAttributes? attrs)
     {
         if (string.IsNullOrEmpty(text))
             return;

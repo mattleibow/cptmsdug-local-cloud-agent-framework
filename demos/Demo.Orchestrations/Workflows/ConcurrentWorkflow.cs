@@ -34,7 +34,7 @@ public static class ConcurrentWorkflow
 
                 FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
 
-                ## 🍽️ Food & Dining
+                ## :food: Food & Dining
 
                 **Must-try restaurants:**
                 - *<Restaurant 1>* — <cuisine>, <price range>. <One-line tip.>
@@ -65,7 +65,7 @@ public static class ConcurrentWorkflow
 
                 FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
 
-                ## 🏛️ Culture & Attractions
+                ## :culture: Culture & Attractions
 
                 **Must-see:**
                 - *<Site/Museum 1>* — <hours>. <Insider tip.>
@@ -97,7 +97,7 @@ public static class ConcurrentWorkflow
 
                 FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
 
-                ## 🚗 Logistics & Stay
+                ## :transport: Logistics & Stay
 
                 **Where to stay:**
                 - *<Area 1>* — <price/night>. <Why.>
@@ -136,7 +136,7 @@ public static class ConcurrentWorkflow
                 aggregator: results =>
                 {
                     var sb = new System.Text.StringBuilder();
-                    sb.AppendLine("# Trip Plan");
+                    sb.AppendLine("# :map: Trip Plan");
                     sb.AppendLine();
                     foreach (var agentMessages in results)
                     {
