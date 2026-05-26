@@ -93,9 +93,8 @@ public static class HandoffWorkflow
                 .EmitAgentResponseEvents()
                 .Build();
 
-            // The handoff builder doesn't accept a name parameter, but AddWorkflow validates it.
-            // Set Name via reflection (init-only property).
             typeof(Workflow).GetProperty(nameof(Workflow.Name))!.SetValue(workflow, key);
+            workflow.SetDescription("Dispatcher triages issues and hands off to network, software, or hardware specialists.");
             return workflow;
         }).AddAsAIAgent();
     }

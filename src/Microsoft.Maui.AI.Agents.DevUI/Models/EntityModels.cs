@@ -62,6 +62,9 @@ public class ExecutorInfo
     /// <summary>Display name.</summary>
     public required string Name { get; init; }
 
+    /// <summary>Short description of what this executor does.</summary>
+    public string? Description { get; init; }
+
     /// <summary>System prompt for this executor.</summary>
     public string? SystemPrompt { get; init; }
 }

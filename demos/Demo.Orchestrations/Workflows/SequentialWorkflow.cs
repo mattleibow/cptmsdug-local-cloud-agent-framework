@@ -58,7 +58,9 @@ public static class SequentialWorkflow
                 }
                 .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
                 .ToArray();
-            return AgentWorkflowBuilder.BuildSequential(key, agents);
+            var workflow = AgentWorkflowBuilder.BuildSequential(key, agents);
+            workflow.SetDescription("A reporter researches, a fact-checker verifies, and an editor publishes.");
+            return workflow;
         }).AddAsAIAgent();
     }
 }

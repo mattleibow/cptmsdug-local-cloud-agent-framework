@@ -56,6 +56,7 @@ public static class GroupChatWorkflow
                     agents => new RoundRobinGroupChatManager(agents) { MaximumIterationCount = 3 })
                 .AddParticipants(participants)
                 .WithName(key)
+                .WithDescription("Founder pitches, investor challenges, advisor mediates — 3 rounds.")
                 .Build();
         }).AddAsAIAgent();
     }

@@ -105,7 +105,7 @@ public sealed class GraphView : ContentView
         {
             if (!result.Nodes.TryGetValue(node.Id, out var pos))
                 continue;
-            var view = new GraphNodeView { Text = node.Label };
+            var view = new GraphNodeView { Text = node.Label, DescriptionText = node.Description };
             _nodeViews[node.Id] = view;
             _surface.Add(view);
             _surface.SetBounds(view, new Rect(pos.X, pos.Y, pos.Width, pos.Height));

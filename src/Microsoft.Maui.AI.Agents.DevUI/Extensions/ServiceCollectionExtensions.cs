@@ -179,20 +179,28 @@ internal sealed class DevUIEntityRegistry : IDevUIEntityRegistry
             });
         }
 
-        // Build executor list, attempting to get instructions from DI-registered agents
+        // Build executor list, attempting to get instructions and descriptions from DI-registered agents
         var executors = executorIds
             .Select(id =>
             {
                 string? prompt = null;
+                string? description = null;
                 try
                 {
                     var agent = serviceProvider.GetKeyedService<AIAgent>(id);
                     if (agent is ChatClientAgent ca)
                         prompt = ca.Instructions;
+                    description = agent?.Description;
                 }
                 catch { /* agent might not be directly resolvable */ }
 
-                return new ExecutorInfo { Id = id, Name = CleanExecutorName(id, registeredKey), SystemPrompt = prompt };
+                return new ExecutorInfo
+                {
+                    Id = id,
+                    Name = CleanExecutorName(id, registeredKey),
+                    Description = description,
+                    SystemPrompt = prompt
+                };
             })
             .ToList();
 

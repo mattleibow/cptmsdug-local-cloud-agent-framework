@@ -161,7 +161,7 @@ public partial class AgentDevUIView : ContentView
 
         var workflow = _selectedWorkflow;
         var nodes = workflow.Executors
-            .Select(e => new GraphNodeDef(e.Id, e.Name))
+            .Select(e => new GraphNodeDef(e.Id, e.Name, e.Description))
             .ToList();
 
         var edges = workflow.EdgeGroups
@@ -398,8 +398,15 @@ public partial class AgentDevUIView : ContentView
 
     private async Task RunWorkflowStreamingAsync(Workflow workflow, string input)
     {
-        // Use the Agent Framework's InProcessExecution to run the workflow with streaming events
-        await using var run = await InProcessExecution.RunStreamingAsync(workflow, input);
+        // Use the Agent Framework's InProcessExecution to run the workflow with streaming events.
+        // Each run uses a unique thread ID so agents don't retain history from prior runs.
+        var threadId = Guid.NewGuid().ToString("N");
+
+        // Pass input as a ChatMessage list rather than a raw string.
+        // ChatForwardingExecutor (used in concurrent workflows) only handles ChatMessage/List<ChatMessage>,
+        // not raw strings, so passing a string would silently drop the user's input.
+        var inputMessages = new List<ChatMessage> { new(ChatRole.User, input) };
+        await using var run = await InProcessExecution.RunStreamingAsync(workflow, inputMessages, threadId);
 
         // Sequential/chat-protocol workflows require a TurnToken to advance past the first executor.
         // RunStreamingAsync only enqueues the input; we must send the TurnToken ourselves

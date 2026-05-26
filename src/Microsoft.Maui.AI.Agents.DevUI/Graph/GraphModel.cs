@@ -8,11 +8,12 @@ public sealed record GraphDefinition(
     IReadOnlyList<GraphEdgeDef> Edges);
 
 /// <summary>
-/// A node in the graph with an id and label.
+/// A node in the graph with an id, label, and optional description.
 /// </summary>
 public sealed record GraphNodeDef(
     string Id,
     string Label,
+    string? Description = null,
     GraphNodeShape Shape = GraphNodeShape.RoundedRect);
 
 /// <summary>
