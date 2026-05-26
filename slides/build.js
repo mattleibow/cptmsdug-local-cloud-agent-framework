@@ -7,6 +7,9 @@
 // Sandwich: dark title + demo + closing slides; light content slides
 
 const PptxGenJS = require("pptxgenjs");
+const Prism = require("prismjs");
+require("prismjs/components/prism-csharp");
+require("prismjs/components/prism-bash");
 
 // ── Palette ───────────────────────────────────────────────────────────────
 const C = {
@@ -40,6 +43,91 @@ const F = {
   body:   "Calibri",
   mono:   "Consolas",
 };
+
+// ── Syntax highlight theme (for dark code backgrounds) ────────────────────
+// Maps prismjs token types to colors. Anything not in the map falls through
+// to the parent (default) color.
+const SYNTAX = {
+  // Text-on-dark default is C.textOnDark (FAF8FF) — set globally on the addText call
+  keyword:      "FB7185",   // coral  (using, var, await, async, new, class, if, return…)
+  "class-name": "A78BFA",   // light violet (IChatClient, AIAgent, AgentThread…)
+  builtin:      "A78BFA",
+  function:     "86EFAC",   // mint (method names being called)
+  string:       "FBBF24",   // amber
+  number:       "F472B6",   // pink
+  comment:      "8B88B5",   // muted lavender — italic via run options
+  punctuation:  "B8B5D9",   // muted off-white for brackets/commas
+  operator:     "CFCBED",
+  // prismjs sub-types
+  "attr-name":  "A78BFA",
+  "attr-value": "FBBF24",
+  // bash
+  "shell-symbol": "B8B5D9",
+  // ours: rendered prompt/comment style for shell intro lines
+  "shell-prompt": "8B88B5",
+};
+
+// Tokenize a code string with prismjs and return pptxgenjs text-runs.
+// Leading spaces at the start of each line are converted to NBSP so PowerPoint
+// preserves indentation (OOXML otherwise collapses leading whitespace).
+function highlightCode(code, lang = "csharp") {
+  // Preprocess: convert leading spaces on each line to non-breaking spaces.
+  // PPTX/OOXML strips leading whitespace at paragraph start otherwise.
+  const preprocessed = code
+    .replace(/\t/g, "    ")
+    .replace(/^( +)/gm, (m) => "\u00A0".repeat(m.length));
+
+  const grammar = Prism.languages[lang] || Prism.languages.csharp;
+  const tokens = Prism.tokenize(preprocessed, grammar);
+  const runs = [];
+
+  function emit(text, type) {
+    if (!text) return;
+    const color = SYNTAX[type] || "FAF8FF";
+    const isComment = type === "comment" || type === "shell-prompt";
+    const opts = { color, fontFace: "Consolas", italic: isComment };
+
+    // Split on \n and emit a breakLine marker between segments so that
+    // PowerPoint treats each line as its own paragraph — this prevents
+    // leading-whitespace collapse after newlines inside a single run.
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (i > 0) {
+        runs.push({ text: "", options: { ...opts, breakLine: true } });
+      }
+      if (lines[i]) {
+        runs.push({ text: lines[i], options: opts });
+      }
+    }
+  }
+
+  function walk(tok, parentType) {
+    if (typeof tok === "string") {
+      emit(tok, parentType);
+      return;
+    }
+    const t = tok.type;
+    if (Array.isArray(tok.content)) {
+      for (const c of tok.content) walk(c, t);
+    } else if (typeof tok.content === "string") {
+      emit(tok.content, t);
+    } else {
+      walk(tok.content, t);
+    }
+  }
+
+  for (const tok of tokens) walk(tok, null);
+  return runs;
+}
+
+// Highlight multiple language blocks and concatenate.
+function highlightMulti(blocks) {
+  const runs = [];
+  for (const b of blocks) {
+    runs.push(...highlightCode(b.code, b.lang));
+  }
+  return runs;
+}
 
 const pptx = new PptxGenJS();
 pptx.layout = "LAYOUT_WIDE"; // 13.333" x 7.5"
@@ -120,7 +208,7 @@ function darkBg(slide) {
   slide.background = { color: C.indigoDeep };
 }
 
-const TOTAL = 13;
+const TOTAL = 14;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLIDE 1 — TITLE
@@ -445,6 +533,7 @@ const TOTAL = 13;
     rectRadius: 0.1,
   });
   s.addText(
+    highlightCode(
 `var client = new AzureOpenAIClient(
     new Uri(endpoint),
     new DefaultAzureCredential());
@@ -454,11 +543,11 @@ var chat = client.GetChatClient("gpt-4.1");
 var response = await chat.CompleteChatAsync(
     "Summarise the agenda for today.");
 
-Console.WriteLine(response.Value.Content[0].Text);`,
+Console.WriteLine(response.Value.Content[0].Text);`, "csharp"),
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
-      fontSize: 14, fontFace: F.mono, color: C.textOnDark,
-      paraSpaceAfter: 2,
+      fontSize: 13, fontFace: F.mono, color: C.textOnDark,
+      paraSpaceAfter: 0,
     }
   );
 
@@ -525,7 +614,7 @@ Console.WriteLine(response.Value.Content[0].Text);`,
       product: "ML Kit + Gemini Nano",
       api: "ML Kit (Kotlin/Java)",
       detail: "Android · AICore service\nCompact Gemini Nano\nSummarize · proofread · rewrite",
-      status: "🔬  .NET wrapper in scope",
+      status: "🔬  .NET wrapper under investigation",
       color: C.amber,
     },
   ];
@@ -586,7 +675,7 @@ Console.WriteLine(response.Value.Content[0].Text);`,
     [
       { text: "Unified for .NET MAUI:  ", options: { color: C.textOnDarkMuted } },
       { text: "Microsoft.Maui.Essentials.AI", options: { color: C.coral, bold: true, fontFace: F.mono } },
-      { text: "  →  one IChatClient shape, Apple today · Phi Silica next · Gemini in scope", options: { color: C.textOnDarkMuted, italic: true } },
+      { text: "  →  one IChatClient shape, Apple today · Phi Silica in progress · Gemini under investigation", options: { color: C.textOnDarkMuted, italic: true } },
     ],
     {
       x: 0.6, y: 6.55, w: W - 1.2, h: 0.55,
@@ -627,6 +716,7 @@ Console.WriteLine(response.Value.Content[0].Text);`,
     rectRadius: 0.1,
   });
   s.addText(
+    highlightCode(
 `using Microsoft.Maui.Essentials.AI;
 using Microsoft.Extensions.AI;
 
@@ -639,11 +729,11 @@ Console.WriteLine(response.Text);
 
 // ✈️  Works in airplane mode
 // 🆓  No API key, no per-token cost
-// 🔒  Data never leaves the device`,
+// 🔒  Data never leaves the device`, "csharp"),
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
-      fontSize: 13, fontFace: F.mono, color: C.textOnDark,
-      paraSpaceAfter: 2,
+      fontSize: 12, fontFace: F.mono, color: C.textOnDark,
+      paraSpaceAfter: 0,
     }
   );
 
@@ -778,10 +868,14 @@ Console.WriteLine(response.Text);
     rectRadius: 0.1,
   });
   s.addText(
+    highlightMulti([
+      { lang: "bash", code:
 `# Start a local model from the CLI
 > foundry model run phi-4-mini
 
-// Manager owns the dynamic endpoint + key
+` },
+      { lang: "csharp", code:
+`// Manager owns the dynamic endpoint + key
 var manager = await FoundryLocalManager
     .StartModelAsync("phi-4-mini");
 
@@ -789,11 +883,12 @@ var client = new OpenAIClient(
     new ApiKeyCredential(manager.ApiKey),
     new OpenAIClientOptions { Endpoint = manager.Endpoint });
 
-var chat = client.GetChatClient("phi-4-mini");`,
+var chat = client.GetChatClient("phi-4-mini");` },
+    ]),
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
-      fontSize: 12, fontFace: F.mono, color: C.textOnDark,
-      paraSpaceAfter: 2,
+      fontSize: 11, fontFace: F.mono, color: C.textOnDark,
+      paraSpaceAfter: 0,
     }
   );
 
@@ -875,57 +970,153 @@ var chat = client.GetChatClient("phi-4-mini");`,
     });
   });
 
-  // MAF central block
-  const mx = ax + 0.55, mw = 3.0;
+  // MAF central block — bigger now that it owns the right side too
+  const mx = ax + 0.55, mw = 5.5;
   s.addShape("roundRect", {
-    x: mx, y: 2.6, w: mw, h: 3.15,
+    x: mx, y: 2.5, w: mw, h: 3.35,
     fill: { color: C.indigoDeep }, line: { color: C.indigoDeep },
     rectRadius: 0.15,
   });
   s.addText("AIAgent", {
-    x: mx, y: 2.9, w: mw, h: 0.6,
-    fontSize: 26, bold: true, color: C.textOnDark, fontFace: F.header, align: "center",
+    x: mx, y: 2.8, w: mw, h: 0.7,
+    fontSize: 40, bold: true, color: C.textOnDark, fontFace: F.header, align: "center",
   });
-  s.addText("AgentThread · Tools\nWorkflows · Streaming\nProviders", {
-    x: mx, y: 3.7, w: mw, h: 1.6,
-    fontSize: 14, color: C.textOnDarkMuted, fontFace: F.body, align: "center", paraSpaceAfter: 4,
+  s.addText("AgentThread  ·  Tools  ·  Workflows  ·  Streaming", {
+    x: mx, y: 3.65, w: mw, h: 0.4,
+    fontSize: 14, color: C.textOnDarkMuted, fontFace: F.body, align: "center",
+  });
+  // Divider
+  s.addShape("line", {
+    x: mx + mw * 0.2, y: 4.2, w: mw * 0.6, h: 0,
+    line: { color: C.coral, width: 1 },
+  });
+  s.addText("ChatClientAgent  ·  WorkflowAgent\nFunctionInvokingChatClient", {
+    x: mx, y: 4.35, w: mw, h: 0.9,
+    fontSize: 13, color: C.textOnDarkMuted, fontFace: F.body, align: "center", paraSpaceAfter: 4,
   });
   s.addText("Microsoft.Agents.AI", {
-    x: mx, y: 5.2, w: mw, h: 0.4,
-    fontSize: 12, italic: true, color: C.coral, fontFace: F.mono, align: "center",
+    x: mx, y: 5.4, w: mw, h: 0.35,
+    fontSize: 13, italic: true, color: C.coral, fontFace: F.mono, align: "center",
   });
 
-  // Right: code snippet
-  const rx = mx + mw + 0.3, rw = W - rx - 0.5;
-  s.addShape("roundRect", {
-    x: rx, y: 2.6, w: rw, h: 3.15,
-    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
-    rectRadius: 0.1,
+  // Right side: capability list (replacing old code block)
+  const rx = mx + mw + 0.4, rw = W - rx - 0.5;
+  const pillars = [
+    ["Same code", "Swap the IChatClient, keep your agent"],
+    ["Stateful",  "AgentThread persists conversation"],
+    ["Tool-aware","Source-generated AITools (no reflection)"],
+    ["Streaming", "Token-by-token via IAsyncEnumerable"],
+  ];
+  pillars.forEach(([h, sub], i) => {
+    const y = 2.55 + i * 0.78;
+    // small coral dot
+    s.addShape("ellipse", {
+      x: rx, y: y + 0.08, w: 0.2, h: 0.2,
+      fill: { color: C.coral }, line: { color: C.coral },
+    });
+    s.addText(h, {
+      x: rx + 0.3, y, w: rw - 0.3, h: 0.35,
+      fontSize: 15, bold: true, color: C.textDark, fontFace: F.body,
+    });
+    s.addText(sub, {
+      x: rx + 0.3, y: y + 0.35, w: rw - 0.3, h: 0.4,
+      fontSize: 11, italic: true, color: C.textMuted, fontFace: F.body,
+    });
   });
-  s.addText(
-`AIAgent agent = chatClient.CreateAIAgent(
-    instructions: "You are helpful.",
-    name: "assistant");
-
-await foreach (var update in
-    agent.RunStreamingAsync(prompt))
-{
-    Console.Write(update.Text);
-}`,
-    {
-      x: rx + 0.2, y: 2.75, w: rw - 0.4, h: 2.85,
-      fontSize: 12, fontFace: F.mono, color: C.textOnDark,
-    }
-  );
 
   // Bottom callout
   s.addText("📐 The provider changes. The agent code does not.", {
-    x: 0.6, y: 6.0, w: 12, h: 0.5,
-    fontSize: 18, italic: true, bold: true, color: C.coral, fontFace: F.header, align: "center",
+    x: 0.6, y: 6.1, w: 12, h: 0.5,
+    fontSize: 20, italic: true, bold: true, color: C.coral, fontFace: F.header, align: "center",
   });
 
   addMotif(s);
   addFooter(s, 10, TOTAL);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLIDE 11 — MAF: HOW TO USE IT (code-first, syntax-highlighted)
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = pptx.addSlide();
+  s.background = { color: C.bgLight };
+  eyebrow(s, "Five Lines of Code", C.indigoBright);
+  title(s, "How to use it");
+
+  s.addText("Take an IChatClient — any tier — and wrap it as an agent.", {
+    x: 0.6, y: 1.75, w: 12, h: 0.5,
+    fontSize: 17, italic: true, color: C.textMuted, fontFace: F.body,
+  });
+
+  // Big code block on the left (~ 60% of slide)
+  const cx = 0.6, cw = 8.4;
+  s.addShape("roundRect", {
+    x: cx, y: 2.4, w: cw, h: 4.4,
+    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
+    rectRadius: 0.12,
+  });
+  s.addText(
+    highlightCode(
+`// 1. Take any IChatClient — Apple, Foundry Local, Cloud…
+IChatClient client = new AppleIntelligenceChatClient();
+
+// 2. Wrap it as an agent (with optional tools)
+AIAgent agent = client.CreateAIAgent(
+    instructions: "You are a travel guide.",
+    tools: [.. TravelToolContext.Default.Tools]);
+
+// 3. Keep a thread for conversation state
+AgentThread thread = agent.GetNewThread();
+
+// 4. Stream the response, token by token
+await foreach (var update in agent.RunStreamingAsync(prompt, thread))
+{
+    Console.Write(update.Text);
+}`, "csharp"),
+    {
+      x: cx + 0.25, y: 2.55, w: cw - 0.5, h: 4.1,
+      fontSize: 11, fontFace: F.mono, color: C.textOnDark,
+      paraSpaceAfter: 0,
+    }
+  );
+
+  // Right side: 4 numbered callout cards
+  const nx = cx + cw + 0.25, nw = W - nx - 0.5;
+  const notes = [
+    ["1", "Pluggable",   "Any IChatClient — Apple, Foundry Local, Azure OpenAI",                 C.coral],
+    ["2", "Tool-aware",  "[ExportAIFunction] generates AITool descriptors at compile time",       C.indigoBright],
+    ["3", "Stateful",    "AgentThread carries history across runs — no manual list-juggling",    C.amber],
+    ["4", "Streaming",   "RunStreamingAsync yields AgentRunResponseUpdate — wire to your UI",    C.coral],
+  ];
+  notes.forEach(([num, h, sub, color], i) => {
+    const y = 2.4 + i * 1.1;
+    s.addShape("roundRect", {
+      x: nx, y, w: nw, h: 1.0,
+      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
+      rectRadius: 0.08,
+    });
+    // number badge
+    s.addShape("ellipse", {
+      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
+      fill: { color }, line: { color },
+    });
+    s.addText(num, {
+      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
+      fontSize: 18, bold: true, color: C.bgLight, align: "center", valign: "middle", fontFace: F.header,
+    });
+    // heading + sub
+    s.addText(h, {
+      x: nx + 0.9, y: y + 0.15, w: nw - 1.0, h: 0.35,
+      fontSize: 15, bold: true, color: C.textDark, fontFace: F.body,
+    });
+    s.addText(sub, {
+      x: nx + 0.9, y: y + 0.5, w: nw - 1.0, h: 0.45,
+      fontSize: 10, italic: true, color: C.textMuted, fontFace: F.body,
+    });
+  });
+
+  addMotif(s);
+  addFooter(s, 11, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -983,9 +1174,9 @@ await foreach (var update in
       x: x + 0.2, y: 3.65, w: cw - 0.4, h: 0.35,
       fontSize: 12, bold: true, color: it.color, charSpacing: 3, fontFace: F.body,
     });
-    s.addText(it.code, {
+    s.addText(highlightCode(it.code, "csharp"), {
       x: x + 0.2, y: 4.05, w: cw - 0.4, h: 1.8,
-      fontSize: 11, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 2,
+      fontSize: 10, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
     });
   });
 
@@ -997,8 +1188,8 @@ await foreach (var update in
   });
   s.addText(
     [
-      { text: `var agent = chatClient.CreateAIAgent("You are helpful.");`, options: { color: C.textOnDark } },
-      { text: `   ←  identical for every tier`, options: { color: C.coral, italic: true } },
+      ...highlightCode(`var agent = chatClient.CreateAIAgent("You are helpful.");`, "csharp"),
+      { text: `   ←  identical for every tier`, options: { color: C.coral, italic: true, fontFace: F.mono } },
     ],
     {
       x: 0.9, y: 6.1, w: W - 1.8, h: 0.9,
@@ -1096,7 +1287,7 @@ await foreach (var update in
   });
 
   addMotif(s);
-  addFooter(s, 12, TOTAL);
+  addFooter(s, 13, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
