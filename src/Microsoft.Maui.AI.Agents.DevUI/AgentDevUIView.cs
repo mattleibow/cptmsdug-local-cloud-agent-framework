@@ -508,28 +508,16 @@ public partial class AgentDevUIView : ContentView
                         await RunOnUIAsync(() => _messages.Add(msg));
                     }
 
-                    // Append streaming text, but skip duplicates after a tool result.
-                    // Some agents re-emit their pre-tool text after the tool returns;
-                    // we collapse that into the existing bubble.
+                    // Append streaming text
                     if (text is { Length: > 0 })
                     {
                         var sb = responseBuilders[executorId];
-                        var current = sb.ToString();
-                        bool isDuplicate =
-                            current.Length > 0 &&
-                            (current.EndsWith(text, StringComparison.Ordinal) ||
-                             current.Contains(text, StringComparison.Ordinal) &&
-                             text.Length >= 8);
-
-                        if (!isDuplicate)
+                        sb.Append(text);
+                        if (DateTime.UtcNow - lastUIUpdate >= _uiBufferInterval)
                         {
-                            sb.Append(text);
-                            if (DateTime.UtcNow - lastUIUpdate >= _uiBufferInterval)
-                            {
-                                var snapshot = sb.ToString() + " \u258D";
-                                await RunOnUIAsync(() => msg.Content = snapshot);
-                                lastUIUpdate = DateTime.UtcNow;
-                            }
+                            var snapshot = sb.ToString() + " \u258D";
+                            await RunOnUIAsync(() => msg.Content = snapshot);
+                            lastUIUpdate = DateTime.UtcNow;
                         }
                     }
 

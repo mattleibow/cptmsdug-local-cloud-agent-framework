@@ -99,33 +99,17 @@ public static class NewsDeskTools
         return response.Text
             ?? $"VERIFIED: \"{claim}\" — consistent with general reporting on the topic.";
     }
-
-    [Description("Publishes a finished article to the newsroom CMS. Returns the live URL.")]
-    [ExportAIFunction("publish_article")]
-    public static string PublishArticle(
-        [Description("The article headline / title")] string title,
-        [Description("The category slug (e.g. 'tech', 'health', 'business')")] string category)
-    {
-        var slug = (title ?? "untitled")
-            .ToLowerInvariant()
-            .Replace(' ', '-')
-            .Replace("'", "")
-            .Replace("\"", "");
-        if (slug.Length > 40) slug = slug[..40].TrimEnd('-');
-        var stamp = DateTime.UtcNow.ToString("yyyy/MM/dd");
-        return $":check: Published to https://newsroom.example/{category}/{stamp}/{slug}";
-    }
 }
-
-[AIToolSource(typeof(NewsDeskTools))]
-public partial class NewsDeskToolContext : AIToolContext { }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Sequential newsdesk workflow: Reporter → Fact-checker → Editor
 // ──────────────────────────────────────────────────────────────────────────────
 
-public static class SequentialWorkflow
+public static partial class SequentialWorkflow
 {
+    [AIToolSource(typeof(NewsDeskTools))]
+    private partial class NewsDeskToolContext : AIToolContext { }
+
     public static void AddSequentialWorkflow(this IHostApplicationBuilder builder)
     {
         var newsTools = NewsDeskToolContext.Default.Tools;
@@ -192,29 +176,22 @@ public static class SequentialWorkflow
             (sp, key) => new ChatClientAgent(
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
-                description: "Senior editor that polishes and publishes articles.",
+                description: "Senior editor that polishes the article for publication.",
                 instructions: """
                     You are a senior editor. Take the reporter's article and the fact-checker's
                     report. Rewrite the article to remove or correct any UNVERIFIED / DISPUTED
-                    claims, tighten prose, and sharpen the headline.
+                    claims, tighten the prose, and sharpen the headline.
 
-                    Output the FINAL polished article inline as Markdown (same shape as the
-                    reporter used — ## headline, dateline, paragraphs). After the article,
-                    call the publish_article tool EXACTLY ONCE with the title and a category
-                    slug to push it to the newsroom CMS. After the tool returns DO NOT emit
-                    anything else.
-
-                    EXAMPLE STRUCTURE:
+                    Output ONLY the final polished article as Markdown — no commentary, no
+                    summary of changes, no preamble. Use the same shape as the reporter:
 
                     ## :news: <Polished Headline>
 
                     *<Dateline>*
 
                     <Article paragraphs.>
-
-                    (then call publish_article and stop)
                     """,
-                tools: [.. newsTools.Where(t => t.Name == "publish_article")]
+                tools: []
             ));
 
         builder.AddWorkflow("sequential-newsdesk", (sp, key) =>
