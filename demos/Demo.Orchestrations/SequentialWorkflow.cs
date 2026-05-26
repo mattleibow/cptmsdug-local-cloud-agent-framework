@@ -15,8 +15,11 @@ namespace Demo.Orchestrations;
 
 public static class NewsDeskTools
 {
-    [Description("Searches for recent news headlines and summaries about a topic. " +
-        "Returns 3 results.")]
+    [Description(
+        """
+        Searches for recent news headlines and summaries about a topic.
+        Returns 3 results.
+        """)]
     [ExportAIFunction("search_news")]
     public static async Task<string> SearchNews(
         string query,
@@ -58,8 +61,11 @@ public static class NewsDeskTools
         return response.Text ?? $"No results found for: {query}";
     }
 
-    [Description("Looks up a specific fact or statistic to verify a claim. Returns " +
-        "verification status and source.")]
+    [Description(
+        """
+        Looks up a specific fact or statistic to verify a claim.
+        Returns verification status and source.
+        """)]
     [ExportAIFunction("verify_fact")]
     public static async Task<string> VerifyFact(
         string claim,
@@ -160,10 +166,13 @@ public static partial class SequentialWorkflow
 
                     ## :search: Fact-check report
 
-                    - :check: **VERIFIED:** "<claim>" — <one-line source/reasoning>
-                    - :warning: **PARTIALLY VERIFIED:** "<claim>" — <what's confirmed, what's not>
-                    - :fail: **UNVERIFIED:** "<claim>" — <why no source could be found>
-                    - :error: **DISPUTED:** "<claim>" — <contradicting evidence>
+                    :check: **VERIFIED:** "<claim>" — <one-line source/reasoning>
+
+                    :warning: **PARTIALLY VERIFIED:** "<claim>" — <what's confirmed, what's not>
+
+                    :fail: **UNVERIFIED:** "<claim>" — <why no source could be found>
+                    
+                    :error: **DISPUTED:** "<claim>" — <contradicting evidence>
 
                     **Recommendation:** <1-2 sentence summary of what should be removed,
                     rewritten, or sourced before publication.>

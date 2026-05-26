@@ -18,68 +18,89 @@ public static class GlyphShortcodes
     private static readonly Dictionary<string, string> s_map = new(StringComparer.OrdinalIgnoreCase)
     {
         // ── Status / feedback ───────────────────────────────
-        ["check"]        = "\ue876", // check
-        ["check_circle"] = "\ue86c",
-        ["verified"]     = "\uef76",
-        ["fail"]         = "\ue5c9", // close
-        ["x"]            = "\ue5c9",
-        ["close"]        = "\ue5c9",
-        ["warning"]      = "\ue002",
-        ["error"]        = "\ue000",
-        ["info"]         = "\ue88e",
-        ["help"]         = "\ue887",
-        ["star"]         = "\ue838",
+        ["check"]        = "\ue5ca", // check
+        ["check_circle"] = "\ue86c", // check_circle
+        ["verified"]     = "\uef76", // verified
+        ["fail"]         = "\ue5c9", // cancel
+        ["x"]            = "\ue5cd", // close
+        ["close"]        = "\ue5cd", // close
+        ["cancel"]       = "\ue5c9", // cancel
+        ["warning"]      = "\ue002", // warning
+        ["error"]        = "\ue000", // error
+        ["report"]       = "\ue160", // report
+        ["info"]         = "\ue88e", // info
+        ["help"]         = "\ue887", // help
+        ["star"]         = "\ue838", // star
+        ["circle"]       = "\ue061", // fiber_manual_record (filled dot)
+        ["dot"]          = "\ue061",
 
         // ── Travel ──────────────────────────────────────────
-        ["food"]         = "\ue561", // restaurant
-        ["restaurant"]   = "\ue561",
-        ["dining"]       = "\ueb4c", // local_dining
-        ["culture"]      = "\uea3e", // museum
-        ["museum"]       = "\uea3e",
-        ["landmark"]     = "\ueb4d", // local_attraction
-        ["map"]          = "\ue55b",
-        ["place"]        = "\ue55f",
+        ["food"]         = "\ue56c", // restaurant
+        ["restaurant"]   = "\ue56c", // restaurant
+        ["dining"]       = "\ue556", // local_dining
+        ["fastfood"]     = "\ue57a", // fastfood
+        ["culture"]      = "\uea36", // museum
+        ["museum"]       = "\uea36", // museum
+        ["landmark"]     = "\ue53f", // local_attraction
+        ["attractions"]  = "\uea52", // attractions
+        ["map"]          = "\ue55b", // map
+        ["place"]        = "\ue55f", // place
+        ["location"]     = "\ue0c8", // location_on
         ["car"]          = "\ue531", // directions_car
-        ["transport"]    = "\ue530", // directions
+        ["taxi"]         = "\ue559", // local_taxi
+        ["transport"]    = "\ue52e", // directions
         ["walk"]         = "\ue536", // directions_walk
+        ["bike"]         = "\ue52f", // directions_bike
         ["plane"]        = "\ue539", // flight
         ["train"]        = "\ue570", // train
-        ["hotel"]        = "\ue53a",
-        ["beach"]        = "\ueb3e",
-        ["budget"]       = "\ue227", // payments
+        ["subway"]       = "\ue533", // directions_subway
+        ["hotel"]        = "\ue53a", // hotel
+        ["bed"]          = "\uea45", // king_bed
+        ["beach"]        = "\ueb3e", // beach_access
+        ["budget"]       = "\uef63", // payments
+        ["money"]        = "\ue227", // attach_money
+        ["coin"]         = "\ue263", // monetization_on
 
         // ── News / writing ──────────────────────────────────
-        ["news"]         = "\ueb7e", // newspaper
-        ["article"]      = "\uef42",
-        ["edit"]         = "\ue3c9",
-        ["search"]       = "\ue8b6",
+        ["news"]         = "\ueb81", // newspaper
+        ["article"]      = "\uef42", // article
+        ["edit"]         = "\ue3c9", // edit
+        ["edit_note"]    = "\ue745", // edit_note
+        ["search"]       = "\ue8b6", // search
 
         // ── IT helpdesk ─────────────────────────────────────
-        ["computer"]     = "\ue30a",
-        ["laptop"]       = "\ue31e",
-        ["wifi"]         = "\ue63e",
-        ["vpn"]          = "\ueb0a", // vpn_lock
-        ["network"]      = "\ueb2f", // hub
-        ["ticket"]       = "\uef64", // confirmation_number
+        ["computer"]     = "\ue30a", // computer
+        ["laptop"]       = "\ue31e", // laptop
+        ["wifi"]         = "\ue63e", // wifi
+        ["wifi_off"]     = "\ue648", // wifi_off
+        ["vpn"]          = "\ue62f", // vpn_lock
+        ["network"]      = "\ue9f4", // hub
+        ["router"]       = "\ue328", // router
+        ["cable"]        = "\uefe6", // cable
+        ["ticket"]       = "\ue638", // confirmation_number
         ["bug"]          = "\ue868", // bug_report
-        ["build"]        = "\ue869", // build (tools/wrench)
-        ["wrench"]       = "\ue869",
+        ["build"]        = "\ue869", // build
+        ["wrench"]       = "\ue869", // build
+        ["construction"] = "\uea3c", // construction
+        ["engineering"]  = "\uea3d", // engineering
 
         // ── Startup pitch ───────────────────────────────────
         ["chart"]        = "\ue26b", // bar_chart
-        ["trending_up"]  = "\ue8e5",
-        ["money"]        = "\ue227",
-        ["lightbulb"]    = "\ue90f",
-        ["rocket"]       = "\ueba5", // rocket_launch
+        ["insert_chart"] = "\ue24b", // insert_chart
+        ["trending_up"]  = "\ue8e5", // trending_up
+        ["lightbulb"]    = "\ue0f0", // lightbulb
+        ["idea"]         = "\uea24", // emoji_objects
+        ["rocket"]       = "\uebba", // rocket  (falls back to rocket_launch \ueb9b on some fonts)
+        ["rocket_launch"]= "\ueb9b", // rocket_launch
 
         // ── Agents / workflow ───────────────────────────────
-        ["robot"]        = "\uf882", // smart_toy
-        ["agent"]        = "\uf882",
-        ["workflow"]     = "\ue6df", // schema
-        ["graph"]        = "\ue922", // account_tree
-        ["tool"]         = "\ue869",
-        ["bolt"]         = "\uea0b",
-        ["sparkles"]     = "\uf06d", // auto_awesome
+        ["robot"]        = "\uf06c", // smart_toy
+        ["agent"]        = "\uf06c", // smart_toy
+        ["workflow"]     = "\ue4fd", // schema
+        ["graph"]        = "\ue97a", // account_tree
+        ["bolt"]         = "\uea0b", // bolt
+        ["flash"]        = "\ue3e7", // flash_on
+        ["sparkles"]     = "\ue65f", // auto_awesome
     };
 
     /// <summary>
