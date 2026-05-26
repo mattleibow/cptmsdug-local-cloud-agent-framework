@@ -59,7 +59,7 @@ public static class GroupChatWorkflow
                 .ToArray();
 
             return AgentWorkflowBuilder.CreateGroupChatBuilderWith(
-                    agents => new RoundRobinGroupChatManager(agents) { MaximumIterationCount = 3 })
+                    agents => new RoundRobinGroupChatManager(agents) { MaximumIterationCount = 9 })
                 .AddParticipants(participants)
                 .WithName(key)
                 .WithDescription("Founder pitches, investor challenges, advisor mediates — 3 rounds.")
