@@ -4,6 +4,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using Demo.Orchestrations.Tools;
 
 namespace Demo.Orchestrations;
 
@@ -11,38 +12,45 @@ public static class ConcurrentWorkflow
 {
     public static void AddConcurrentWorkflow(this IHostApplicationBuilder builder)
     {
-        builder.AddAIAgent(
-            name: "concurrent-travel-food",
+        var travelTools = TravelToolContext.Default.Tools;
+
+        builder.AddAIAgent("concurrent-travel-food", (sp, key) => new ChatClientAgent(
+            sp.GetRequiredService<IChatClient>(),
+            name: key,
+            description: "Culinary expert recommending restaurants and local dishes.",
             instructions: """
                 You are a culinary travel expert. The user will tell you a destination.
-                Recommend the best restaurants, food experiences, and local dishes for THAT
-                specific destination. Include price range and booking tips. Keep to 150 words.
+                Use the search_restaurants tool to find top dining options, then recommend
+                the best food experiences and local dishes for THAT specific destination.
+                Include price range and booking tips. Keep to 150 words.
                 """,
-            description: "Culinary expert recommending restaurants and local dishes.",
-            chatClientServiceKey: null,
-            lifetime: ServiceLifetime.Transient);
+            tools: [.. travelTools.Where(t => t.Name == "search_restaurants")]
+        ));
 
-        builder.AddAIAgent(
-            name: "concurrent-travel-culture",
+        builder.AddAIAgent("concurrent-travel-culture", (sp, key) => new ChatClientAgent(
+            sp.GetRequiredService<IChatClient>(),
+            name: key,
+            description: "Cultural expert recommending museums, sites, and local experiences.",
             instructions: """
                 You are a cultural travel expert. The user will tell you a destination.
                 Recommend museums, temples, historical sites, and local experiences for THAT
                 specific destination. Include opening hours and tips. Keep to 150 words.
                 """,
-            description: "Cultural expert recommending museums, sites, and local experiences.",
-            chatClientServiceKey: null,
-            lifetime: ServiceLifetime.Transient);
+            tools: []
+        ));
 
-        builder.AddAIAgent(
-            name: "concurrent-travel-logistics",
+        builder.AddAIAgent("concurrent-travel-logistics", (sp, key) => new ChatClientAgent(
+            sp.GetRequiredService<IChatClient>(),
+            name: key,
+            description: "Logistics expert for transport, accommodation, and routing.",
             instructions: """
                 You are a travel logistics expert. The user will tell you a destination and duration.
-                Recommend transportation, accommodation areas, and day-by-day routing for THAT
+                Use the check_transport and check_accommodation tools to get real pricing data,
+                then recommend transportation, accommodation areas, and day-by-day routing for THAT
                 specific destination. Include budget estimates. Keep to 150 words.
                 """,
-            description: "Logistics expert for transport, accommodation, and routing.",
-            chatClientServiceKey: null,
-            lifetime: ServiceLifetime.Transient);
+            tools: [.. travelTools.Where(t => t.Name is "check_transport" or "check_accommodation")]
+        ));
 
         var parallelAgents = new[] {
             "concurrent-travel-food",

@@ -14,6 +14,8 @@ public static class HandoffWorkflow
 {
     public static void AddHandoffWorkflow(this IHostApplicationBuilder builder)
     {
+        var helpTools = HelpDeskToolContext.Default.Tools;
+
         // The dispatcher must invoke a handoff_to_<agent> function rather than
         // replying with free-form text — that is how the handoff workflow routes.
         // It also provides a brief acknowledgment so the user sees something in the chat.
@@ -35,16 +37,12 @@ public static class HandoffWorkflow
             name: key,
             description: "Network specialist. Handles VPN, Wi-Fi, connectivity, firewall, and DNS issues.",
             instructions: """
-                You are a network support specialist. Use the SearchKnowledgeBase tool to find
-                relevant solutions, and CheckSystemStatus to verify if there are known outages.
+                You are a network support specialist. Use the search_knowledge_base tool to find
+                relevant solutions, and check_system_status to verify if there are known outages.
                 Provide step-by-step diagnostic instructions. If you cannot resolve the issue,
-                use CreateTicket to escalate. Keep responses under 200 words.
+                use create_ticket to escalate. Keep responses under 200 words.
                 """,
-            tools: [
-                AIFunctionFactory.Create(HelpDeskTools.SearchKnowledgeBase),
-                AIFunctionFactory.Create(HelpDeskTools.CheckSystemStatus),
-                AIFunctionFactory.Create(HelpDeskTools.CreateTicket)
-            ]
+            tools: [.. helpTools.Where(t => t.Name is "search_knowledge_base" or "check_system_status" or "create_ticket")]
         ));
 
         // Software specialist with KB search and ticket tools
@@ -53,15 +51,12 @@ public static class HandoffWorkflow
             name: key,
             description: "Software specialist. Handles application crashes, installation, updates, and licensing.",
             instructions: """
-                You are a software support specialist. Use SearchKnowledgeBase to find known fixes
+                You are a software support specialist. Use search_knowledge_base to find known fixes
                 for application issues. Help with crashes, installation problems, and updates.
-                Create a ticket with CreateTicket if the issue requires further investigation.
+                Create a ticket with create_ticket if the issue requires further investigation.
                 Keep responses under 200 words.
                 """,
-            tools: [
-                AIFunctionFactory.Create(HelpDeskTools.SearchKnowledgeBase),
-                AIFunctionFactory.Create(HelpDeskTools.CreateTicket)
-            ]
+            tools: [.. helpTools.Where(t => t.Name is "search_knowledge_base" or "create_ticket")]
         ));
 
         // Hardware specialist with KB search and ticket tools
@@ -70,15 +65,12 @@ public static class HandoffWorkflow
             name: key,
             description: "Hardware specialist. Handles laptop, monitor, peripheral, and docking-station problems.",
             instructions: """
-                You are a hardware support specialist. Use SearchKnowledgeBase to find diagnostic
+                You are a hardware support specialist. Use search_knowledge_base to find diagnostic
                 steps for hardware issues. Diagnose laptop, monitor, peripheral, and docking
-                station problems. If RMA is needed, use CreateTicket to initiate the process.
+                station problems. If RMA is needed, use create_ticket to initiate the process.
                 Keep responses under 200 words.
                 """,
-            tools: [
-                AIFunctionFactory.Create(HelpDeskTools.SearchKnowledgeBase),
-                AIFunctionFactory.Create(HelpDeskTools.CreateTicket)
-            ]
+            tools: [.. helpTools.Where(t => t.Name is "search_knowledge_base" or "create_ticket")]
         ));
 
         builder.AddWorkflow("handoff-helpdesk", (sp, key) =>

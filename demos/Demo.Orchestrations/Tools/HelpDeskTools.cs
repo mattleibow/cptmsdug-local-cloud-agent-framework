@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Microsoft.Maui.AI.Attributes;
 
 namespace Demo.Orchestrations.Tools;
 
@@ -8,6 +9,7 @@ namespace Demo.Orchestrations.Tools;
 public static class HelpDeskTools
 {
     [Description("Searches the internal IT knowledge base for solutions to common problems. Returns matching articles.")]
+    [ExportAIFunction("search_knowledge_base")]
     public static string SearchKnowledgeBase(string issue)
     {
         // Simulated KB search for demo
@@ -41,6 +43,16 @@ public static class HelpDeskTools
                 - Step 5: Collect crash dump and submit to vendor support
                 Resolution rate: 78%
                 """;
+        if (lower.Contains("screen") || lower.Contains("display") || lower.Contains("flicker") || lower.Contains("monitor"))
+            return """
+                KB-1523: Display/Screen Issues
+                - Step 1: Check cable connections (reseat HDMI/DisplayPort/USB-C)
+                - Step 2: Try external monitor to isolate laptop panel vs GPU
+                - Step 3: Update GPU drivers (Intel/NVIDIA/AMD)
+                - Step 4: Check display refresh rate (Settings > Display > Advanced)
+                - Step 5: If laptop panel flickering persists → likely cable or panel failure → RMA
+                Resolution rate: 71%
+                """;
         return $"""
             KB-0000: No exact match found for "{issue}"
             Suggested actions:
@@ -51,6 +63,7 @@ public static class HelpDeskTools
     }
 
     [Description("Creates a support ticket in the ticketing system. Returns the ticket ID for tracking.")]
+    [ExportAIFunction("create_ticket")]
     public static string CreateTicket(string summary, string priority, string assignedTeam)
     {
         var ticketId = $"INC{Random.Shared.Next(100000, 999999)}";
@@ -69,6 +82,7 @@ public static class HelpDeskTools
     }
 
     [Description("Checks the current system status for known outages or maintenance windows.")]
+    [ExportAIFunction("check_system_status")]
     public static string CheckSystemStatus()
     {
         return """

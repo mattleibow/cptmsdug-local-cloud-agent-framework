@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Microsoft.Maui.AI.Attributes;
 
 namespace Demo.Orchestrations.Tools;
 
@@ -8,6 +9,7 @@ namespace Demo.Orchestrations.Tools;
 public static class NewsDeskTools
 {
     [Description("Searches for recent news headlines and summaries about a topic. Returns the top 3 results.")]
+    [ExportAIFunction("search_news")]
     public static string SearchNews(string query)
     {
         // Simulated news search results for demo purposes
@@ -29,6 +31,14 @@ public static class NewsDeskTools
                 3. "Global Renewable Energy Investment Surges 25%" - Financial Times, 1 day ago
                    Solar and wind now account for 35% of global electricity generation.
                 """,
+            var q when q.Contains("quantum") => """
+                1. "Quantum Computer Achieves 1,000 Logical Qubits" - Nature, 3 hours ago
+                   IBM's latest processor demonstrates error-corrected quantum computation at scale.
+                2. "Quantum Internet Prototype Links Three Cities" - Science, 8 hours ago
+                   Researchers connected New York, Boston, and Philadelphia via quantum fiber.
+                3. "Governments Race to Become Quantum-Ready" - Financial Times, 1 day ago
+                   $12B in new funding announced for post-quantum cryptography migration.
+                """,
             _ => $"""
                 1. "Breaking: Major Development in {query}" - AP News, 1 hour ago
                    Officials confirmed significant progress on the matter.
@@ -42,6 +52,7 @@ public static class NewsDeskTools
     }
 
     [Description("Looks up a specific fact or statistic to verify a claim. Returns verification status and source.")]
+    [ExportAIFunction("verify_fact")]
     public static string VerifyFact(string claim)
     {
         // Simulated fact verification for demo
@@ -53,10 +64,15 @@ public static class NewsDeskTools
             return "VERIFIED: Capacity confirmed in Climeworks official press release";
         if (claim.Contains("25%") || claim.Contains("renewable"))
             return "VERIFIED: IEA World Energy Outlook 2026 confirms 25% YoY growth";
+        if (claim.Contains("1,000") || claim.Contains("qubit"))
+            return "VERIFIED: IBM press release confirms 1,000 logical qubit milestone (May 2026)";
+        if (claim.Contains("quantum internet") || claim.Contains("three cities"))
+            return "VERIFIED: Published in Science journal, peer-reviewed, DOI: 10.1126/science.quantum2026";
         return $"UNVERIFIED: No authoritative source found for: \"{claim}\". Recommend citing as 'reports indicate' or removing.";
     }
 
     [Description("Formats the final article for publication with proper markup and metadata.")]
+    [ExportAIFunction("format_for_publication")]
     public static string FormatForPublication(string title, string article, string category)
     {
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC");
