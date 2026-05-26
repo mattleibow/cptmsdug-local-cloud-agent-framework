@@ -442,6 +442,11 @@ public partial class AgentDevUIView : ContentView
                             WorkflowGraphView.UpdateNodeStatus(node.Id, "running");
                         });
                     }
+                    // A previous invocation of THIS executor may have left a finalized
+                    // message in our maps. Drop it so a new bubble is created on the next
+                    // streaming update (rather than appending to / duplicating the old one).
+                    activeMessages.Remove(executorId);
+                    responseBuilders.Remove(executorId);
                     break;
                 }
 
@@ -562,26 +567,6 @@ public partial class AgentDevUIView : ContentView
                                 if (match != null)
                                     match.Result = resultText;
                             });
-
-                            // Surface "publication-style" tool results as their own chat bubble
-                            // so the user sees the formatted output, not just a tool entry.
-                            // Heuristic: result looks like markdown (has '#' heading or
-                            // '---' front-matter divider) AND is substantive (>200 chars).
-                            if (resultText.Length > 200 && LooksLikePublishedDocument(resultText))
-                            {
-                                var matchedToolName = _toolCalls
-                                    .FirstOrDefault(tc => tc.CallId == fr.CallId)?.Name
-                                    ?? "Output";
-                                var bubble = new DevUIChatMessage
-                                {
-                                    Role = "assistant",
-                                    Content = resultText,
-                                    AgentLabel = matchedToolName,
-                                    Timestamp = DateTime.Now,
-                                    IsStreaming = false
-                                };
-                                await RunOnUIAsync(() => _messages.Add(bubble));
-                            }
                         }
                     }
                     break;
@@ -887,24 +872,6 @@ public partial class AgentDevUIView : ContentView
         if (args is null || args.Count == 0) return "";
         try { return JsonSerializer.Serialize(args, new JsonSerializerOptions { WriteIndented = false }); }
         catch { return string.Join(", ", args.Select(kv => $"{kv.Key}: {kv.Value}")); }
-    }
-
-    /// <summary>
-    /// Heuristic to decide if a tool result looks like a fully-rendered document
-    /// (e.g. format_for_publication output) — Markdown heading or YAML front-matter +
-    /// substantive body. Such results are worth showing as a chat bubble.
-    /// </summary>
-    private static bool LooksLikePublishedDocument(string text)
-    {
-        if (string.IsNullOrEmpty(text)) return false;
-        var trimmed = text.TrimStart();
-        // YAML front-matter divider OR Markdown heading at top
-        if (trimmed.StartsWith("---") || trimmed.StartsWith("# ") || trimmed.StartsWith("## "))
-            return true;
-        // Has at least one heading somewhere in the body
-        if (text.Contains("\n# ") || text.Contains("\n## "))
-            return true;
-        return false;
     }
 
     #endregion

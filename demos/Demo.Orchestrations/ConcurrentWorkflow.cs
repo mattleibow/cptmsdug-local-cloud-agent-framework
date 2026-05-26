@@ -1,21 +1,103 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using System.ComponentModel;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
-using Demo.Orchestrations.Tools;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Maui.AI.Attributes;
 
 namespace Demo.Orchestrations;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Tools used by the concurrent travel workflow
+// ──────────────────────────────────────────────────────────────────────────────
+
+public static class TravelTools
+{
+    [Description("Searches for restaurants and food experiences at a destination. " +
+        "Returns top-rated options with prices.")]
+    [ExportAIFunction("search_restaurants")]
+    public static async Task<string> SearchRestaurants(
+        [Description("The travel destination city")] string destination,
+        [Description("Type of cuisine (optional)")] string? cuisine = null,
+        [FromServices] IChatClient chatClient = null!)
+    {
+        var cuisineHint = cuisine != null ? $" focusing on {cuisine} cuisine" : "";
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, """
+                You are a restaurant search API. Return 4-5 restaurant recommendations with:
+                  - Name
+                  - Price range (use local currency)
+                  - Rating (out of 5)
+                  - Cuisine type
+                Be realistic for the destination.
+                """),
+            new(ChatRole.User, $"Find restaurants in {destination}{cuisineHint}")
+        ],
+        new() { MaxOutputTokens = 250 });
+        return response.Text ?? $"No restaurants found in {destination}";
+    }
+
+    [Description("Checks transport options and approximate costs between locations at " +
+        "the destination.")]
+    [ExportAIFunction("check_transport")]
+    public static async Task<string> CheckTransport(
+        [Description("The travel destination city")] string destination,
+        [Description("Starting point within the city")] string from,
+        [Description("End point within the city")] string to,
+        [FromServices] IChatClient chatClient)
+    {
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, """
+                You are a transport information API. Return 3-4 transport options (taxi /
+                rideshare, public transit, walking, rental) with estimated time, cost, and a
+                local tip. Use local currency.
+                """),
+            new(ChatRole.User, $"Transport from {from} to {to} in {destination}")
+        ],
+        new() { MaxOutputTokens = 200 });
+        return response.Text ?? $"No transport info available for {destination}";
+    }
+
+    [Description("Looks up current pricing and availability for accommodations at a " +
+        "destination.")]
+    [ExportAIFunction("check_accommodation")]
+    public static async Task<string> CheckAccommodation(
+        [Description("The travel destination city")] string destination,
+        [Description("Budget level: budget, mid-range, or luxury")] string budget,
+        [FromServices] IChatClient chatClient)
+    {
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, """
+                You are an accommodation search API. Return:
+                  - Pricing for the budget level (local currency)
+                  - Availability percentage
+                  - 3 recommended areas with brief descriptions
+                  - One booking tip
+                """),
+            new(ChatRole.User, $"Find {budget} accommodation in {destination}")
+        ],
+        new() { MaxOutputTokens = 200 });
+        return response.Text ?? $"No accommodation info for {destination}";
+    }
+}
+
+[AIToolSource(typeof(TravelTools))]
+public partial class TravelToolContext : AIToolContext { }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Concurrent travel workflow: 3 specialists fan out, aggregator concatenates
+// ──────────────────────────────────────────────────────────────────────────────
 
 public static class ConcurrentWorkflow
 {
     public static void AddConcurrentWorkflow(this IHostApplicationBuilder builder)
     {
         var travelTools = TravelToolContext.Default.Tools;
-
-        // Each specialist produces a self-contained Markdown section (## heading + body).
-        // The aggregator just concatenates them — no synthesizer needed.
 
         builder.AddAIAgent("concurrent-travel-food", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
@@ -112,12 +194,6 @@ public static class ConcurrentWorkflow
             tools: [.. travelTools.Where(t =>
                 t.Name is "check_transport" or "check_accommodation")]
         ));
-
-        // ── Outer workflow: BuildConcurrent with a plain text aggregator ──
-        //
-        // No synthesizer agent needed. Each specialist already emits a clean
-        // Markdown section, so the aggregator just stitches them together
-        // under a single "# Trip Plan" heading.
 
         var parallelAgents = new[]
         {
