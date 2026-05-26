@@ -608,7 +608,9 @@ public partial class AgentDevUIView : ContentView
                 case ExecutorFailedEvent failed:
                 {
                     var node = FindNodeByExecutorId(failed.ExecutorId);
-                    AddEvent("executor.failed", $"\u2717 {node?.Name ?? failed.ExecutorId}: {failed.Data}");
+                    var label = node?.Name ?? failed.ExecutorId;
+                    var details = failed.Data?.ToString() ?? "(no details)";
+                    AddEvent("executor.failed", $"\u2717 {label}: {details}");
                     if (node is not null)
                     {
                         await RunOnUIAsync(() =>
@@ -618,12 +620,30 @@ public partial class AgentDevUIView : ContentView
                             WorkflowGraphView.UpdateNodeStatus(node.Id, "failed");
                         });
                     }
+                    // Surface the failure in the chat so the user can see what went wrong
+                    await RunOnUIAsync(() => _messages.Add(new DevUIChatMessage
+                    {
+                        Role = "assistant",
+                        Content = $"\u2717 **{label} failed**\n\n```\n{details}\n```",
+                        AgentLabel = label,
+                        Timestamp = DateTime.Now
+                    }));
                     break;
                 }
 
                 case WorkflowErrorEvent errorEvt:
-                    AddEvent("workflow.error", $"Error: {errorEvt.Data}");
+                {
+                    var details = errorEvt.Data?.ToString() ?? "(no details)";
+                    AddEvent("workflow.error", $"Error: {details}");
+                    await RunOnUIAsync(() => _messages.Add(new DevUIChatMessage
+                    {
+                        Role = "assistant",
+                        Content = $"\u2717 **Workflow error**\n\n```\n{details}\n```",
+                        AgentLabel = "Workflow",
+                        Timestamp = DateTime.Now
+                    }));
                     break;
+                }
 
                 case WorkflowStartedEvent:
                     AddEvent("workflow.running", "Workflow execution started");

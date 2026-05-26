@@ -14,7 +14,7 @@ public static class ConcurrentWorkflow
     {
         var travelTools = TravelToolContext.Default.Tools;
 
-        // ── Specialist agents (fan out — each stays strictly in lane) ────────
+        // ── Specialist agents (each stays strictly in lane) ──────────────────
 
         builder.AddAIAgent("concurrent-travel-food", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
@@ -73,42 +73,7 @@ public static class ConcurrentWorkflow
                 t.Name is "check_transport" or "check_accommodation")]
         ));
 
-        // ── Fan-out workflow: specialists run in parallel, aggregator just collates ──
-
-        var parallelAgents = new[]
-        {
-            "concurrent-travel-food",
-            "concurrent-travel-culture",
-            "concurrent-travel-logistics",
-        };
-
-        builder.AddWorkflow("concurrent-travel-specialists", (sp, key) =>
-        {
-            var labels = new[] { "FOOD EXPERT", "CULTURE EXPERT", "LOGISTICS EXPERT" };
-
-            return AgentWorkflowBuilder.BuildConcurrent(
-                workflowName: key,
-                agents: parallelAgents
-                    .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
-                    .ToArray(),
-                aggregator: results =>
-                {
-                    // No AI here — just collate labeled output, hand off to next agent
-                    var sb = new System.Text.StringBuilder();
-                    for (int i = 0; i < results.Count && i < labels.Length; i++)
-                    {
-                        var last = results[i].LastOrDefault(m => m.Role == ChatRole.Assistant);
-                        if (last is null) continue;
-                        sb.AppendLine($"=== {labels[i]} ===");
-                        sb.AppendLine(last.Text);
-                        sb.AppendLine();
-                    }
-                    // ChatRole.User so the next agent in the pipeline treats it as input
-                    return [new ChatMessage(ChatRole.User, sb.ToString())];
-                });
-        }).AddAsAIAgent(); // ← exposes the inner workflow as a step
-
-        // ── Fan-in: synthesizer is a real registered agent ───────────────────
+        // ── Post-processing agents (called from the aggregator) ──────────────
 
         builder.AddAIAgent("travel-synthesizer", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
@@ -135,8 +100,6 @@ public static class ConcurrentWorkflow
             tools: []
         ));
 
-        // ── Optional follow-on agents (sequential after the synthesizer) ─────
-
         builder.AddAIAgent("travel-email-drafter", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
             name: key,
@@ -159,22 +122,74 @@ public static class ConcurrentWorkflow
             tools: []
         ));
 
-        // ── Outer sequential workflow ties it all together ───────────────────
+        // ── Outer workflow: BuildConcurrent + aggregator drives a clean post-pipeline ──
+        //
+        // Why not BuildSequential([specialists-wrapper, synthesizer, email-drafter])?
+        // MAF's WorkflowHostAgent (created by AddAsAIAgent) emits the inner agents'
+        // AgentResponseUpdate events as part of its own response — meaning the 3
+        // specialists' tool_call/tool_result messages leak into the next stage's
+        // conversation interleaved by time. OpenAI rejects interleaved tool_calls
+        // with "An assistant message with 'tool_calls' must be followed by tool
+        // messages...". So instead we keep one BuildConcurrent and let the aggregator
+        // drive the post-processing pipeline manually with fresh, clean conversations
+        // per step.
+
+        var parallelAgents = new[]
+        {
+            "concurrent-travel-food",
+            "concurrent-travel-culture",
+            "concurrent-travel-logistics",
+        };
 
         builder.AddWorkflow("concurrent-travel", (sp, key) =>
         {
-            var workflow = AgentWorkflowBuilder.BuildSequential(
-                workflowName: key,
-                agents:
-                [
-                    sp.GetRequiredKeyedService<AIAgent>("concurrent-travel-specialists"),
-                    sp.GetRequiredKeyedService<AIAgent>("travel-synthesizer"),
-                    sp.GetRequiredKeyedService<AIAgent>("travel-email-drafter"),
-                ]);
+            var labels = new[] { "FOOD EXPERT", "CULTURE EXPERT", "LOGISTICS EXPERT" };
+            var synthesizer = sp.GetRequiredKeyedService<AIAgent>("travel-synthesizer");
+            var emailer = sp.GetRequiredKeyedService<AIAgent>("travel-email-drafter");
 
+            var workflow = AgentWorkflowBuilder.BuildConcurrent(
+                workflowName: key,
+                agents: parallelAgents
+                    .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
+                    .ToArray(),
+                aggregator: results =>
+                {
+                    // 1. Collate the 3 specialists' final assistant outputs (no tool history)
+                    var sb = new System.Text.StringBuilder();
+                    for (int i = 0; i < results.Count && i < labels.Length; i++)
+                    {
+                        var last = results[i].LastOrDefault(m => m.Role == ChatRole.Assistant);
+                        if (last is null) continue;
+                        sb.AppendLine($"=== {labels[i]} ===");
+                        sb.AppendLine(last.Text);
+                        sb.AppendLine();
+                    }
+                    var collated = sb.ToString();
+
+                    // 2. Synthesizer: fresh conversation, no leaked tool history
+                    var synthResp = synthesizer.RunAsync(
+                        [new ChatMessage(ChatRole.User, collated)])
+                        .GetAwaiter().GetResult();
+                    var tripPlan = synthResp.Messages
+                        .LastOrDefault(m => m.Role == ChatRole.Assistant)?.Text ?? "";
+
+                    // 3. Email drafter: fresh conversation, only the synthesizer's plan
+                    var emailResp = emailer.RunAsync(
+                        [new ChatMessage(ChatRole.User, tripPlan)])
+                        .GetAwaiter().GetResult();
+                    var emailDraft = emailResp.Messages
+                        .LastOrDefault(m => m.Role == ChatRole.Assistant)?.Text ?? "";
+
+                    // Return both the trip plan and the email draft as separate output messages
+                    return
+                    [
+                        new ChatMessage(ChatRole.Assistant, tripPlan),
+                        new ChatMessage(ChatRole.Assistant, $"---\n\n📧 **Email draft:**\n\n{emailDraft}")
+                    ];
+                });
             workflow.SetDescription(
-                "Specialists fan out concurrently, a coordinator synthesises one trip plan, " +
-                "then an email drafter turns it into a shareable summary.");
+                "Specialists fan out concurrently, a coordinator AI synthesises one trip " +
+                "plan, then an email drafter turns it into a shareable summary.");
             return workflow;
         }).AddAsAIAgent();
     }
