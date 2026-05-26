@@ -1,4 +1,4 @@
-﻿namespace Demo2.MauiAgent;
+﻿namespace Demo.MauiAgentApp;
 
 public partial class AppShell : Shell
 {

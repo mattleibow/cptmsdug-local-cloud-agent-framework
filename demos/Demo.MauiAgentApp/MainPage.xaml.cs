@@ -1,6 +1,6 @@
 using Microsoft.Maui.AI.Agents.DevUI;
 
-namespace Demo2.MauiAgent;
+namespace Demo.MauiAgentApp;
 
 public partial class MainPage : ContentPage
 {

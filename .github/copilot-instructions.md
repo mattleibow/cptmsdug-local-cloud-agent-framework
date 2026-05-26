@@ -4,8 +4,8 @@
 
 This repo contains demo apps for a user group presentation on combining on-device AI (Apple Intelligence) with cloud AI (Azure OpenAI) using the Microsoft Agent Framework (MAF).
 
-- **Demo1.BasicAgent**: ASP.NET Core web app with MAF DevUI at `/devui`
-- **Demo2.MauiAgent**: Native .NET MAUI app that recreates the DevUI experience natively
+- **Demo.WebAgentApp**: ASP.NET Core web app with MAF DevUI at `/devui`
+- **Demo.MauiAgentApp**: Native .NET MAUI app that recreates the DevUI experience natively
 
 ## Development Workflow — VALIDATE EVERYTHING
 
@@ -15,14 +15,14 @@ This repo contains demo apps for a user group presentation on combining on-devic
 
 ### Build
 ```bash
-cd demos/Demo2.MauiAgent
+cd demos/Demo.MauiAgentApp
 dotnet build -f net10.0-maccatalyst -warnaserror
 ```
 
 ### Deploy (Launch the app)
 ```bash
 # Kill any running instance first
-kill $(pgrep -f "Demo2.Mau") 2>/dev/null
+kill $(pgrep -f "Demo.MauiAgentApp") 2>/dev/null
 # Clean rebuild (needed if entitlements/signing change)
 rm -rf bin/Debug/net10.0-maccatalyst && dotnet build -f net10.0-maccatalyst -warnaserror
 # Launch

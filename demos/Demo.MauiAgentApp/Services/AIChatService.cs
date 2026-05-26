@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 using OpenAI;
 using OpenAI.Chat;
 
-namespace Demo2.MauiAgent.Services;
+namespace Demo.MauiAgentApp.Services;
 
 public class AIChatService
 {

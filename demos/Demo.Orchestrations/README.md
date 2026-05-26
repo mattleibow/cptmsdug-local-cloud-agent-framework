@@ -1,6 +1,6 @@
 # Demo Orchestrations
 
-Shared workflow definitions used by both the web (Demo1) and MAUI (Demo2) demos.
+Shared workflow definitions used by both the web (Demo.WebAgentApp) and MAUI (Demo.MauiAgentApp) demos.
 
 ## Standalone Agents
 

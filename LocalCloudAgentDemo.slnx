@@ -2,8 +2,8 @@
   <Folder Name="/demos/">
     <Project Path="demos/Demo.Orchestrations/Demo.Orchestrations.csproj" />
     <Project Path="demos/Demo.ReferenceTemplate/Demo.ReferenceTemplate.csproj" />
-    <Project Path="demos/Demo1.BasicAgent/Demo1.BasicAgent.csproj" />
-    <Project Path="demos/Demo2.MauiAgent/Demo2.MauiAgent.csproj" />
+    <Project Path="demos/Demo.WebAgentApp/Demo.WebAgentApp.csproj" />
+    <Project Path="demos/Demo.MauiAgentApp/Demo.MauiAgentApp.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Microsoft.Maui.AI.Agents.DevUI/Microsoft.Maui.AI.Agents.DevUI.csproj" />

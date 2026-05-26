@@ -1,5 +1,5 @@
 using Demo.Orchestrations;
-using Demo2.MauiAgent.Services;
+using Demo.MauiAgentApp.Services;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using Microsoft.Maui.AI.Agents.DevUI;
@@ -9,7 +9,7 @@ using Microsoft.Maui.DevFlow.Agent;
 using Microsoft.Extensions.Logging;
 #endif
 
-namespace Demo2.MauiAgent;
+namespace Demo.MauiAgentApp;
 
 public static class MauiProgram
 {

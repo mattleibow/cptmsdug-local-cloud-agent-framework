@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-namespace Demo2.MauiAgent;
+namespace Demo.MauiAgentApp;
 
 public partial class App : Application
 {

@@ -1,7 +1,7 @@
 ﻿using ObjCRuntime;
 using UIKit;
 
-namespace Demo2.MauiAgent;
+namespace Demo.MauiAgentApp;
 
 public class Program
 {
