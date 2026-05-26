@@ -317,7 +317,10 @@ public partial class AgentDevUIView : ContentView
         if (string.IsNullOrWhiteSpace(message) || IsSending)
             return;
 
-        // Resolve the Workflow from DI
+        // We resolve the Workflow (not AIAgent) because InProcessExecution provides granular
+        // per-executor events (invoked, completed, streaming updates) needed for live graph
+        // visualization. The web DevUI server uses agent.RunStreamingAsync() which only yields
+        // the final output — suitable for HTTP/SSE but not for live graph status updates.
         var services = Handler?.MauiContext?.Services;
         var workflowInstance = services?.GetKeyedService<Workflow>(workflow.Id);
         if (workflowInstance is null)
@@ -358,7 +361,7 @@ public partial class AgentDevUIView : ContentView
             AddEvent("workflow.started", $"{workflow.Kind} orchestration started");
             AddTrace("Agent", $"Orchestration: {workflow.Kind}");
 
-            // Execute via the real Agent Framework workflow engine
+            // Execute via InProcessExecution for per-executor event visibility
             await RunWorkflowStreamingAsync(workflowInstance, message);
 
             AddEvent("workflow.completed", $"{workflow.Kind} orchestration completed");
@@ -396,32 +399,32 @@ public partial class AgentDevUIView : ContentView
 
     #region Workflow Execution (Agent Framework)
 
+    /// <summary>
+    /// Runs a workflow via InProcessExecution.RunStreamingAsync which provides granular per-executor
+    /// events (ExecutorInvoked, AgentResponseUpdate, ExecutorCompleted) needed for live graph status.
+    /// 
+    /// The web DevUI server uses a different approach: it resolves the workflow-as-AIAgent
+    /// (via AddAsAIAgent/WorkflowHostAgent) and calls agent.RunStreamingAsync(). That approach
+    /// only yields the final aggregated output — suitable for HTTP/SSE clients but insufficient
+    /// for our live per-node graph visualization.
+    /// </summary>
     private async Task RunWorkflowStreamingAsync(Workflow workflow, string input)
     {
-        // Use the Agent Framework's InProcessExecution to run the workflow with streaming events.
-        // Each run uses a unique thread ID so agents don't retain history from prior runs.
-        var threadId = Guid.NewGuid().ToString("N");
-
-        // Pass input as a ChatMessage list rather than a raw string.
-        // ChatForwardingExecutor (used in concurrent workflows) only handles ChatMessage/List<ChatMessage>,
-        // not raw strings, so passing a string would silently drop the user's input.
+        // Pass input as ChatMessage list — ChatForwardingExecutor (used in concurrent workflows)
+        // only handles ChatMessage types, not raw strings.
         var inputMessages = new List<ChatMessage> { new(ChatRole.User, input) };
-        await using var run = await InProcessExecution.RunStreamingAsync(workflow, inputMessages, threadId);
+        await using var run = await InProcessExecution.RunStreamingAsync(workflow, inputMessages);
 
-        // Sequential/chat-protocol workflows require a TurnToken to advance past the first executor.
-        // RunStreamingAsync only enqueues the input; we must send the TurnToken ourselves
-        // (RunAsync does this internally via BeginRunHandlingChatProtocolAsync but RunStreamingAsync does not).
+        // Chat-protocol executors require a TurnToken to begin processing accumulated messages.
         await run.TrySendMessageAsync(new TurnToken(true));
 
         // Track the current streaming message per executor
         var activeMessages = new Dictionary<string, DevUIChatMessage>();
         var responseBuilders = new Dictionary<string, System.Text.StringBuilder>();
         var lastUIUpdate = DateTime.UtcNow;
-        var eventCount = 0;
 
         await foreach (var evt in run.WatchStreamAsync())
         {
-            eventCount++;
             switch (evt)
             {
                 case ExecutorInvokedEvent invoked:
@@ -439,10 +442,6 @@ public partial class AgentDevUIView : ContentView
                             WorkflowGraphView.UpdateNodeStatus(node.Id, "running");
                         });
                     }
-                    else
-                    {
-                        AddEvent("executor.invoked", $"\u25B6 {executorId}");
-                    }
                     break;
                 }
 
@@ -459,10 +458,6 @@ public partial class AgentDevUIView : ContentView
                             node.EndTime = DateTime.Now;
                             WorkflowGraphView.UpdateNodeStatus(node.Id, "completed");
                         });
-                    }
-                    else
-                    {
-                        AddEvent("executor.completed", $"\u2714 (unmatched: {executorId})");
                     }
 
                     // Finalize any active streaming message for this executor
@@ -522,7 +517,7 @@ public partial class AgentDevUIView : ContentView
                         }
                     }
 
-                    // Handle function calls in the update
+                    // Handle function calls
                     if (update.Contents?.OfType<FunctionCallContent>().Any() == true)
                     {
                         foreach (var fc in update.Contents.OfType<FunctionCallContent>())
@@ -530,13 +525,12 @@ public partial class AgentDevUIView : ContentView
                             var argsJson = FormatArguments(fc.Arguments);
                             AddEvent("function_call", $"fn: {fc.Name}({argsJson})");
                             AddTrace("Tool", fc.Name);
-                            var toolCall = new DevUIToolCall
+                            await RunOnUIAsync(() => _toolCalls.Add(new DevUIToolCall
                             {
                                 Name = fc.Name,
                                 Arguments = argsJson,
                                 Timestamp = DateTime.Now
-                            };
-                            await RunOnUIAsync(() => _toolCalls.Add(toolCall));
+                            }));
                         }
                     }
                     break;
@@ -548,15 +542,14 @@ public partial class AgentDevUIView : ContentView
                     var node = FindNodeByExecutorId(executorId);
                     var label = node?.Name ?? executorId;
 
-                    // If no streaming message was created (EmitAgentUpdateEvents not set),
-                    // create a final message from the complete response
+                    // If no streaming message was created, use the complete response
                     if (!activeMessages.TryGetValue(executorId, out var msg))
                     {
                         var responseText = responseComplete.Response?.Messages
                             ?.SelectMany(m => m.Contents?.OfType<TextContent>() ?? [])
                             .Select(t => t.Text)
                             .Where(t => !string.IsNullOrEmpty(t))
-                            .FirstOrDefault() ?? responseComplete.Response?.ToString() ?? "";
+                            .FirstOrDefault() ?? "";
 
                         if (!string.IsNullOrEmpty(responseText))
                         {
@@ -594,9 +587,8 @@ public partial class AgentDevUIView : ContentView
 
                 case ExecutorFailedEvent failed:
                 {
-                    var executorId = failed.ExecutorId;
-                    var node = FindNodeByExecutorId(executorId);
-                    AddEvent("executor.failed", $"\u2717 {node?.Name ?? executorId}: {failed.Data}");
+                    var node = FindNodeByExecutorId(failed.ExecutorId);
+                    AddEvent("executor.failed", $"\u2717 {node?.Name ?? failed.ExecutorId}: {failed.Data}");
                     if (node is not null)
                     {
                         await RunOnUIAsync(() =>
@@ -616,14 +608,8 @@ public partial class AgentDevUIView : ContentView
                 case WorkflowStartedEvent:
                     AddEvent("workflow.running", "Workflow execution started");
                     break;
-
-                default:
-                    AddEvent("workflow.event", $"{evt.GetType().Name}: {evt.Data?.GetType().Name ?? "null"}");
-                    break;
             }
         }
-
-        AddEvent("workflow.completed", $"Sequential orchestration completed");
 
         // Mark any remaining pending nodes as skipped
         await RunOnUIAsync(() =>
@@ -648,10 +634,8 @@ public partial class AgentDevUIView : ContentView
                 return node;
         }
 
-        // MAF executor IDs use underscores and GUIDs: e.g. "handoff_helpdesk_network_293b3c9e..."
+        // MAF executor IDs use underscores and GUIDs: e.g. "handoff_helpdesk_network_293b..."
         // Our registered keys use dashes: "handoff-helpdesk-network"
-        // Match by checking if executorId starts with a normalized version of the node ID
-        // with a boundary check (next char must be '_' or end of string)
         foreach (var node in _workflowNodes)
         {
             var normalized = node.Id.Replace("-", "_");
