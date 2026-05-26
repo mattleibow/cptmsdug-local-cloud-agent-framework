@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.AI.Attributes;
 
 namespace Demo.Orchestrations.Tools;
@@ -10,75 +12,51 @@ public static class TravelTools
 {
     [Description("Searches for restaurants and food experiences at a destination. Returns top-rated options with prices.")]
     [ExportAIFunction("search_restaurants")]
-    public static string SearchRestaurants(
+    public static async Task<string> SearchRestaurants(
         [Description("The travel destination city")] string destination,
-        [Description("Type of cuisine to search for (optional)")] string? cuisine = null)
+        [Description("Type of cuisine to search for (optional)")] string? cuisine,
+        [FromServices] IChatClient chatClient)
     {
-        var city = destination.ToLowerInvariant();
-        if (city.Contains("cape town"))
-            return """
-                🍽️ Top Restaurants in Cape Town:
-                1. The Test Kitchen - Tasting menu R1,200pp ⭐4.9 (Fine dining, Woodstock)
-                2. La Colombe - 8-course R1,500pp ⭐4.8 (French-Asian fusion, Constantia)
-                3. Harbour House - Mains R180-R350 ⭐4.6 (Seafood, V&A Waterfront)
-                4. The Pot Luck Club - Small plates R80-R150 ⭐4.7 (Tapas, Silo District)
-                5. Gold Restaurant - Set menu R650pp ⭐4.5 (Pan-African, Green Point)
-                Booking recommended for all. Peak season: Dec-Feb.
-                """;
-        return $"""
-            🍽️ Top Restaurants in {destination}:
-            1. The Local Table - Prix fixe $85pp ⭐4.8 (Modern local cuisine)
-            2. Market Street Kitchen - Mains $25-$45 ⭐4.7 (Farm-to-table)
-            3. Skyline Rooftop - Tasting menu $120pp ⭐4.6 (Contemporary)
-            Booking recommended 2-3 days in advance.
-            """;
+        var cuisineHint = cuisine != null ? $" focusing on {cuisine} cuisine" : "";
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, "You are a restaurant search API. Return 4-5 restaurant recommendations with name, price range, rating (⭐), and cuisine type. Use local currency where appropriate. Be realistic for the destination."),
+            new(ChatRole.User, $"Find restaurants in {destination}{cuisineHint}")
+        ],
+        new() { MaxOutputTokens = 250 });
+        return response.Text ?? $"No restaurants found in {destination}";
     }
 
     [Description("Checks transport options and approximate costs between locations at the destination.")]
     [ExportAIFunction("check_transport")]
-    public static string CheckTransport(
+    public static async Task<string> CheckTransport(
         [Description("The travel destination city")] string destination,
         [Description("Starting point within the city")] string from,
-        [Description("End point within the city")] string to)
+        [Description("End point within the city")] string to,
+        [FromServices] IChatClient chatClient)
     {
-        return $"""
-            🚗 Transport: {from} → {to} ({destination})
-            ─────────────────────────────────────
-            • Uber/Taxi: ~15-25 min, estimated $12-$18
-            • Public Transit: ~35 min, $2.50 (bus/metro)
-            • Walking: ~45 min (if <3km)
-            • Rental Car: Available from $35/day + parking $8-$15
-            
-            ℹ️ Tip: {(destination.ToLowerInvariant().Contains("cape town")
-                ? "MyCiti bus is reliable for Waterfront/CBD. Uber is safest for evening travel."
-                : "Local rideshare apps often cheaper than international ones.")}
-            """;
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, "You are a transport information API. Return 3-4 transport options (taxi/rideshare, public transit, walking, rental) with estimated time, cost, and a local tip. Use local currency."),
+            new(ChatRole.User, $"Transport options from {from} to {to} in {destination}")
+        ],
+        new() { MaxOutputTokens = 200 });
+        return response.Text ?? $"No transport info available for {destination}";
     }
 
     [Description("Looks up current pricing and availability for accommodations at a destination.")]
     [ExportAIFunction("check_accommodation")]
-    public static string CheckAccommodation(
+    public static async Task<string> CheckAccommodation(
         [Description("The travel destination city")] string destination,
-        [Description("Budget level: budget, mid-range, or luxury")] string budget = "mid-range")
+        [Description("Budget level: budget, mid-range, or luxury")] string budget,
+        [FromServices] IChatClient chatClient)
     {
-        var priceRange = budget.ToLowerInvariant() switch
-        {
-            "budget" => "$40-$80/night",
-            "luxury" => "$250-$600/night",
-            _ => "$100-$200/night"
-        };
-        return $"""
-            🏨 Accommodation in {destination} ({budget}):
-            ─────────────────────────────────────
-            Price range: {priceRange}
-            Availability: Good (65% occupancy this period)
-            
-            Recommended areas:
-            • City Center - walkable, restaurants nearby
-            • Waterfront/Harbor - scenic, tourist-friendly
-            • Local neighborhood - authentic, quieter, cheaper
-            
-            ⚡ Best value: Book 2-3 weeks ahead for 15-20% savings.
-            """;
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, "You are an accommodation search API. Return pricing for the budget level, availability percentage, 3 recommended areas to stay with brief descriptions, and a booking tip. Use local currency."),
+            new(ChatRole.User, $"Find {budget} accommodation in {destination}")
+        ],
+        new() { MaxOutputTokens = 200 });
+        return response.Text ?? $"No accommodation info available for {destination}";
     }
 }

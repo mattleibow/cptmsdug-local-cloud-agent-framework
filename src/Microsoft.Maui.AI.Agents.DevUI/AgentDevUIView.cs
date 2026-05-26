@@ -529,8 +529,28 @@ public partial class AgentDevUIView : ContentView
                             {
                                 Name = fc.Name,
                                 Arguments = argsJson,
+                                CallId = fc.CallId,
                                 Timestamp = DateTime.Now
                             }));
+                        }
+                    }
+
+                    // Handle function results
+                    if (update.Contents?.OfType<FunctionResultContent>().Any() == true)
+                    {
+                        foreach (var fr in update.Contents.OfType<FunctionResultContent>())
+                        {
+                            var resultText = fr.Result?.ToString() ?? "";
+                            var truncated = resultText.Length > 500 ? resultText[..500] + "..." : resultText;
+                            AddEvent("function_result", $"fn: {fr.CallId} → {truncated}");
+
+                            // Match result to existing tool call by CallId
+                            await RunOnUIAsync(() =>
+                            {
+                                var match = _toolCalls.FirstOrDefault(tc => tc.CallId == fr.CallId);
+                                if (match != null)
+                                    match.Result = truncated;
+                            });
                         }
                     }
                     break;
@@ -691,9 +711,26 @@ public partial class AgentDevUIView : ContentView
                     {
                         Name = fc.Name,
                         Arguments = argsJson,
+                        CallId = fc.CallId,
                         Timestamp = DateTime.Now
                     };
                     await RunOnUIAsync(() => _toolCalls.Add(toolCall));
+                }
+            }
+
+            if (update.Contents?.OfType<FunctionResultContent>().Any() == true)
+            {
+                foreach (var fr in update.Contents.OfType<FunctionResultContent>())
+                {
+                    var resultText = fr.Result?.ToString() ?? "";
+                    var truncated = resultText.Length > 500 ? resultText[..500] + "..." : resultText;
+                    AddEvent("function_result", $"fn: {fr.CallId} → {truncated}");
+                    await RunOnUIAsync(() =>
+                    {
+                        var match = _toolCalls.FirstOrDefault(tc => tc.CallId == fr.CallId);
+                        if (match != null)
+                            match.Result = truncated;
+                    });
                 }
             }
         }

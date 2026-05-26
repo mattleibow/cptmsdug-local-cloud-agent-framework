@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.AI.Attributes;
 
 namespace Demo.Orchestrations.Tools;
@@ -10,65 +12,32 @@ public static class NewsDeskTools
 {
     [Description("Searches for recent news headlines and summaries about a topic. Returns the top 3 results.")]
     [ExportAIFunction("search_news")]
-    public static string SearchNews(string query)
+    public static async Task<string> SearchNews(
+        string query,
+        [FromServices] IChatClient chatClient)
     {
-        // Simulated news search results for demo purposes
-        var results = query.ToLowerInvariant() switch
-        {
-            var q when q.Contains("ai") || q.Contains("artificial intelligence") => """
-                1. "Global AI Safety Summit Reaches Historic Agreement" - Reuters, 2 hours ago
-                   Leaders from 40 nations signed a framework for responsible AI development.
-                2. "OpenAI Announces GPT-5 with Enhanced Reasoning" - TechCrunch, 5 hours ago
-                   The new model shows significant improvements in multi-step problem solving.
-                3. "EU AI Act Enforcement Begins Next Month" - BBC, 1 day ago
-                   Companies have 30 days to comply with the new transparency requirements.
-                """,
-            var q when q.Contains("climate") || q.Contains("environment") => """
-                1. "Record-Breaking Heatwave Hits Southern Europe" - AP News, 3 hours ago
-                   Temperatures exceeded 45°C across Spain, Italy, and Greece.
-                2. "New Carbon Capture Plant Opens in Iceland" - Nature, 6 hours ago
-                   The facility can remove 36,000 tonnes of CO2 annually.
-                3. "Global Renewable Energy Investment Surges 25%" - Financial Times, 1 day ago
-                   Solar and wind now account for 35% of global electricity generation.
-                """,
-            var q when q.Contains("quantum") => """
-                1. "Quantum Computer Achieves 1,000 Logical Qubits" - Nature, 3 hours ago
-                   IBM's latest processor demonstrates error-corrected quantum computation at scale.
-                2. "Quantum Internet Prototype Links Three Cities" - Science, 8 hours ago
-                   Researchers connected New York, Boston, and Philadelphia via quantum fiber.
-                3. "Governments Race to Become Quantum-Ready" - Financial Times, 1 day ago
-                   $12B in new funding announced for post-quantum cryptography migration.
-                """,
-            _ => $"""
-                1. "Breaking: Major Development in {query}" - AP News, 1 hour ago
-                   Officials confirmed significant progress on the matter.
-                2. "Expert Analysis: What {query} Means for the Future" - Reuters, 4 hours ago
-                   Industry analysts weigh in on the implications.
-                3. "Public Response to {query} Developments" - BBC, 8 hours ago
-                   Community reactions range from cautious optimism to concern.
-                """
-        };
-        return results;
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, "You are a news search API. Return exactly 3 recent headlines with source, time ago, and a one-line summary. Format as a numbered list. Be realistic and timely."),
+            new(ChatRole.User, $"Search news about: {query}")
+        ],
+        new() { MaxOutputTokens = 250 });
+        return response.Text ?? $"No results found for: {query}";
     }
 
     [Description("Looks up a specific fact or statistic to verify a claim. Returns verification status and source.")]
     [ExportAIFunction("verify_fact")]
-    public static string VerifyFact(string claim)
+    public static async Task<string> VerifyFact(
+        string claim,
+        [FromServices] IChatClient chatClient)
     {
-        // Simulated fact verification for demo
-        if (claim.Contains("40 nations") || claim.Contains("42 nations") || claim.Contains("30 countries"))
-            return "VERIFIED: The summit included representatives from 42 nations (source: UN Press Release, May 2026)";
-        if (claim.Contains("45°C") || claim.Contains("record") || claim.Contains("heatwave"))
-            return "VERIFIED: Temperature records confirmed by EU Copernicus Climate Service";
-        if (claim.Contains("36,000") || claim.Contains("carbon capture"))
-            return "VERIFIED: Capacity confirmed in Climeworks official press release";
-        if (claim.Contains("25%") || claim.Contains("renewable"))
-            return "VERIFIED: IEA World Energy Outlook 2026 confirms 25% YoY growth";
-        if (claim.Contains("1,000") || claim.Contains("qubit"))
-            return "VERIFIED: IBM press release confirms 1,000 logical qubit milestone (May 2026)";
-        if (claim.Contains("quantum internet") || claim.Contains("three cities"))
-            return "VERIFIED: Published in Science journal, peer-reviewed, DOI: 10.1126/science.quantum2026";
-        return $"UNVERIFIED: No authoritative source found for: \"{claim}\". Recommend citing as 'reports indicate' or removing.";
+        var response = await chatClient.GetResponseAsync(
+        [
+            new(ChatRole.System, "You are a fact-checking service. Verify the claim and respond with either 'VERIFIED: [source]' or 'UNVERIFIED: [reason]'. Keep it to 1-2 sentences."),
+            new(ChatRole.User, $"Verify this claim: {claim}")
+        ],
+        new() { MaxOutputTokens = 100 });
+        return response.Text ?? $"UNVERIFIED: Unable to verify: \"{claim}\"";
     }
 
     [Description("Formats the final article for publication with proper markup and metadata.")]

@@ -138,6 +138,17 @@
                                    LineBreakMode="TailTruncation"
                                    MaxLines="3"
                                    FontFamily="Courier New" />
+                            <BoxView HeightRequest="1"
+                                     Color="{AppThemeBinding Light=#e8e8e8, Dark=#2a2a3e}"
+                                     Margin="0,2"
+                                     IsVisible="{Binding Result, Converter={StaticResource NotNullOrEmptyConverter}}" />
+                            <Label Text="{Binding Result}"
+                                   FontSize="10"
+                                   TextColor="{AppThemeBinding Light=#2e7d32, Dark=#81c784}"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="5"
+                                   FontFamily="Courier New"
+                                   IsVisible="{Binding Result, Converter={StaticResource NotNullOrEmptyConverter}}" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>

@@ -53,7 +53,11 @@ public static class MauiProgram
 
 		// Register services
 		builder.Services.AddSingleton<AIChatService>();
-		builder.Services.AddSingleton<IChatClient>(sp => sp.GetRequiredService<AIChatService>().ChatClient);
+		builder.Services.AddSingleton<IChatClient>(sp =>
+		{
+			var svc = sp.GetRequiredService<AIChatService>();
+			return svc.ChatClient;
+		});
 
 		// Register standalone agents
 		builder.AddStandaloneAgents();

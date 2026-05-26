@@ -127,19 +127,30 @@ public sealed class DevUITraceSpan
 /// <summary>
 /// A tool/function call captured during agent execution.
 /// </summary>
-public sealed class DevUIToolCall
+public sealed class DevUIToolCall : INotifyPropertyChanged
 {
+    private string? _result;
+
     /// <summary>Function name.</summary>
     public required string Name { get; init; }
 
     /// <summary>Serialized arguments.</summary>
     public string Arguments { get; init; } = string.Empty;
 
-    /// <summary>Optional result.</summary>
-    public string? Result { get; init; }
+    /// <summary>The call ID used to match results to calls.</summary>
+    public string? CallId { get; init; }
+
+    /// <summary>Optional result populated when the tool returns.</summary>
+    public string? Result
+    {
+        get => _result;
+        set { _result = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Result))); }
+    }
 
     /// <summary>When the tool was called.</summary>
     public DateTime Timestamp { get; init; } = DateTime.Now;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 /// <summary>

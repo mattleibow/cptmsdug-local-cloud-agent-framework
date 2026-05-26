@@ -12,7 +12,7 @@ public class AIChatService
     private readonly IChatClient _chatClient;
     private readonly string _deploymentName;
 
-    public AIChatService(IConfiguration configuration)
+    public AIChatService(IConfiguration configuration, IServiceProvider? serviceProvider = null)
     {
         var endpoint = configuration["AI:Endpoint"]
             ?? throw new InvalidOperationException("Missing configuration: AI:Endpoint");
@@ -29,7 +29,7 @@ public class AIChatService
             .AsIChatClient()
             .AsBuilder()
             .UseFunctionInvocation()
-            .Build();
+            .Build(serviceProvider);
     }
 
     public IChatClient ChatClient => _chatClient;
