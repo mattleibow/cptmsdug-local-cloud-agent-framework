@@ -1,6 +1,5 @@
 <Solution>
   <Folder Name="/demos/">
-    <Project Path="demos/Demo.ReferenceTemplate/Demo.ReferenceTemplate.csproj" />
     <Project Path="demos/Demo.MauiAgentApp/Demo.MauiAgentApp.csproj" />
   </Folder>
   <Folder Name="/src/">
