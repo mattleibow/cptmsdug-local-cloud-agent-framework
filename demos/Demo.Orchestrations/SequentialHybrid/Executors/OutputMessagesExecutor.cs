@@ -12,10 +12,9 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// <c>List&lt;ChatMessage&gt;</c> sends across a turn and only yields once
 /// per <see cref="TurnToken"/>.
 /// </summary>
-public sealed class OutputMessagesExecutor : ChatProtocolExecutor
+public sealed class OutputMessagesExecutor(string id = "output-messages")
+    : ChatProtocolExecutor(id)
 {
-    public OutputMessagesExecutor(string id = "output-messages") : base(id) { }
-
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
         => base.ConfigureProtocol(protocolBuilder).YieldsOutput<List<ChatMessage>>();
 

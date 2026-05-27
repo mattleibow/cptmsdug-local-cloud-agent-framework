@@ -18,16 +18,9 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// </summary>
 [SendsMessage(typeof(ChatMessage))]
 [SendsMessage(typeof(TurnToken))]
-public sealed class FinalEmailAssembler : ChatProtocolExecutor
+public sealed class FinalEmailAssembler(InboxService inbox, string id = "final-email-assembler")
+    : ChatProtocolExecutor(id)
 {
-    private readonly InboxService _inbox;
-
-    public FinalEmailAssembler(InboxService inbox, string id = "final-email-assembler")
-        : base(id)
-    {
-        _inbox = inbox;
-    }
-
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
         => base.ConfigureProtocol(protocolBuilder).SendsMessage<ChatMessage>();
 
@@ -37,29 +30,24 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
         bool? emitEvents,
         CancellationToken cancellationToken = default)
     {
-        var picked = await context
-            .ReadStateAsync<PickedEmail>(
-                CloudPromptAdapter.PickedEmailStateKey,
-                scopeName: CloudPromptAdapter.SharedScope,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var picked = await context.ReadStateAsync<PickedEmail>(
+            CloudPromptAdapter.PickedEmailStateKey,
+            scopeName: CloudPromptAdapter.SharedScope,
+            cancellationToken: cancellationToken);
 
-        var mapping = await context
-            .ReadStateAsync<Dictionary<string, string>>(
-                CloudPromptAdapter.RedactionMappingStateKey,
-                scopeName: CloudPromptAdapter.SharedScope,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false)
+        var mapping = await context.ReadStateAsync<Dictionary<string, string>>(
+            CloudPromptAdapter.RedactionMappingStateKey,
+            scopeName: CloudPromptAdapter.SharedScope,
+            cancellationToken: cancellationToken)
             ?? [];
 
-        await Log(context, $"read state: picked={(picked is null ? "null" : picked.FromFullName)}, mapping entries={mapping.Count}", cancellationToken)
-            .ConfigureAwait(false);
+        await Log(context, $"read state: picked={picked?.FromFullName ?? "null"}, mapping entries={mapping.Count}", cancellationToken);
 
         if (picked is null)
         {
             await context.SendMessageAsync(
                 new ChatMessage(ChatRole.Assistant, "(No picked email — workflow stalled.)"),
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+                cancellationToken: cancellationToken);
             return;
         }
 
@@ -78,14 +66,14 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
         {
             var before = replyBody;
             replyBody = replyBody.Replace(token, original);
-            if (!ReferenceEquals(before, replyBody)) tokensReplaced++;
+            if (!ReferenceEquals(before, replyBody))
+                tokensReplaced++;
         }
-        await Log(context, $"rehydrated {tokensReplaced} of {mapping.Count} token kinds in cloud reply", cancellationToken)
-            .ConfigureAwait(false);
+        await Log(context, $"rehydrated {tokensReplaced} of {mapping.Count} token kinds in cloud reply", cancellationToken);
 
         var subject = picked.Subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase)
             ? picked.Subject
-            : "Re: " + picked.Subject;
+            : $"Re: {picked.Subject}";
 
         var fullBody = $"""
             Hi {picked.FromFirstName},
@@ -93,7 +81,7 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
             {replyBody}
 
             Best,
-            {_inbox.OwnerFirstName}
+            {inbox.OwnerFirstName}
             """;
 
         var mailto = BuildMailto(picked.FromEmail, subject, fullBody);
@@ -101,7 +89,7 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
         var markdown = new StringBuilder()
             .AppendLine("---")
             .AppendLine($"to: \"{picked.FromFullName}\" <{picked.FromEmail}>")
-            .AppendLine($"from: \"{_inbox.OwnerName}\" <{_inbox.OwnerEmail}>")
+            .AppendLine($"from: \"{inbox.OwnerName}\" <{inbox.OwnerEmail}>")
             .AppendLine($"subject: {subject}")
             .AppendLine("---")
             .AppendLine()
@@ -110,12 +98,11 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
             .AppendLine($"[Open in Mail]({mailto})")
             .ToString();
 
-        await Log(context, $"assembled markdown ({markdown.Length} chars)", cancellationToken)
-            .ConfigureAwait(false);
+        await Log(context, $"assembled markdown ({markdown.Length} chars)", cancellationToken);
 
         await context.SendMessageAsync(
             new ChatMessage(ChatRole.Assistant, markdown),
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken);
     }
 
     private static ValueTask Log(
@@ -127,3 +114,4 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
     private static string BuildMailto(string toEmail, string subject, string body) =>
         $"mailto:{toEmail}?subject={Uri.EscapeDataString(subject)}&body={Uri.EscapeDataString(body)}";
 }
+

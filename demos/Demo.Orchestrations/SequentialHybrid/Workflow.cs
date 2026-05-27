@@ -27,17 +27,21 @@ namespace Demo.Orchestrations;
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
 //  │  body-redactor           local agent                                  │
-//  │    • Replaces last names, companies, projects, and dollar amounts    │
-//  │      mentioned IN the body with PERSON_n / COMPANY_n / PROJECT_n /   │
-//  │      AMOUNT_n tokens. First names stay.                               │
-//  │    • Returns RedactedBody { body, mapping }.                          │
+//  │    • Reads the picked email body and returns a list of sensitive     │
+//  │      entities it spotted, each tagged PERSON / COMPANY / PROJECT /   │
+//  │      AMOUNT. It does NOT rewrite the body — substitution happens in  │
+//  │      the next executor.                                               │
 //  └──────────────────────────────────────────────────────────────────────┘
-//          │ RedactedBody JSON
+//          │ RedactedBody JSON (list of entities)
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
 //  │  cloud-prompt-adapter    executor, no LLM                             │
 //  │    • Parses PickedEmail + RedactedBody from the two assistant turns.  │
-//  │    • Stores both in workflow state for the assembler.                 │
+//  │    • Drops hallucinated entities that don't actually appear in the    │
+//  │      body, assigns PERSON_n / COMPANY_n / … tokens, and runs literal  │
+//  │      string.Replace over the body — deterministic redaction.          │
+//  │    • Stores the picked email and the token → original mapping in     │
+//  │      workflow state for the assembler to read at the end.             │
 //  │    • Emits the cloud prompt — first names only, subject, redacted     │
 //  │      body — and tells the cloud to draft just a reply BODY.           │
 //  └──────────────────────────────────────────────────────────────────────┘
@@ -52,8 +56,10 @@ namespace Demo.Orchestrations;
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
 //  │  final-email-assembler   executor, no LLM                             │
-//  │    • Reads PickedEmail from workflow state (for to/from/subject).     │
-//  │    • Reads cloud body from the latest assistant turn.                 │
+//  │    • Reads PickedEmail + redaction mapping from workflow state.       │
+//  │    • Reads the cloud body from the latest assistant turn.             │
+//  │    • Rehydrates any tokens the cloud preserved back to the original   │
+//  │      values (literal string.Replace from the stored mapping).         │
 //  │    • Emits a single Markdown document with YAML frontmatter and a     │
 //  │      mailto: link — the DevUI's MarkdownLabel surfaces the link as    │
 //  │      a clickable "Open in Mail" button via Launcher.OpenAsync.        │
@@ -131,11 +137,10 @@ public static class EmailTriageWorkflow
                     });
             });
 
-        // 2. BODY REDACTOR — local agent that swaps last names and company
-        //    names INSIDE the body for placeholder tokens. The token map is
-        //    purely informational; we do not rehydrate it into the final
-        //    reply body (per design: the user-facing email uses originals,
-        //    only the cloud-bound prompt uses tokens).
+        // 2. BODY REDACTOR — local agent that SPOTS sensitive entities in
+        //    the picked email body and returns them as a structured list.
+        //    The actual replacement happens in the cloud-prompt-adapter, so
+        //    this stage just decides what's sensitive — not how to format it.
         builder.AddAIAgent(
             "local-body-redactor",
             (sp, key) => new ChatClientAgent(
@@ -144,25 +149,42 @@ public static class EmailTriageWorkflow
                 {
                     Name = key,
                     Description =
-                        "On-device body redactor: replaces last names and company names " +
-                        "inside the email body with placeholder tokens before the cloud " +
-                        "sees the text.",
+                        "On-device entity spotter: scans the picked email body for last " +
+                        "names, company names, project names, and dollar amounts and " +
+                        "returns them as a structured list for the next executor to " +
+                        "tokenise.",
                     ChatOptions = new ChatOptions
                     {
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<RedactedBody>(),
+                        // Bound the spotter's output so it can't run away in
+                        // an unbounded streaming loop. Even on the smaller
+                        // on-device model 400 tokens is enough for ~15
+                        // entities, which is plenty for any single email.
+                        MaxOutputTokens = 400,
                         Instructions = """
                             You are an on-device privacy spotter. You will be given a
                             PickedEmail JSON. Look at its body and list every sensitive
-                            entity you find. For each one, classify it as one of:
+                            entity that LITERALLY APPEARS in the body text. For each
+                            one, classify it as one of:
 
                               PERSON   — a person's LAST name only (never a first name)
                               COMPANY  — a company / organisation name
                               PROJECT  — a project / product name
                               AMOUNT   — a specific dollar amount (e.g. "$5,000")
 
+                            STRICT RULES:
+                              - Only include entities whose Value appears word-for-word
+                                in the body. Do NOT invent values. Do NOT extrapolate
+                                a series (no fake $5,000, $10,000, $15,000, …).
+                              - Do not repeat the same entity twice.
+                              - If a category has no instances in the body, leave it
+                                out entirely. An empty entities array is a valid answer
+                                when the body has nothing sensitive.
+                              - Each Value must be copied character-for-character from
+                                the body so it can be found with a literal string match.
+
                             You are NOT rewriting the body. You are NOT inventing
-                            tokens. Just return the list of entities you spotted, with
-                            each Value copied character-for-character from the body.
+                            tokens. Just list what you actually see.
                             """,
                     },
                 }));
