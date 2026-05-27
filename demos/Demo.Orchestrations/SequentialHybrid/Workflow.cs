@@ -27,23 +27,27 @@ namespace Demo.Orchestrations;
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
 //  │  body-redactor           local agent                                  │
-//  │    • Reads the picked email body and returns a list of sensitive     │
-//  │      entities it spotted, each tagged PERSON / COMPANY / PROJECT /   │
-//  │      AMOUNT. It does NOT rewrite the body — substitution happens in  │
-//  │      the next executor.                                               │
+//  │    • Reads the picked email body and returns FOUR typed lists of      │
+//  │      substrings it spotted — last names, companies, projects, dollar  │
+//  │      amounts. The lists are bounded by [MaxLength(5)] so the          │
+//  │      constrained decoder cannot run away.                             │
+//  │    • Does NOT rewrite the body — substitution happens in the next     │
+//  │      executor where it can be done deterministically.                 │
 //  └──────────────────────────────────────────────────────────────────────┘
-//          │ RedactedBody JSON (list of entities)
+//          │ RedactedBody JSON (four typed lists)
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
 //  │  cloud-prompt-adapter    executor, no LLM                             │
 //  │    • Parses PickedEmail + RedactedBody from the two assistant turns.  │
-//  │    • Drops hallucinated entities that don't actually appear in the    │
-//  │      body, assigns PERSON_n / COMPANY_n / … tokens, and runs literal  │
-//  │      string.Replace over the body — deterministic redaction.          │
+//  │    • Drops hallucinated substrings that don't actually appear in the  │
+//  │      body, assigns PERSON_n / COMPANY_n / PROJECT_n / AMOUNT_n tokens │
+//  │      and runs literal string.Replace over the body — deterministic    │
+//  │      redaction, no LLM involvement.                                   │
 //  │    • Stores the picked email and the token → original mapping in     │
 //  │      workflow state for the assembler to read at the end.             │
-//  │    • Emits the cloud prompt — first names only, subject, redacted     │
-//  │      body — and tells the cloud to draft just a reply BODY.           │
+//  │    • Emits the cloud prompt — sender + recipient first names only,   │
+//  │      subject, and the redacted body. Tells the cloud to draft just   │
+//  │      the reply body.                                                 │
 //  └──────────────────────────────────────────────────────────────────────┘
 //          │ ChatMessage (no last names, no emails, no $, no project names)
 //          ▼

@@ -11,8 +11,10 @@ namespace Demo.Orchestrations.SequentialHybrid.Services;
 /// inbound emails on demand.
 ///
 /// Carries the mailbox owner's identity as instance properties so every
-/// downstream stage (inbox-picker prompt, RAG context, final assembler
-/// signature) can read consistent values without a static side-channel.
+/// downstream stage (inbox generator, cloud-prompt adapter, final assembler)
+/// can read consistent values without a static side-channel. The picker
+/// schema deliberately does NOT include the recipient — the recipient is
+/// always the owner, sourced from here.
 ///
 /// Used by the inbox-picker agent through a <c>TextSearchProvider</c>.
 /// Each search result is a single fully-formed email so the inbox-picker

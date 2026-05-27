@@ -9,9 +9,9 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// <summary>
 /// Sits AFTER the cloud reply-writer. Builds the final user-facing markdown
 /// email by combining:
-///   - the picked email stored in workflow state (for to/from/subject),
+///   - the picked email stored in workflow state (for the sender and subject),
 ///   - the inbox owner identity from <see cref="InboxService"/> (for the
-///     from line + signature),
+///     reply's "from" line + signature),
 ///   - the redaction mapping stored in workflow state (for token rehydration),
 ///   - the cloud's reply body,
 ///   - a mailto: link so the user can open the reply in Mail.app.
