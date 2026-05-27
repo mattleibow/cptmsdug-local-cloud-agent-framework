@@ -32,7 +32,7 @@ builder.AddSequentialWorkflow();
 builder.AddConcurrentWorkflow();
 builder.AddHandoffWorkflow();
 builder.AddGroupChatWorkflow();
-builder.AddEmailTriageWorkflow();
+builder.AddMeetingInviteWorkflow();
 
 // Required for DevUI
 builder.Services.AddOpenAIResponses();

@@ -9,16 +9,21 @@ using Microsoft.Extensions.Hosting;
 namespace Demo.Orchestrations.SequentialHybrid;
 
 /// <summary>
-/// Stage 1 of the email-triage pipeline. Runs on-device.
+/// Stage 1 of the meeting-invite pipeline. Runs on-device.
 ///
 /// Uses a <c>TextSearchProvider</c> backed by <see cref="InboxService"/> to
-/// pull a fresh batch of fabricated inbox emails, picks the ONE entry most
-/// relevant to the user's request, and returns it as a structured
-/// <see cref="PickedEmail"/>.
+/// pull a fresh batch of fabricated customer emails (the user's PRIVATE
+/// inbox) and select the ONE most relevant to the user's request. Returns
+/// the chosen email as a structured <see cref="PickedEmail"/> so the
+/// downstream stages can work against typed fields.
+///
+/// This is the LOCAL RAG step. The inbox content never leaves the device —
+/// only the summary produced by stage 2 does.
 /// </summary>
-public static class LocalInboxPickerAgentExtensions
+public static class LocalInboxSearchAgentExtensions
 {
-    public static IHostApplicationBuilder AddLocalInboxPickerAgent(this IHostApplicationBuilder builder, string name)
+    public static IHostApplicationBuilder AddLocalInboxSearchAgent(
+        this IHostApplicationBuilder builder, string name)
     {
         builder.AddAIAgent(
             name,
@@ -45,28 +50,36 @@ public static class LocalInboxPickerAgentExtensions
                     Name = key,
                     Description =
                         """
-                        On-device inbox picker: chooses the single inbox email most
-                        relevant to the user's request and returns it as structured JSON.
+                        On-device inbox search: chooses the single inbox email most
+                        relevant to the user's request and returns it as structured
+                        JSON for the downstream summariser.
                         """,
                     AIContextProviders = [ragProvider],
                     ChatOptions = new ChatOptions
                     {
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<PickedEmail>(),
+                        // Bound output so a confused Apple Intelligence run can't
+                        // loop forever streaming the entire RAG context into the
+                        // body field. 1500 tokens comfortably fits a single
+                        // ~3-paragraph body plus the JSON wrapper.
+                        MaxOutputTokens = 1500,
                         Instructions = """
-                            You are an on-device inbox picker. The context
-                            lists the user's inbox emails, each with these
-                            labels:
+                            You are an on-device inbox searcher. The context lists
+                            the user's inbox emails, each with these labels:
 
-                                SENDER_EMAIL, SENDER_NAME,
-                                SUBJECT, RECEIVED, body
+                              SENDER_EMAIL, SENDER_NAME,
+                              SUBJECT, RECEIVED, body
 
-                            Pick the ONE entry most relevant to the user's
-                            request and copy its fields 1:1 into the schema:
+                            Pick exactly ONE entry. Copy the fields from THAT
+                            entry — and ONLY that entry — into the schema:
 
-                                SENDER_EMAIL → senderEmail
-                                SENDER_NAME  → senderName
-                                SUBJECT      → subject
-                                body lines   → body
+                              SENDER_EMAIL → senderEmail
+                              SENDER_NAME  → senderName
+                              SUBJECT      → subject
+                              body lines   → body
+
+                            Never combine fields from multiple entries. Never
+                            stitch bodies together. Stop after one entry.
                             """,
                     },
                 };
@@ -79,4 +92,3 @@ public static class LocalInboxPickerAgentExtensions
         return builder;
     }
 }
-

@@ -9,107 +9,95 @@ using Microsoft.Extensions.Hosting;
 namespace Demo.Orchestrations;
 
 // ════════════════════════════════════════════════════════════════════════════
-//  local-cloud-email-triage workflow
+//  local-cloud-meeting-invite workflow
 // ════════════════════════════════════════════════════════════════════════════
 //
-//  USER INPUT (free-text request, e.g. "reply to Bob about budget")
+//  USER INPUT (e.g. "draft a meeting invite to resolve the latest issue")
 //          │
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
-//  │  1_LocalInboxPickerAgent            local agent                       │
-//  │    • TextSearchProvider → InboxService fabricates 3-5 fake emails    │
-//  │      on-device, exposes them as RAG context.                          │
-//  │    • Picks ONE email, returns structured PickedEmail JSON.            │
+//  │  1. local-inbox-search          LOCAL agent + LOCAL RAG               │
+//  │    • TextSearchProvider → InboxService fabricates 3-5 customer        │
+//  │      emails with realistic PII (addresses, phone numbers, passwords,  │
+//  │      cards, SSNs alongside the actual issue).                         │
+//  │    • Picks ONE entry, returns structured PickedEmail JSON.            │
 //  └──────────────────────────────────────────────────────────────────────┘
 //          │ PickedEmail JSON
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
-//  │  2_LocalBodyRedactorAgent           local agent                       │
-//  │    • Reads the picked email body and returns FOUR typed lists of     │
-//  │      substrings it spotted — last names, companies, projects, dollar │
-//  │      amounts. The lists are bounded by [MaxLength(5)] so the         │
-//  │      constrained decoder cannot run away.                            │
-//  │    • Does NOT rewrite the body — substitution happens in the next    │
-//  │      executor where it can be done deterministically.                │
+//  │  2. local-issue-summariser      LOCAL agent — plain prose             │
+//  │    • Writes a SHORT brief (3-4 sentences) the cloud can use to draft  │
+//  │      a meeting invite.                                                │
+//  │    • Keeps the customer's name and any order / account / case ID —    │
+//  │      the support flow can't function without those.                   │
+//  │    • Explicitly drops physical addresses, phone numbers, passwords,   │
+//  │      credit-card and SSN numbers.                                     │
 //  └──────────────────────────────────────────────────────────────────────┘
-//          │ RedactedBody JSON (four typed lists)
+//          │ plain-text brief
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
-//  │  3_CloudPromptAdapterExecutor       executor, no LLM                  │
-//  │    • Parses PickedEmail + RedactedBody from the two assistant turns. │
-//  │    • Drops hallucinated substrings that don't actually appear in the │
-//  │      body, assigns PERSON_n / COMPANY_n / PROJECT_n / AMOUNT_n       │
-//  │      tokens and runs literal string.Replace over the body —          │
-//  │      deterministic redaction, no LLM involvement.                    │
-//  │    • Stores the picked email and the token → original mapping in     │
-//  │      workflow state for the assembler to read at the end.            │
-//  │    • Emits the cloud prompt — sender + recipient first names only,   │
-//  │      subject, and the redacted body. Tells the cloud to draft just   │
-//  │      the reply body.                                                 │
+//  │  3. cloud-invite-drafter        CLOUD agent + LOCAL TOOL              │
+//  │    • Calls `get_calendar(dateOrRange)` once. The tool runs LOCALLY    │
+//  │      against CalendarService — the cloud agent reaches back to the    │
+//  │      device for something only the device knows (the user's calendar).│
+//  │    • Drafts a Markdown invite proposing a slot the user is free.      │
+//  │    • Sees only the brief + the free/busy view — never the customer's  │
+//  │      original email, address, phone, password, card, etc.             │
 //  └──────────────────────────────────────────────────────────────────────┘
-//          │ ChatMessage (no last names, no emails, no $, no project names)
+//          │ markdown invite draft
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
-//  │  4_CloudReplyWriterAgent            CLOUD agent                       │
-//  │    • Drafts a reply body. No greeting, no sign-off — the device      │
-//  │      will assemble those. Re-uses tokens verbatim.                   │
-//  └──────────────────────────────────────────────────────────────────────┘
-//          │ reply body text
-//          ▼
-//  ┌──────────────────────────────────────────────────────────────────────┐
-//  │  5_FinalEmailAssemblerExecutor      executor, no LLM                  │
-//  │    • Reads PickedEmail + redaction mapping from workflow state.      │
-//  │    • Reads the cloud body from the latest assistant turn.            │
-//  │    • Rehydrates any tokens the cloud preserved back to the original  │
-//  │      values (literal string.Replace from the stored mapping).        │
-//  │    • Emits a single Markdown document with YAML frontmatter and a    │
-//  │      mailto: link — the DevUI's MarkdownLabel surfaces the link as   │
-//  │      a clickable "Open in Mail" button via Launcher.OpenAsync.       │
+//  │  5. local-invite-finaliser      executor, no LLM                      │
+//  │    • Wraps the draft in YAML frontmatter (rendered as a monospaced    │
+//  │      metadata header by the DevUI MarkdownLabel).                     │
+//  │    • Adds a clickable mailto: link the user can tap to open the       │
+//  │      invite in their default email client.                            │
 //  └──────────────────────────────────────────────────────────────────────┘
 //          │ markdown
 //          ▼
-//  6_OutputMessagesExecutor → workflow.output
+//  6. OutputMessagesExecutor → workflow.output
 //
 // ─── Privacy contract ─────────────────────────────────────────────────────
-//   Leaves the device → cloud:
-//     • First names (sender + user)
-//     • Subject line
-//     • Body with last names, companies, projects, and dollar amounts
-//       already swapped for tokens
+//   What the cloud sees:
+//     • A short prose brief (3-4 sentences)
+//     • Free/busy view of the user's calendar (via tool call — no event
+//       titles, no attendees, no project names)
 //
-//   Never leaves the device:
-//     • Last names
-//     • Email addresses
-//     • Company / org names appearing inside the body
-//     • Project / product names
-//     • Dollar amounts
+//   What the cloud NEVER sees:
+//     • The customer's physical address
+//     • Phone numbers
+//     • Passwords / credentials
+//     • Credit-card or bank-account numbers
+//     • SSNs
+//     • The user's actual calendar events (only free/busy)
 //     • The full inbox
+//     • The customer's original email
 // ──────────────────────────────────────────────────────────────────────────
 
-public static class EmailTriageWorkflow
+public static class MeetingInviteWorkflow
 {
-    public const string Name = "local-cloud-email-triage";
+    public const string Name = "local-cloud-meeting-invite";
 
-    public static void AddEmailTriageWorkflow(this IHostApplicationBuilder builder)
+    public static void AddMeetingInviteWorkflow(this IHostApplicationBuilder builder)
     {
-        const string pickerName   = "local-inbox-picker";
-        const string redactorName = "local-body-redactor";
-        const string writerName   = "cloud-reply-writer";
+        const string searchAgent     = "local-inbox-search";
+        const string summariserAgent = "local-issue-summariser";
+        const string drafterAgent    = "cloud-invite-drafter";
 
         builder.Services.AddSingleton<InboxService>();
+        builder.Services.AddSingleton<CalendarService>();
 
-        builder.AddLocalInboxPickerAgent(pickerName);
-
-        builder.AddLocalBodyRedactorAgent(redactorName);
-        
-        builder.AddCloudReplyWriterAgent(writerName);
+        builder
+            .AddLocalInboxSearchAgent(searchAgent)
+            .AddLocalIssueSummariserAgent(summariserAgent)
+            .AddCloudInviteDrafterAgent(drafterAgent);
 
         builder.AddWorkflow(Name, (sp, key) =>
         {
-            var pickerAgent      = sp.GetRequiredKeyedService<AIAgent>(pickerName);
-            var redactorAgent    = sp.GetRequiredKeyedService<AIAgent>(redactorName);
-            var cloudWriterAgent = sp.GetRequiredKeyedService<AIAgent>(writerName);
-            var inbox            = sp.GetRequiredService<InboxService>();
+            var search     = sp.GetRequiredKeyedService<AIAgent>(searchAgent);
+            var summariser = sp.GetRequiredKeyedService<AIAgent>(summariserAgent);
+            var drafter    = sp.GetRequiredKeyedService<AIAgent>(drafterAgent);
+            var inbox      = sp.GetRequiredService<InboxService>();
 
             var hostOpts = new AIAgentHostOptions
             {
@@ -117,27 +105,27 @@ public static class EmailTriageWorkflow
                 ForwardIncomingMessages = true,
             };
 
-            ExecutorBinding picker        = pickerAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding redactor      = redactorAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding cloudPrompt   = new CloudPromptAdapterExecutor(inbox);
-            ExecutorBinding cloudWriter   = cloudWriterAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding finalAssembly = new FinalEmailAssemblerExecutor(inbox);
-            ExecutorBinding output        = new OutputMessagesExecutor();
+            ExecutorBinding e1 = search.BindAsExecutor(hostOpts);
+            ExecutorBinding e2 = summariser.BindAsExecutor(hostOpts);
+            ExecutorBinding e3 = drafter.BindAsExecutor(hostOpts);
+            ExecutorBinding e5 = new LocalInviteFinaliserExecutor(inbox);
+            ExecutorBinding e6 = new OutputMessagesExecutor();
 
-            return new WorkflowBuilder(picker)
-                .AddEdge(picker, redactor)
-                .AddEdge(redactor, cloudPrompt)
-                .AddEdge(cloudPrompt, cloudWriter)
-                .AddEdge(cloudWriter, finalAssembly)
-                .AddEdge(finalAssembly, output)
-                .WithOutputFrom(output)
+            return new WorkflowBuilder(e1)
+                .AddEdge(e1, e2)
+                .AddEdge(e2, e3)
+                .AddEdge(e3, e5)
+                .AddEdge(e5, e6)
+                .WithOutputFrom(e6)
                 .WithName(key)
                 .WithDescription(
                     """
-                    Local inbox-picker → local body-redactor → cloud reply writer →
-                    on-device assembly. The cloud sees only first names, the subject,
-                    and a token-redacted body — never last names, email addresses,
-                    company names, project names, or dollar amounts from the body.
+                    Local inbox-search → local issue summariser → cloud
+                    invite drafter (with on-device get_calendar tool) →
+                    on-device finaliser. The cloud sees only the redacted
+                    brief and the calendar's free/busy slots — never the
+                    customer's address, phone, password, card, SSN, or the
+                    actual calendar events.
                     """)
                 .Build();
         }).AddAsAIAgent();

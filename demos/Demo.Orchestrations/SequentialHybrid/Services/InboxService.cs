@@ -51,38 +51,57 @@ public sealed class InboxService([FromKeyedServices(AIModels.Cloud)] IChatClient
         var response = await generatorChatClient.GetResponseAsync<GeneratedInbox>(
         [
             new(ChatRole.System, $$"""
-                You are a FAKE INBOX generator for a privacy demo. Invent 3-5
-                realistic emails the user has RECEIVED and would want to reply
-                to. Vary the senders.
+                You are a FAKE INBOX generator for a privacy demo. The user
+                runs a customer-success helpdesk. Invent 3-5 realistic
+                INBOUND emails from customers reporting issues or asking
+                for help — the kind of email the user would want to triage
+                into a meeting invite.
 
                 The user (the inbox owner / always the RECIPIENT) is:
                   RECIPIENT_NAME:  {{OwnerName}}
                   RECIPIENT_EMAIL: {{OwnerEmail}}
 
                 For each generated email, fill the schema fields:
-                  senderName      = a colleague's full name (not the user)
-                  senderEmail     = that colleague's email
+                  senderName      = a customer's full name (not the user)
+                  senderEmail     = that customer's email (vary the domains)
                   recipientName   = "{{OwnerName}}"   (always)
                   recipientEmail  = "{{OwnerEmail}}"  (always)
-                  subject         = short, work-style subject line
+                  subject         = short, "Issue with X" / "Cannot access Y"
+                                    / "Need help with Z" style subject
                   received        = an ISO timestamp within the last 7 days
-                  body            = the email body, written by the sender,
+                  body            = the email body, written by the customer,
                                     opening with "Hi {{OwnerFirstName}},"
 
-                Each body MUST be densely populated so the privacy redactor
-                has substance to work with. Include MULTIPLE of each:
-                  - 2-3 full person names (first + last) other than the user
-                  - 2-3 company / organisation names
-                  - 2-3 project / product names
-                  - 2-3 specific dollar amounts
+                Each body MUST describe an actual problem the customer
+                needs help with (account locked out, charge dispute, broken
+                integration, data export, fraud alert, etc.) AND naturally
+                mix in a varied set of sensitive details — the kind of
+                stuff customers genuinely put in support emails because
+                they think it'll help support resolve the issue faster.
 
-                Use concrete, varied content — different people in different
-                paragraphs, distinct companies (e.g. a vendor and a partner),
-                distinct projects (e.g. "Project Atlas" and "Project Phoenix"),
-                distinct amounts (budgets, invoices, estimates).
+                Include AT LEAST FOUR of the following per body, chosen so
+                the issue makes sense:
 
-                Each email body is 3-5 short paragraphs in a real work-email
-                tone. Avoid template-y openings.
+                  - The customer's full name and order/account/case ID
+                    (these MUST stay in the summary — support needs them)
+                  - The customer's physical mailing address
+                  - A phone number (e.g. +1 555-123-4567)
+                  - A password they typed into the email by mistake
+                    (e.g. "I tried logging in with Sunshine2024!")
+                  - A credit-card number (e.g. 4111-2222-3333-4444, always
+                    obviously fake, never a real card)
+                  - A specific dollar amount (refund, charge, balance)
+                  - A US SSN-style ID (XXX-XX-XXXX, always fake)
+
+                Mix and match — a charge dispute might include order ID
+                + card number + amount + phone; a login issue might include
+                account ID + password + address. Use only realistic-looking
+                but obviously fake values.
+
+                Each body is 2-3 SHORT paragraphs (≤ 600 characters total)
+                in a real customer-support tone — frustrated but polite,
+                concrete about what went wrong, asking for resolution.
+                Avoid template-y openings.
                 """),
             new(ChatRole.User, $"What the user wants to reply about: {query}")
         ],

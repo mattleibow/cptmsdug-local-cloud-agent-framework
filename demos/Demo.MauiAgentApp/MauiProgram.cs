@@ -98,7 +98,7 @@ public static class MauiProgram
 		builder.AddConcurrentWorkflow();
 		builder.AddHandoffWorkflow();
 		builder.AddGroupChatWorkflow();
-		builder.AddEmailTriageWorkflow();
+		builder.AddMeetingInviteWorkflow();
 
 		// Register DevUI (auto-discovers agents and workflows from DI)
 		builder.Services.AddMauiAgentDevUI();
