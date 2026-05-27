@@ -10,6 +10,7 @@ const PptxGenJS = require("pptxgenjs");
 const Prism = require("prismjs");
 require("prismjs/components/prism-csharp");
 require("prismjs/components/prism-bash");
+const lucide = require("lucide-static");
 
 // ── Palette ───────────────────────────────────────────────────────────────
 const C = {
@@ -118,6 +119,27 @@ function highlightCode(code, lang = "csharp") {
 
   for (const tok of tokens) walk(tok, null);
   return runs;
+}
+
+// ── Icon helper (Lucide SVGs embedded as data URIs) ──────────────────────
+// Lucide icons are stroked single-weight SVGs that render consistently on
+// every machine — no missing-emoji tofu or platform-specific color quirks.
+function lucideDataUri(name, color = "FAF8FF", strokeWidth = 2) {
+  const svg = lucide[name];
+  if (!svg) throw new Error(`Unknown lucide icon: ${name}`);
+  const colored = svg
+    .replace(/currentColor/g, `#${color}`)
+    .replace(/stroke-width="2"/g, `stroke-width="${strokeWidth}"`);
+  return `data:image/svg+xml;base64,${Buffer.from(colored).toString("base64")}`;
+}
+
+// Add a Lucide icon to a slide. Size is in inches; defaults to 0.4".
+function addIcon(slide, name, opts) {
+  const { x, y, size = 0.4, w, h, color = "FAF8FF", strokeWidth = 2 } = opts;
+  slide.addImage({
+    data: lucideDataUri(name, color, strokeWidth),
+    x, y, w: w ?? size, h: h ?? size,
+  });
 }
 
 // Highlight multiple language blocks and concatenate.
@@ -1151,10 +1173,10 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
   const arrowH = 0.45;
 
   const pills = [
-    { label: "User input",  sub: "raw, may have PII",  color: C.textOnDarkMuted, glyph: "👤" },
-    { label: "triage",      sub: "Apple Intelligence", color: C.coral,           glyph: "📱" },
-    { label: "expert",      sub: "Azure OpenAI",       color: C.indigoBright,    glyph: "☁️" },
-    { label: "User answer", sub: "sanitised reply",    color: C.textOnDarkMuted, glyph: "👤" },
+    { label: "User input",  sub: "raw, may have PII",  color: C.textOnDarkMuted, icon: "UserRound" },
+    { label: "triage",      sub: "Apple Intelligence", color: C.coral,           icon: "Smartphone" },
+    { label: "expert",      sub: "Azure OpenAI",       color: C.indigoBright,    icon: "Cloud" },
+    { label: "User answer", sub: "sanitised reply",    color: C.textOnDarkMuted, icon: "UserRound" },
   ];
 
   pills.forEach((p, i) => {
@@ -1165,10 +1187,10 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
       fill: { color: C.indigoMid }, line: { color: p.color, width: 2 },
       rectRadius: 0.18,
     });
-    // glyph on left of pill
-    s.addText(p.glyph, {
-      x: fx + 0.15, y, w: 0.6, h: pillH,
-      fontSize: 22, align: "center", valign: "middle", fontFace: F.body,
+    // icon on left of pill (Lucide SVG)
+    addIcon(s, p.icon, {
+      x: fx + 0.2, y: y + (pillH - 0.42) / 2, size: 0.42,
+      color: p.color, strokeWidth: 2,
     });
     // label + sub stacked vertically on the right
     s.addText(p.label, {
@@ -1210,13 +1232,13 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
   });
   s.addText(
     highlightCode(
-`// 📱  Local — Apple Intelligence, on the device
+`// Local — Apple Intelligence, on the device
 AIAgent triage = new AppleIntelligenceChatClient()
     .CreateAIAgent(
         "Strip personal info. Return only topic + intent.",
         name: "triage");
 
-// ☁️  Cloud — Azure OpenAI, frontier reasoning
+// Cloud — Azure OpenAI, frontier reasoning
 AIAgent expert = new AzureOpenAIClient(
         endpoint, new DefaultAzureCredential())
     .GetChatClient("gpt-4.1").AsIChatClient()
@@ -1224,7 +1246,7 @@ AIAgent expert = new AzureOpenAIClient(
         "Answer with depth and current context.",
         name: "expert");
 
-// 🔗  MAF workflow — pipe local → cloud, expose as an agent
+// MAF workflow — pipe local → cloud, expose as an agent
 var workflow = AgentWorkflowBuilder
     .BuildSequential("local-then-cloud", triage, expert)
     .AsAgent();
