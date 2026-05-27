@@ -54,11 +54,37 @@ public static class MauiProgram
 
 		// Register services
 		builder.Services.AddSingleton<AIChatService>();
+
+		// Register both keyed IChatClients for the local + cloud demo.
+		//   - "cloud-model" → Azure OpenAI (AIChatService)
+		//   - "local-model" → Apple Intelligence Foundation Models on
+		//                     iOS / macOS / macCatalyst 26+
+		// Other platforms fall back to the cloud client for the local key
+		// so the workflows still register (with the obvious privacy
+		// caveat — this is dev-only).
+		builder.Services.AddKeyedSingleton<IChatClient>(AIModels.Cloud, (sp, _) =>
+			sp.GetRequiredService<AIChatService>().ChatClient);
+
+#if IOS || MACCATALYST
+#pragma warning disable CA1416, MAUIAI0001 // iOS / macCatalyst 26.0 + experimental Apple Intelligence API
+		builder.Services.AddKeyedSingleton<IChatClient>(AIModels.Local, (sp, _) =>
+			new Microsoft.Maui.Essentials.AI.AppleIntelligenceChatClient()
+				.AsBuilder()
+				.UseFunctionInvocation()
+				.Build(sp));
+#pragma warning restore CA1416, MAUIAI0001
+#else
+		// Fallback: on platforms without on-device AI, route "local-model"
+		// to the same cloud client. Only useful for development on Windows
+		// / Android. Production demos run on macCatalyst 26+.
+		builder.Services.AddKeyedSingleton<IChatClient>(AIModels.Local, (sp, _) =>
+			sp.GetRequiredService<AIChatService>().ChatClient);
+#endif
+
+		// Default (un-keyed) IChatClient — points at the cloud model for
+		// any standalone agent or tool that doesn't specify a key.
 		builder.Services.AddSingleton<IChatClient>(sp =>
-		{
-			var svc = sp.GetRequiredService<AIChatService>();
-			return svc.ChatClient;
-		});
+			sp.GetRequiredKeyedService<IChatClient>(AIModels.Cloud));
 
 		// Register standalone agents
 		builder.AddStandaloneAgents();
