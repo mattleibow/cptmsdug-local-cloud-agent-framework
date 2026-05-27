@@ -79,15 +79,15 @@ public static class HelpDeskTools
     }
 }
 
-[AIToolSource(typeof(HelpDeskTools))]
-public partial class HelpDeskToolContext : AIToolContext { }
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Handoff helpdesk workflow: Dispatcher → Network / Software / Hardware
 // ──────────────────────────────────────────────────────────────────────────────
 
-public static class HandoffWorkflow
+public static partial class HandoffWorkflow
 {
+    [AIToolSource(typeof(HelpDeskTools))]
+    private partial class HelpDeskToolContext : AIToolContext { }
+
     public static void AddHandoffWorkflow(this IHostApplicationBuilder builder)
     {
         var helpTools = HelpDeskToolContext.Default.Tools;

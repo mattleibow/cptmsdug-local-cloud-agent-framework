@@ -15,8 +15,11 @@ namespace Demo.Orchestrations;
 
 public static class TravelTools
 {
-    [Description("Searches for restaurants and food experiences at a destination. " +
-        "Returns top-rated options with prices.")]
+    [Description(
+        """
+        Searches for restaurants and food experiences at a destination.
+        Returns top-rated options with prices.
+        """)]
     [ExportAIFunction("search_restaurants")]
     public static async Task<string> SearchRestaurants(
         [Description("The travel destination city")] string destination,
@@ -40,8 +43,10 @@ public static class TravelTools
         return response.Text ?? $"No restaurants found in {destination}";
     }
 
-    [Description("Checks transport options and approximate costs between locations at " +
-        "the destination.")]
+    [Description(
+        """
+        Checks transport options and approximate costs between locations at the destination.
+        """)]
     [ExportAIFunction("check_transport")]
     public static async Task<string> CheckTransport(
         [Description("The travel destination city")] string destination,
@@ -62,8 +67,10 @@ public static class TravelTools
         return response.Text ?? $"No transport info available for {destination}";
     }
 
-    [Description("Looks up current pricing and availability for accommodations at a " +
-        "destination.")]
+    [Description(
+        """
+        Looks up current pricing and availability for accommodations at a destination.
+        """)]
     [ExportAIFunction("check_accommodation")]
     public static async Task<string> CheckAccommodation(
         [Description("The travel destination city")] string destination,
@@ -86,15 +93,15 @@ public static class TravelTools
     }
 }
 
-[AIToolSource(typeof(TravelTools))]
-public partial class TravelToolContext : AIToolContext { }
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Concurrent travel workflow: 3 specialists fan out, aggregator concatenates
 // ──────────────────────────────────────────────────────────────────────────────
 
-public static class ConcurrentWorkflow
+public static partial class ConcurrentWorkflow
 {
+    [AIToolSource(typeof(TravelTools))]
+    private partial class TravelToolContext : AIToolContext { }
+
     public static void AddConcurrentWorkflow(this IHostApplicationBuilder builder)
     {
         var travelTools = TravelToolContext.Default.Tools;
@@ -204,7 +211,7 @@ public static class ConcurrentWorkflow
 
         builder.AddWorkflow("concurrent-travel", (sp, key) =>
         {
-            var workflow = AgentWorkflowBuilder.BuildConcurrent(
+            return AgentWorkflowBuilder.BuildConcurrent(
                 workflowName: key,
                 agents: parallelAgents
                     .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
@@ -222,12 +229,11 @@ public static class ConcurrentWorkflow
                         sb.AppendLine();
                     }
                     return [new ChatMessage(ChatRole.Assistant, sb.ToString())];
-                });
-            workflow.SetDescription(
-                "Food, culture, and logistics experts fan out concurrently. Each returns a " +
-                "self-contained Markdown section, then the aggregator stitches them into one " +
-                "trip plan.");
-            return workflow;
+                })
+                .SetDescription(
+                    "Food, culture, and logistics experts fan out concurrently. Each " +
+                    "returns a self-contained Markdown section, then the aggregator " +
+                    "stitches them into one trip plan.");
         }).AddAsAIAgent();
     }
 }

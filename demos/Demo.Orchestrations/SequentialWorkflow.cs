@@ -205,27 +205,19 @@ public static partial class SequentialWorkflow
 
         builder.AddWorkflow("sequential-newsdesk", (sp, key) =>
         {
-            var options = new AIAgentHostOptions
+            var agents = new[]
             {
-                ReassignOtherAgentsAsUsers = true,
-                ForwardIncomingMessages = true,
-            };
-            var reporter = sp.GetRequiredKeyedService<AIAgent>("sequential-newsdesk-reporter")
-                .BindAsExecutor(options);
-            var factchecker = sp.GetRequiredKeyedService<AIAgent>("sequential-newsdesk-factchecker")
-                .BindAsExecutor(options);
-            var editor = sp.GetRequiredKeyedService<AIAgent>("sequential-newsdesk-editor")
-                .BindAsExecutor(options);
-
-            return new WorkflowBuilder(reporter)
-                .WithName(key)
-                .WithDescription(
+                "sequential-newsdesk-reporter",
+                "sequential-newsdesk-factchecker",
+                "sequential-newsdesk-editor",
+            }
+            .Select(n => sp.GetRequiredKeyedService<AIAgent>(n))
+            .ToArray();
+            return AgentWorkflowBuilder
+                .BuildSequential(key, agents)
+                .SetDescription(
                     "A reporter researches and writes, a fact-checker verifies claims, " +
-                    "and an editor polishes the final article.")
-                .AddEdge(reporter, factchecker)
-                .AddEdge(factchecker, editor)
-                .WithOutputFrom(editor)
-                .Build();
+                    "and an editor polishes the final article.");
         }).AddAsAIAgent();
     }
 }

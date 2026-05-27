@@ -17,7 +17,10 @@ namespace Demo.Orchestrations;
 
 public static class StartupTools
 {
-    [Description("Looks up market size and growth data for a specific industry or segment.")]
+    [Description(
+        """
+        Looks up market size and growth data for a specific industry or segment.
+        """)]
     [ExportAIFunction("lookup_market_data")]
     public static async Task<string> LookupMarketData(
         [Description("The industry or market segment")] string market,
@@ -39,8 +42,10 @@ public static class StartupTools
         return response.Text ?? $"No market data available for: {market}";
     }
 
-    [Description("Estimates unit economics for a consumer app based on pricing model " +
-        "and target audience.")]
+    [Description(
+        """
+        Estimates unit economics for a consumer app based on pricing model and target audience.
+        """)]
     [ExportAIFunction("estimate_unit_economics")]
     public static async Task<string> EstimateUnitEconomics(
         [Description("Pricing model: freemium, subscription, transaction")] string pricingModel,
@@ -59,14 +64,16 @@ public static class StartupTools
                 Say if economics are healthy, marginal, or unsustainable. Use realistic
                 SaaS/consumer benchmarks.
                 """),
-            new(ChatRole.User,
-                $"Unit economics for {pricingModel} model at ${monthlyPrice}/month")
+            new(ChatRole.User, $"Unit economics for {pricingModel} model at ${monthlyPrice}/month")
         ],
         new() { MaxOutputTokens = 200 });
         return response.Text ?? "Unable to estimate unit economics";
     }
 
-    [Description("Searches for competitor information and recent funding rounds in a space.")]
+    [Description(
+        """
+        Searches for competitor information and recent funding rounds in a space.
+        """)]
     [ExportAIFunction("search_competitors")]
     public static async Task<string> SearchCompetitors(
         [Description("Product category or space to search")] string space,
@@ -87,15 +94,15 @@ public static class StartupTools
     }
 }
 
-[AIToolSource(typeof(StartupTools))]
-public partial class StartupToolContext : AIToolContext { }
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Group chat workflow: Founder ↔ Investor ↔ Advisor (round-robin)
 // ──────────────────────────────────────────────────────────────────────────────
 
-public static class GroupChatWorkflow
+public static partial class GroupChatWorkflow
 {
+    [AIToolSource(typeof(StartupTools))]
+    private partial class StartupToolContext : AIToolContext { }
+
     public static void AddGroupChatWorkflow(this IHostApplicationBuilder builder)
     {
         var startupTools = StartupToolContext.Default.Tools;
@@ -137,8 +144,7 @@ public static class GroupChatWorkflow
                     FORMAT: start every contribution with "**:chart: Investor:**" then a blank
                     line then your message. Use **bold** for tough questions or red flags.
                     """,
-                tools: [.. startupTools.Where(t =>
-                    t.Name is "estimate_unit_economics" or "search_competitors")]
+                tools: [.. startupTools.Where(t => t.Name is "estimate_unit_economics" or "search_competitors")]
             ));
 
         builder.AddAIAgent(
@@ -180,8 +186,7 @@ public static class GroupChatWorkflow
                     })
                 .AddParticipants(participants)
                 .WithName(key)
-                .WithDescription(
-                    "Founder pitches, investor challenges, advisor mediates — 3 rounds.")
+                .WithDescription("Founder pitches, investor challenges, advisor mediates — 3 rounds.")
                 .Build();
         }).AddAsAIAgent();
     }

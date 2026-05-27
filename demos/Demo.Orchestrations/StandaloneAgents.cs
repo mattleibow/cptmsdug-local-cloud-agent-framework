@@ -5,8 +5,7 @@ namespace Demo.Orchestrations;
 
 public static class StandaloneAgents
 {
-    public static void AddStandaloneAgents(
-        this IHostApplicationBuilder builder)
+    public static void AddStandaloneAgents(this IHostApplicationBuilder builder)
     {
         builder.AddAIAgent(
             name: "storyteller",
@@ -16,8 +15,7 @@ public static class StandaloneAgents
                 the user provides. Use vivid language and
                 surprising twists.
                 """,
-            description:
-                "Creative storyteller that writes imaginative short stories with vivid language.",
+            description: "Creative storyteller that writes imaginative short stories with vivid language.",
             chatClientServiceKey: null);
 
         builder.AddAIAgent(
@@ -28,8 +26,7 @@ public static class StandaloneAgents
                 Help debug code and suggest best practices.
                 Keep explanations concise and practical.
                 """,
-            description:
-                "Coding mentor that explains concepts clearly and helps debug code.",
+            description: "Coding mentor that explains concepts clearly and helps debug code.",
             chatClientServiceKey: null);
     }
 }
