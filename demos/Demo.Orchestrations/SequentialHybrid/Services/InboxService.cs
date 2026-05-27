@@ -10,6 +10,12 @@ namespace Demo.Orchestrations.SequentialHybrid.Services;
 /// addressed to a specific (fictional) user and able to fabricate plausible
 /// inbound emails on demand.
 ///
+/// The fabrication itself uses the CLOUD chat client: this isn't part of
+/// the privacy-sensitive path (the "user's data" doesn't exist yet, we're
+/// inventing it). Using the cloud model gets us denser, more varied
+/// content with multiple names / companies / projects / amounts per email,
+/// which gives the on-device redactor more to work with in the demo.
+///
 /// Carries the mailbox owner's identity as instance properties so every
 /// downstream stage (inbox generator, cloud-prompt adapter, final assembler)
 /// can read consistent values without a static side-channel. The picker
@@ -20,7 +26,7 @@ namespace Demo.Orchestrations.SequentialHybrid.Services;
 /// Each search result is a single fully-formed email so the inbox-picker
 /// only needs to choose between them.
 /// </summary>
-public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient localChatClient)
+public sealed class InboxService([FromKeyedServices(AIModels.Cloud)] IChatClient generatorChatClient)
 {
     /// <summary>The full name of the inbox owner (the human the demo runs for).</summary>
     public string OwnerName { get; } = "Alex Park";
@@ -42,7 +48,7 @@ public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient
         string query,
         CancellationToken cancellationToken)
     {
-        var response = await localChatClient.GetResponseAsync<GeneratedInbox>(
+        var response = await generatorChatClient.GetResponseAsync<GeneratedInbox>(
         [
             new(ChatRole.System, $$"""
                 You are a FAKE INBOX generator for a privacy demo. Invent 3-5
@@ -63,13 +69,20 @@ public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient
                   body            = the email body, written by the sender,
                                     opening with "Hi {{OwnerFirstName}},"
 
-                Each body must mention:
-                  - one full person name (first + last) other than the user
-                  - one company / organisation
-                  - one project / product
-                  - one specific dollar amount
+                Each body MUST be densely populated so the privacy redactor
+                has substance to work with. Include MULTIPLE of each:
+                  - 2-3 full person names (first + last) other than the user
+                  - 2-3 company / organisation names
+                  - 2-3 project / product names
+                  - 2-3 specific dollar amounts
 
-                Each body is 2-4 short paragraphs, in a real work-email tone.
+                Use concrete, varied content — different people in different
+                paragraphs, distinct companies (e.g. a vendor and a partner),
+                distinct projects (e.g. "Project Atlas" and "Project Phoenix"),
+                distinct amounts (budgets, invoices, estimates).
+
+                Each email body is 3-5 short paragraphs in a real work-email
+                tone. Avoid template-y openings.
                 """),
             new(ChatRole.User, $"What the user wants to reply about: {query}")
         ],

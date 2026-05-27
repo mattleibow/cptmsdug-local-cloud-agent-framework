@@ -27,10 +27,12 @@ public static class LocalBodyRedactorAgentExtensions
                 {
                     Name = key,
                     Description =
-                        "On-device entity spotter: scans the picked email body for last " +
-                        "names, company names, project names, and dollar amounts and " +
-                        "returns them as a structured list for the next executor to " +
-                        "tokenise.",
+                        """
+                        On-device entity spotter: scans the picked email body for last
+                        names, company names, project names, and dollar amounts and
+                        returns them as a structured list for the next executor to
+                        tokenise.
+                        """,
                     ChatOptions = new ChatOptions
                     {
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<RedactedBody>(),

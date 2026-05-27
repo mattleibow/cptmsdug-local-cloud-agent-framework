@@ -17,9 +17,11 @@ namespace Demo.Orchestrations.SequentialHybrid.Models;
 /// (PERSON_1, COMPANY_1, …) and performs the substitution itself.
 /// </summary>
 [Description(
-    "Sensitive strings spotted in the email body, grouped by kind. Each list " +
-    "contains only literal substrings of the body. Leave a list empty if the " +
-    "body has none of that kind.")]
+    """
+    Sensitive strings spotted in the email body, grouped by kind. Each list
+    contains only literal substrings of the body. Leave a list empty if the
+    body has none of that kind.
+    """)]
 public sealed record RedactedBody(
     [property: Description("Person LAST names appearing in the body. First names are not sensitive.")]
     [property: MaxLength(5)]

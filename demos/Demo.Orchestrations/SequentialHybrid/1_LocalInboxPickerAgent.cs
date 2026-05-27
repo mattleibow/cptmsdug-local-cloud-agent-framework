@@ -32,9 +32,11 @@ public static class LocalInboxPickerAgentExtensions
                         SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
                         RecentMessageMemoryLimit = 6,
                         ContextPrompt =
-                            "## Inbox candidates\n" +
-                            "Each entry below is a separate email from the user's inbox. " +
-                            "Pick exactly ONE — the most relevant to the user's request.",
+                            """
+                            ## Inbox candidates
+                            Each entry below is a separate email from the user's inbox.
+                            Pick exactly ONE — the most relevant to the user's request.
+                            """,
                         CitationsPrompt = string.Empty,
                     });
 
@@ -44,8 +46,10 @@ public static class LocalInboxPickerAgentExtensions
                     {
                         Name = key,
                         Description =
-                            "On-device inbox picker: chooses the single inbox email most " +
-                            "relevant to the user's request and returns it as structured JSON.",
+                            """
+                            On-device inbox picker: chooses the single inbox email most
+                            relevant to the user's request and returns it as structured JSON.
+                            """,
                         AIContextProviders = [ragProvider],
                         ChatOptions = new ChatOptions
                         {

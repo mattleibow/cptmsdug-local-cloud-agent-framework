@@ -98,10 +98,11 @@ public static class EmailTriageWorkflow
 
         builder.Services.AddSingleton<InboxService>();
 
-        builder
-            .AddLocalInboxPickerAgent(pickerName)
-            .AddLocalBodyRedactorAgent(redactorName)
-            .AddCloudReplyWriterAgent(writerName);
+        builder.AddLocalInboxPickerAgent(pickerName);
+
+        builder.AddLocalBodyRedactorAgent(redactorName);
+        
+        builder.AddCloudReplyWriterAgent(writerName);
 
         builder.AddWorkflow(Name, (sp, key) =>
         {
@@ -132,10 +133,12 @@ public static class EmailTriageWorkflow
                 .WithOutputFrom(output)
                 .WithName(key)
                 .WithDescription(
-                    "Local inbox-picker → local body-redactor → cloud reply writer → " +
-                    "on-device assembly. The cloud sees only first names, the subject, " +
-                    "and a token-redacted body — never last names, email addresses, " +
-                    "company names, project names, or dollar amounts from the body.")
+                    """
+                    Local inbox-picker → local body-redactor → cloud reply writer →
+                    on-device assembly. The cloud sees only first names, the subject,
+                    and a token-redacted body — never last names, email addresses,
+                    company names, project names, or dollar amounts from the body.
+                    """)
                 .Build();
         }).AddAsAIAgent();
     }

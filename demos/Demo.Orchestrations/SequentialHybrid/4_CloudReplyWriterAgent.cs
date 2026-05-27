@@ -44,8 +44,10 @@ public static class CloudReplyWriterAgentExtensions
                 the final user-facing email.
                 """,
             description:
-                "Cloud-side reply drafter — sees only first names + redacted body, " +
-                "returns a reply body.",
+                """
+                Cloud-side reply drafter — sees only first names + redacted body,
+                returns a reply body.
+                """,
             chatClientServiceKey: AIModels.Cloud);
         return builder;
     }
