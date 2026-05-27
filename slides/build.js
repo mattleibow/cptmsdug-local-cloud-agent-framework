@@ -223,7 +223,7 @@ function darkBg(slide) {
   slide.background = { color: C.indigoDeep };
 }
 
-const TOTAL = 19;
+const TOTAL = 17;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLIDE 1 — TITLE
@@ -1054,93 +1054,7 @@ IChatClient chat = new ChatClient(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 11 — MAF: HOW TO USE IT (code-first, syntax-highlighted)
-// ═══════════════════════════════════════════════════════════════════════════
-{
-  const s = pptx.addSlide();
-  s.background = { color: C.bgLight };
-  eyebrow(s, "Five Lines of Code", C.indigoBright);
-  title(s, "How to use it");
-
-  s.addText("Take an IChatClient — any tier — and wrap it as an agent.", {
-    x: 0.6, y: 1.75, w: 12, h: 0.5,
-    fontSize: 17, italic: true, color: C.textMuted, fontFace: F.body,
-  });
-
-  // Big code block on the left (~ 60% of slide)
-  const cx = 0.6, cw = 8.4;
-  s.addShape("roundRect", {
-    x: cx, y: 2.4, w: cw, h: 4.4,
-    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
-    rectRadius: 0.12,
-  });
-  s.addText(
-    highlightCode(
-`// 1. Take any IChatClient — Apple, Foundry Local, Cloud…
-IChatClient client = new AppleIntelligenceChatClient();
-
-// 2. Wrap it as an agent (with optional tools)
-AIAgent agent = client.AsAIAgent(
-    name: "agent",
-    instructions: "You are a travel guide.",
-    tools: [.. TravelToolContext.Default.Tools]);
-
-// 3. Keep a session for conversation state
-AgentSession session = await agent.CreateSessionAsync();
-
-// 4. Stream the response, token by token
-await foreach (var update in agent.RunStreamingAsync(prompt, session))
-{
-    Console.Write(update.Text);
-}`, "csharp"),
-    {
-      x: cx + 0.25, y: 2.55, w: cw - 0.5, h: 4.1,
-      fontSize: 11, fontFace: F.mono, color: C.textOnDark,
-      paraSpaceAfter: 0,
-    }
-  );
-
-  // Right side: 4 numbered callout cards
-  const nx = cx + cw + 0.25, nw = W - nx - 0.5;
-  const notes = [
-    ["1", "Pluggable",   "Any IChatClient — Apple, Foundry Local, Azure OpenAI",                 C.coral],
-    ["2", "Tool-aware",  "[ExportAIFunction] generates AITool descriptors at compile time",       C.indigoBright],
-    ["3", "Stateful",    "AgentSession carries history across runs — no manual list-juggling",    C.amber],
-    ["4", "Streaming",   "RunStreamingAsync yields AgentResponseUpdate — wire to your UI",       C.coral],
-  ];
-  notes.forEach(([num, h, sub, color], i) => {
-    const y = 2.4 + i * 1.1;
-    s.addShape("roundRect", {
-      x: nx, y, w: nw, h: 1.0,
-      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
-      rectRadius: 0.08,
-    });
-    // number badge
-    s.addShape("ellipse", {
-      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
-      fill: { color }, line: { color },
-    });
-    s.addText(num, {
-      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
-      fontSize: 18, bold: true, color: C.bgLight, align: "center", valign: "middle", fontFace: F.header,
-    });
-    // heading + sub
-    s.addText(h, {
-      x: nx + 0.9, y: y + 0.15, w: nw - 1.0, h: 0.35,
-      fontSize: 15, bold: true, color: C.textDark, fontFace: F.body,
-    });
-    s.addText(sub, {
-      x: nx + 0.9, y: y + 0.5, w: nw - 1.0, h: 0.45,
-      fontSize: 10, italic: true, color: C.textMuted, fontFace: F.body,
-    });
-  });
-
-  addMotif(s);
-  addFooter(s, 11, TOTAL);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 12 — DEMO 4 (MAF Workflow mixing local + cloud)
+// SLIDE 11 — DEMO 4 (MAF Workflow mixing local + cloud)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1260,7 +1174,7 @@ await foreach (var update in workflow.RunStreamingAsync(userInput))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 13 — TOOLS (function calling with source generators)
+// SLIDE 12 — TOOLS (function calling with source generators)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1341,11 +1255,11 @@ AIAgent agent = chatClient.AsAIAgent(
   });
 
   addMotif(s);
-  addFooter(s, 13, TOTAL);
+  addFooter(s, 12, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 14 — CONTEXT PROVIDERS (RAG + Memory)
+// SLIDE 13 — CONTEXT PROVIDERS (RAG + Memory)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1427,116 +1341,11 @@ AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
   });
 
   addMotif(s);
-  addFooter(s, 14, TOTAL);
+  addFooter(s, 13, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 15 — MCP (Model Context Protocol)
-// ═══════════════════════════════════════════════════════════════════════════
-{
-  const s = pptx.addSlide();
-  s.background = { color: C.bgLight };
-  eyebrow(s, "Model Context Protocol", C.coral);
-  title(s, "Speak every agent's language");
-
-  s.addText("MCP is the de-facto standard for AI tools. GitHub, Playwright, your filesystem — 1000+ servers, all reachable in three lines.", {
-    x: 0.6, y: 1.75, w: 12, h: 0.55,
-    fontSize: 15, italic: true, color: C.textMuted, fontFace: F.body,
-  });
-
-  // Left: code block
-  const cx = 0.6, cw = 8.0;
-  s.addShape("roundRect", {
-    x: cx, y: 2.5, w: cw, h: 4.4,
-    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
-    rectRadius: 0.12,
-  });
-  s.addText(
-    highlightCode(
-`// 1. Launch any MCP server — here, the official GitHub server
-await using var mcp = await McpClient.CreateAsync(
-    new StdioClientTransport(new()
-    {
-        Name = "GitHub",
-        Command = "npx",
-        Arguments = ["-y", "@modelcontextprotocol/server-github"]
-    }));
-
-// 2. Discover the tools it exposes
-IList<McpClientTool> tools = await mcp.ListToolsAsync();
-
-// 3. Hand them to your agent — McpClientTool IS an AITool
-AIAgent agent = chatClient.AsAIAgent(
-    instructions: "Answer questions about GitHub repos.",
-    tools: [.. tools.Cast<AITool>()]);
-
-await agent.RunAsync("Summarise the last 5 commits to dotnet/maui");`, "csharp"),
-    {
-      x: cx + 0.25, y: 2.65, w: cw - 0.5, h: 4.1,
-      fontSize: 12, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
-      valign: "top",
-    }
-  );
-
-  // Right: servers + bidirectional callout
-  const nx = cx + cw + 0.25, nw = W - nx - 0.5;
-
-  // "Servers you can plug in" card
-  s.addShape("roundRect", {
-    x: nx, y: 2.5, w: nw, h: 2.6,
-    fill: { color: C.cardLight }, line: { color: C.coral, width: 2 },
-    rectRadius: 0.1,
-  });
-  s.addText("PLUG IN ANY SERVER", {
-    x: nx + 0.25, y: 2.65, w: nw - 0.5, h: 0.3,
-    fontSize: 11, bold: true, color: C.coral, charSpacing: 3, fontFace: F.body,
-  });
-  const servers = [
-    ["GitHub",      "code, issues, PRs"],
-    ["Playwright",  "drive a browser"],
-    ["Filesystem",  "read/write files"],
-    ["Postgres",    "query your DB"],
-    ["…1000+ more", "and growing fast"],
-  ];
-  servers.forEach(([name, sub], i) => {
-    const y = 3.05 + i * 0.38;
-    s.addShape("ellipse", {
-      x: nx + 0.3, y: y + 0.1, w: 0.16, h: 0.16,
-      fill: { color: C.coral }, line: { color: C.coral },
-    });
-    s.addText([
-      { text: name, options: { color: C.textDark, bold: true } },
-      { text: `   ${sub}`, options: { color: C.textMuted, italic: true } },
-    ], {
-      x: nx + 0.55, y, w: nw - 0.7, h: 0.36,
-      fontSize: 12, fontFace: F.body, valign: "middle",
-    });
-  });
-
-  // "And your agent can BE an MCP server" card
-  s.addShape("roundRect", {
-    x: nx, y: 5.25, w: nw, h: 1.65,
-    fill: { color: C.indigoDeep }, line: { color: C.indigoDeep },
-    rectRadius: 0.1,
-  });
-  addIcon(s, "Repeat", {
-    x: nx + 0.25, y: 5.45, size: 0.4, color: C.coral, strokeWidth: 2,
-  });
-  s.addText("It works both ways", {
-    x: nx + 0.8, y: 5.4, w: nw - 1.0, h: 0.4,
-    fontSize: 15, bold: true, color: C.textOnDark, fontFace: F.body,
-  });
-  s.addText("Expose any AIAgent as an MCP server — your MAUI app becomes consumable by Claude Desktop, VS Code, Cursor…", {
-    x: nx + 0.25, y: 5.85, w: nw - 0.5, h: 0.95,
-    fontSize: 11, italic: true, color: C.textOnDarkMuted, fontFace: F.body,
-  });
-
-  addMotif(s);
-  addFooter(s, 15, TOTAL);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 16 — BUILT WITH (maui-labs credits)
+// SLIDE 14 — BUILT WITH (maui-labs credits)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1624,11 +1433,11 @@ await agent.RunAsync("Summarise the last 5 commits to dotnet/maui");`, "csharp")
   });
 
   addMotif(s);
-  addFooter(s, 16, TOTAL);
+  addFooter(s, 14, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 17 — RULES OF THUMB (full-width decision table)
+// SLIDE 15 — RULES OF THUMB (full-width decision table)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1706,11 +1515,11 @@ await agent.RunAsync("Summarise the last 5 commits to dotnet/maui");`, "csharp")
   });
 
   addMotif(s);
-  addFooter(s, 17, TOTAL);
+  addFooter(s, 15, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 18 — LINKS (where to go next)
+// SLIDE 16 — LINKS (where to go next)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1806,11 +1615,11 @@ await agent.RunAsync("Summarise the last 5 commits to dotnet/maui");`, "csharp")
   });
 
   addMotif(s);
-  addFooter(s, 18, TOTAL);
+  addFooter(s, 16, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 19 — THANK YOU + QUESTIONS  (dark closing slide)
+// SLIDE 17 — THANK YOU + QUESTIONS  (dark closing slide)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
