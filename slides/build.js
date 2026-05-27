@@ -612,7 +612,8 @@ Console.WriteLine(response.Text);`, "csharp"),
       product: "Apple Intelligence",
       api: "FoundationModels (Swift)",
       detail: "iOS 26 · macOS 26 Tahoe\nMultilingual\nTool calling",
-      status: "✅  shipped",
+      statusIcon: "CircleCheck",
+      statusText: "IChatClient ready",
       color: C.coral,
     },
     {
@@ -620,7 +621,8 @@ Console.WriteLine(response.Text);`, "csharp"),
       product: "Phi Silica",
       api: "Windows AI APIs (.NET)",
       detail: "Copilot+ PCs · NPU-accelerated\nSmall language model\nSummarize · rewrite · generate",
-      status: "🔜  maui-labs PR #178",
+      statusIcon: "GitPullRequest",
+      statusText: "IChatClient in PR #178",
       color: C.indigoBright,
     },
     {
@@ -628,7 +630,8 @@ Console.WriteLine(response.Text);`, "csharp"),
       product: "ML Kit + Gemini Nano",
       api: "ML Kit (Kotlin/Java)",
       detail: "Android · AICore service\nCompact Gemini Nano\nSummarize · proofread · rewrite",
-      status: "🔬  .NET wrapper under investigation",
+      statusIcon: "FlaskConical",
+      statusText: "IChatClient exploring",
       color: C.amber,
     },
   ];
@@ -672,10 +675,13 @@ Console.WriteLine(response.Text);`, "csharp"),
       x: x + 0.3, y: 4.45, w: colW - 0.6, h: 1.45,
       fontSize: 13, color: C.textDark, fontFace: F.body, paraSpaceAfter: 4,
     });
-    // status pill
-    s.addText(c.status, {
-      x: x + 0.3, y: 5.95, w: colW - 0.6, h: 0.35,
-      fontSize: 12, bold: true, color: c.color, fontFace: F.body,
+    // status pill — Lucide icon + label
+    addIcon(s, c.statusIcon, {
+      x: x + 0.3, y: 5.97, size: 0.26, color: c.color, strokeWidth: 2.2,
+    });
+    s.addText(c.statusText, {
+      x: x + 0.62, y: 5.95, w: colW - 0.92, h: 0.35,
+      fontSize: 12, bold: true, color: c.color, fontFace: F.body, valign: "middle",
     });
   });
 
@@ -689,7 +695,7 @@ Console.WriteLine(response.Text);`, "csharp"),
     [
       { text: "Unified for .NET MAUI:  ", options: { color: C.textOnDarkMuted } },
       { text: "Microsoft.Maui.Essentials.AI", options: { color: C.coral, bold: true, fontFace: F.mono } },
-      { text: "  →  one IChatClient shape, Apple today · Phi Silica in progress · Gemini under investigation", options: { color: C.textOnDarkMuted, italic: true } },
+      { text: "  →  one IChatClient. Apple ready, Phi Silica in PR, Gemini exploring.", options: { color: C.textOnDarkMuted, italic: true } },
     ],
     {
       x: 0.6, y: 6.55, w: W - 1.2, h: 0.55,
