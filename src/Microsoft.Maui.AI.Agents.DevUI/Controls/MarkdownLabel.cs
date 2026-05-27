@@ -214,33 +214,33 @@ public sealed class MarkdownLabel : Label
                 var linkAttrs = (forcedAttrs ?? FontAttributes.None);
                 var linkColor = Color.FromArgb("#643FB2");
                 var url = link.Url ?? string.Empty;
+                int spansBefore = fs.Spans.Count;
                 foreach (var child in link)
                 {
                     if (child is LiteralInline lit)
                     {
-                        var span = new Span
-                        {
-                            Text = lit.Content.ToString(),
-                            FontSize = FontSize * sizeMultiplier,
-                            TextColor = linkColor,
-                            TextDecorations = TextDecorations.Underline,
-                            FontAttributes = linkAttrs,
-                        };
-                        if (!string.IsNullOrEmpty(url))
-                        {
-                            var tap = new TapGestureRecognizer();
-                            tap.Tapped += async (_, _) =>
-                            {
-                                try { await Launcher.Default.OpenAsync(new Uri(url)); }
-                                catch { /* swallow — best-effort opener */ }
-                            };
-                            span.GestureRecognizers.Add(tap);
-                        }
-                        fs.Spans.Add(span);
+                        AppendSpan(fs, lit.Content.ToString(), sizeMultiplier, linkAttrs);
                     }
                     else
                     {
                         RenderInline(child, fs, sizeMultiplier, linkAttrs);
+                    }
+                }
+                // Style every span produced by this link as a link (underline + accent + tap).
+                for (int i = spansBefore; i < fs.Spans.Count; i++)
+                {
+                    var span = fs.Spans[i];
+                    span.TextColor = linkColor;
+                    span.TextDecorations = TextDecorations.Underline;
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        var tap = new TapGestureRecognizer();
+                        tap.Tapped += async (_, _) =>
+                        {
+                            try { await Launcher.Default.OpenAsync(new Uri(url)); }
+                            catch { /* swallow — best-effort opener */ }
+                        };
+                        span.GestureRecognizers.Add(tap);
                     }
                 }
                 break;

@@ -93,6 +93,21 @@ public static class GlyphShortcodes
         ["rocket"]       = "\uebba", // rocket  (falls back to rocket_launch \ueb9b on some fonts)
         ["rocket_launch"]= "\ueb9b", // rocket_launch
 
+        // ── Calendar / scheduling ───────────────────────────
+        ["event"]        = "\ue878", // event
+        ["calendar"]     = "\ue935", // calendar_today
+        ["calendar_month"] = "\uebcc", // calendar_month
+        ["schedule"]     = "\ue8b5", // schedule
+        ["today"]        = "\ue8df", // today
+        ["clock"]        = "\ue8b5", // schedule
+        ["alarm"]        = "\ue855", // alarm
+        ["meeting"]      = "\uea66", // groups
+        ["people"]       = "\ue7fb", // people
+        ["person"]       = "\ue7fd", // person
+        ["mail"]         = "\ue0be", // mail
+        ["email"]        = "\ue0be", // email
+        ["send"]         = "\ue163", // send
+
         // ── Agents / workflow ───────────────────────────────
         ["robot"]        = "\uf06c", // smart_toy
         ["agent"]        = "\uf06c", // smart_toy
