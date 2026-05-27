@@ -293,16 +293,17 @@ const TOTAL = 15;
   eyebrow(s, "About the Speaker");
   title(s, "Hi, I'm Matthew");
 
-  // Avatar circle (placeholder w/ initials)
+  // Avatar — profile photo with coral ring (PptxGenJS rounds the image to
+  // a circle via the `rounding: true` option)
   s.addShape("ellipse", {
-    x: 0.6, y: 2.2, w: 3.6, h: 3.6,
-    fill: { color: C.indigoMid },
-    line: { color: C.coral, width: 4 },
+    x: 0.55, y: 2.15, w: 3.7, h: 3.7,
+    fill: { color: C.coral },
+    line: { color: C.coral, width: 0 },
   });
-  s.addText("ML", {
-    x: 0.6, y: 2.2, w: 3.6, h: 3.6,
-    fontSize: 96, bold: true, fontFace: F.header,
-    color: C.textOnDark, align: "center", valign: "middle",
+  s.addImage({
+    path: "assets/profile.jpg",
+    x: 0.65, y: 2.25, w: 3.5, h: 3.5,
+    rounding: true,
   });
 
   // Bio block
