@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Demo.Orchestrations.SequentialHybrid.Models;
+using Demo.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 
@@ -11,6 +12,10 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// <see cref="RedactedBody"/>) into the single ChatMessage that goes to the
 /// cloud writer. Stores both in workflow state for the assembler to read at
 /// the end.
+///
+/// The recipient is never carried in <see cref="PickedEmail"/> — it's always
+/// the inbox owner, read from <see cref="InboxService"/> here in the
+/// executor and inserted into the cloud-bound prompt and the workflow state.
 ///
 /// Cloud-bound prompt looks like:
 ///
@@ -25,7 +30,7 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// </summary>
 [SendsMessage(typeof(ChatMessage))]
 [SendsMessage(typeof(TurnToken))]
-public sealed class CloudPromptAdapter(string id = "cloud-prompt-adapter")
+public sealed class CloudPromptAdapter(InboxService inbox, string id = "cloud-prompt-adapter")
     : ChatProtocolExecutor(id)
 {
     public const string SharedScope = "email-triage";
@@ -93,7 +98,7 @@ public sealed class CloudPromptAdapter(string id = "cloud-prompt-adapter")
 
         var prompt = $"""
             FROM: {picked.SenderFirstName}
-            TO:   {picked.RecipientFirstName}
+            TO:   {inbox.OwnerFirstName}
             SUBJECT: {picked.Subject}
 
             {bodyForCloud}

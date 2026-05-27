@@ -80,13 +80,15 @@ public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient
         return inbox.Emails.Select(static (e, i) => new TextSearchProvider.TextSearchResult
         {
             SourceName = $"Inbox #{i + 1}: {e.Subject}",
+            // Field order matches PickedEmail's schema order: email before
+            // name. The email's local-part / domain is a strong lexical
+            // anchor that pulls the small on-device model toward the
+            // correct name when it emits the SenderName field next.
             Text = $$"""
-                SENDER_NAME:     {{e.SenderName}}
-                SENDER_EMAIL:    {{e.SenderEmail}}
-                RECIPIENT_NAME:  {{e.RecipientName}}
-                RECIPIENT_EMAIL: {{e.RecipientEmail}}
-                SUBJECT:         {{e.Subject}}
-                RECEIVED:        {{e.Received}}
+                SENDER_EMAIL: {{e.SenderEmail}}
+                SENDER_NAME:  {{e.SenderName}}
+                SUBJECT:      {{e.Subject}}
+                RECEIVED:     {{e.Received}}
 
                 {{e.Body}}
                 """,
@@ -95,6 +97,9 @@ public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient
 
     private sealed record GeneratedInbox(IReadOnlyList<GeneratedEmail> Emails);
 
+    // RecipientName and RecipientEmail are still generated so the body can
+    // address the user ("Hi Alex, …") but they are NOT exposed to the picker
+    // — the recipient is always the inbox owner, sourced from this service.
     private sealed record GeneratedEmail(
         string SenderName,
         string SenderEmail,

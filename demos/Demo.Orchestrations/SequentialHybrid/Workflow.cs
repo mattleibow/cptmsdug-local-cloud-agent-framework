@@ -127,19 +127,16 @@ public static class EmailTriageWorkflow
                                 lists the user's inbox emails, each with these
                                 labels:
 
-                                  SENDER_NAME, SENDER_EMAIL,
-                                  RECIPIENT_NAME, RECIPIENT_EMAIL,
+                                  SENDER_EMAIL, SENDER_NAME,
                                   SUBJECT, RECEIVED, body
 
                                 Pick the ONE entry most relevant to the user's
                                 request and copy its fields 1:1 into the schema:
 
-                                  SENDER_NAME     → senderName
-                                  SENDER_EMAIL    → senderEmail
-                                  RECIPIENT_NAME  → recipientName
-                                  RECIPIENT_EMAIL → recipientEmail
-                                  SUBJECT         → subject
-                                  body lines      → body
+                                  SENDER_EMAIL → senderEmail
+                                  SENDER_NAME  → senderName
+                                  SUBJECT      → subject
+                                  body lines   → body
                                 """,
                         },
                     });
@@ -232,7 +229,7 @@ public static class EmailTriageWorkflow
 
             ExecutorBinding picker        = pickerAgent.BindAsExecutor(hostOpts);
             ExecutorBinding redactor      = redactorAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding cloudPrompt   = new CloudPromptAdapter();
+            ExecutorBinding cloudPrompt   = new CloudPromptAdapter(inbox);
             ExecutorBinding cloudWriter   = cloudWriterAgent.BindAsExecutor(hostOpts);
             ExecutorBinding finalAssembly = new FinalEmailAssembler(inbox);
             ExecutorBinding output        = new OutputMessagesExecutor();
