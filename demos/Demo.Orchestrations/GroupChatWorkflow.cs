@@ -7,8 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Maui.AI.Attributes;
 
-#pragma warning disable MAAIW001 // Experimental API
-
 namespace Demo.Orchestrations;
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -114,15 +112,20 @@ public static partial class GroupChatWorkflow
                 name: key,
                 description: "Startup founder pitching and defending their vision.",
                 instructions: """
-                    You are a startup founder in a pitch meeting. On your FIRST turn, briefly
-                    introduce your startup idea. On SUBSEQUENT turns, respond directly to what
-                    the investor or advisor just said — defend criticisms, answer questions,
-                    incorporate feedback, and refine your pitch. You can use lookup_market_data
-                    to back up claims with real numbers. Never repeat your introduction. Build
-                    on the conversation. Keep each contribution to 80 words.
+                    You are a startup founder pitching to a VC investor and an advisor.
 
-                    FORMAT: start every contribution with "**:rocket: Founder:**" then a blank
-                    line then your message. Use **bold** to emphasise key claims.
+                    On your FIRST turn, briefly introduce your startup idea — the hook.
+                    On every subsequent turn, respond directly to whatever the investor
+                    or advisor just said: defend criticisms, answer questions, refine the
+                    pitch, and concede valid points. Use lookup_market_data when a real
+                    number would strengthen your answer.
+
+                    Keep each turn to ~80 words. Don't repeat your introduction. Don't
+                    promise anything for a "next turn" — the facilitator decides who
+                    speaks when and when the meeting ends.
+
+                    Write plain prose; the UI already labels your messages. Use **bold**
+                    to emphasise key claims.
                     """,
                 tools: [.. startupTools.Where(t => t.Name == "lookup_market_data")]
             ));
@@ -134,17 +137,23 @@ public static partial class GroupChatWorkflow
                 name: key,
                 description: "VC investor evaluating the pitch with tough questions.",
                 instructions: """
-                    You are a VC investor in a pitch meeting. On your FIRST turn, react to the
-                    founder's pitch with an initial assessment. On SUBSEQUENT turns, follow up
-                    on previous answers — dig deeper into weak points, acknowledge good
-                    responses, and raise NEW concerns you haven't mentioned yet. Use
-                    estimate_unit_economics and search_competitors to challenge claims with
-                    data. Never repeat previous questions. Keep contributions to 80 words.
+                    You are a VC investor evaluating a startup pitch.
 
-                    FORMAT: start every contribution with "**:chart: Investor:**" then a blank
-                    line then your message. Use **bold** for tough questions or red flags.
+                    On your FIRST turn, give an initial reaction plus the toughest
+                    question that comes to mind. On every subsequent turn, follow up on
+                    the founder's response — dig into the weakest answer, acknowledge
+                    what's solid, and raise a NEW concern. Use estimate_unit_economics
+                    or search_competitors to challenge claims with data when useful.
+
+                    Keep each turn to ~80 words. Never repeat previous questions. Don't
+                    promise anything for a "next turn" — the facilitator decides who
+                    speaks when and when the meeting ends.
+
+                    Write plain prose; the UI already labels your messages. Use **bold**
+                    for tough questions or red flags.
                     """,
-                tools: [.. startupTools.Where(t => t.Name is "estimate_unit_economics" or "search_competitors")]
+                tools: [.. startupTools.Where(t =>
+                    t.Name is "estimate_unit_economics" or "search_competitors")]
             ));
 
         builder.AddAIAgent(
@@ -152,17 +161,51 @@ public static partial class GroupChatWorkflow
             (sp, key) => new ChatClientAgent(
                 sp.GetRequiredService<IChatClient>(),
                 name: key,
-                description: "Seasoned advisor bridging optimism and skepticism.",
+                description: "Seasoned advisor mediating and delivering a closing recap.",
                 instructions: """
-                    You are a seasoned startup advisor in a pitch meeting. On your FIRST turn,
-                    share initial thoughts. On SUBSEQUENT turns, mediate between the founder
-                    and investor — acknowledge valid points from both, suggest compromises or
-                    pivots, and on your final turn provide a brief summary of actionable next
-                    steps. You can use lookup_market_data to ground recommendations in data.
-                    Keep contributions to 80 words.
+                    You are a seasoned startup advisor in a 3-round round-robin pitch
+                    meeting. Each round one of you speaks — founder, then investor, then
+                    you. After your 3rd turn the meeting ends, so YOUR LAST TURN IS THE
+                    SUMMARY.
 
-                    FORMAT: start every contribution with "**:lightbulb: Advisor:**" then a
-                    blank line then your message. Use **bold** for actionable suggestions.
+                    Look at the conversation so far and count how many times you've already
+                    spoken in this thread:
+
+                    - **If you've spoken 0 times:** initial framing — what's interesting
+                      about the idea, what's risky. ~80 words.
+                    - **If you've spoken 1 time:** mediate the tension between founder
+                      and investor; suggest one concrete pivot or compromise. ~80 words.
+                    - **If you've spoken 2 times (this is your final turn):** wrap the
+                      meeting up with a clear, actionable recap. Use this EXACT structure
+                      (Markdown) and ~200 words:
+
+                        ### Closing recap
+
+                        **Strengths**
+
+                        - <one-line strength>
+                        - <one-line strength>
+
+                        **Risks / red flags**
+
+                        - <one-line risk>
+                        - <one-line risk>
+
+                        **Top 3 next steps**
+
+                        1. <concrete action>
+                        2. <concrete action>
+                        3. <concrete action>
+
+                        **Verdict:** <one sentence — "promising but...", "pass unless...",
+                        "strong, invest at seed", etc.>
+
+                    NEVER say "summary coming next" or "more to follow" — every turn
+                    must stand on its own. By your 3rd turn you must deliver the recap.
+                    Use lookup_market_data if you need a number to back up a recommendation.
+
+                    Write plain prose; the UI already labels your messages. Use **bold**
+                    for actionable suggestions.
                     """,
                 tools: [.. startupTools.Where(t => t.Name == "lookup_market_data")]
             ));
@@ -182,11 +225,15 @@ public static partial class GroupChatWorkflow
                 .CreateGroupChatBuilderWith(agents =>
                     new RoundRobinGroupChatManager(agents)
                     {
-                        MaximumIterationCount = 9
+                        // 3 agents × 3 rounds = 9 turns total.
+                        MaximumIterationCount = 9,
                     })
                 .AddParticipants(participants)
                 .WithName(key)
-                .WithDescription("Founder pitches, investor challenges, advisor mediates — 3 rounds.")
+                .WithDescription(
+                    "Founder, investor, and advisor take turns over 3 rounds (round-robin). " +
+                    "The advisor knows the round count and delivers the closing recap on " +
+                    "their final turn.")
                 .Build();
         }).AddAsAIAgent();
     }

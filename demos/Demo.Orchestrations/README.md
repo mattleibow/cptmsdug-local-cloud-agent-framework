@@ -81,7 +81,7 @@ plan.
                   ┌─▶ food      ─┐
 USER ─▶ Start ────┼─▶ culture   ─┼─▶ ConcurrentEnd ─▶ Final output
                   └─▶ logistics ─┘
-                       (parallel)
+                     (parallel)
 ```
 
 | Agent | Tools | Role |
@@ -153,9 +153,9 @@ USER ─▶ dispatcher ─┬─▶ network   ─┐
 iterations). Each participant builds on what the previous one just said.
 
 ```
-                    ┌──▶ founder  ──┐
+                       ┌──▶ founder  ──┐
 USER ─▶ GroupChatHost  ◀─▶ investor  ◀─▶  (3 rounds)  ─▶ Final output
-                    └──▶ advisor  ──┘
+                       └──▶ advisor  ──┘
 ```
 
 | Agent | Tools | Role |

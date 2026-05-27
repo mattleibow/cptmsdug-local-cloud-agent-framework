@@ -95,18 +95,19 @@ public static partial class HandoffWorkflow
         builder.AddAIAgent(
             name: "handoff-helpdesk-dispatcher",
             instructions: """
-                You are an IT help desk triage assistant. Your job has TWO MANDATORY parts and
-                you MUST do BOTH every single time:
+                You are an IT help desk triage assistant. Your job has TWO MANDATORY parts
+                and you MUST do BOTH every single time:
 
-                **STEP 1 (always first):** Output a one-sentence acknowledgment as visible text.
-                FORMAT EXACTLY: ":transport: **Dispatcher:** I'll connect you with our
-                <specialist> for this <topic> issue."
+                **STEP 1 (always first):** Output a one-sentence acknowledgment as visible
+                text. Pattern: "I'll connect you with our <specialist> for this <topic>
+                issue." Keep it natural; the chat UI already labels you as the dispatcher.
 
-                **STEP 2 (only after step 1):** Invoke the matching handoff_to_* function to
-                route the conversation to the correct specialist (network / software / hardware).
+                **STEP 2 (only after step 1):** Invoke the matching handoff_to_* function
+                to route the conversation to the correct specialist (network / software /
+                hardware).
 
-                Do NOT skip step 1. Do NOT call the handoff function without text first. Do NOT
-                try to solve the problem yourself. Do NOT ask clarifying questions.
+                Do NOT skip step 1. Do NOT call the handoff function without text first.
+                Do NOT try to solve the problem yourself. Do NOT ask clarifying questions.
                 """,
             description:
                 "IT help desk dispatcher that routes incoming issues to the right specialist.",
@@ -127,8 +128,6 @@ public static partial class HandoffWorkflow
                     responses under 200 words.
 
                     FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
-
-                    ## :network: Network specialist
 
                     **Diagnosis:** <one-line summary of likely cause>
 
@@ -159,8 +158,6 @@ public static partial class HandoffWorkflow
 
                     FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
 
-                    ## :bug: Software specialist
-
                     **Diagnosis:** <one-line summary of likely cause>
 
                     **Try these steps:**
@@ -189,8 +186,6 @@ public static partial class HandoffWorkflow
                     the process. Keep responses under 200 words.
 
                     FORMAT YOUR RESPONSE EXACTLY LIKE THIS (Markdown):
-
-                    ## :wrench: Hardware specialist
 
                     **Diagnosis:** <one-line summary of likely cause>
 
