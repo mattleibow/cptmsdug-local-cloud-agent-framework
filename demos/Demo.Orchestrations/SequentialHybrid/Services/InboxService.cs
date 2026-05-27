@@ -6,25 +6,30 @@ using Demo.Orchestrations.SequentialHybrid.Models;
 namespace Demo.Orchestrations.SequentialHybrid.Services;
 
 /// <summary>
-/// Stands in for "the user's email inbox" in the local + cloud demo.
+/// Stands in for "the user's email inbox" in the local + cloud demo —
+/// addressed to a specific (fictional) user and able to fabricate plausible
+/// inbound emails on demand.
 ///
-/// Rather than carry a hard-coded list of emails, this service asks the
-/// on-device chat client to invent 3-5 plausible emails on demand, picks
-/// the one most relevant to the user's request, and returns it as a
-/// structured <see cref="PickedEmail"/>.
+/// Carries the mailbox owner's identity as instance properties so every
+/// downstream stage (inbox-picker prompt, RAG context, final assembler
+/// signature) can read consistent values without a static side-channel.
 ///
 /// Used by the inbox-picker agent through a <c>TextSearchProvider</c>.
 /// Each search result is a single fully-formed email so the inbox-picker
 /// only needs to choose between them.
 /// </summary>
-public sealed class InboxService
+public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient localChatClient)
 {
-    private readonly IChatClient _local;
+    /// <summary>The full name of the inbox owner (the human the demo runs for).</summary>
+    public string OwnerName { get; } = "Alex Park";
 
-    public InboxService([FromKeyedServices(AIModels.Local)] IChatClient localChatClient)
-    {
-        _local = localChatClient;
-    }
+    /// <summary>The inbox owner's email address.</summary>
+    public string OwnerEmail { get; } = "alex.park@aurora-labs.com";
+
+    /// <summary>First-name view of the owner, used for greetings / signatures.</summary>
+    public string OwnerFirstName =>
+        OwnerName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
+        ?? OwnerName;
 
     /// <summary>
     /// Adapter for <see cref="TextSearchProvider"/>: given the agent's most
@@ -35,7 +40,7 @@ public sealed class InboxService
         string query,
         CancellationToken cancellationToken)
     {
-        var response = await _local.GetResponseAsync<GeneratedInbox>(
+        var response = await localChatClient.GetResponseAsync<GeneratedInbox>(
         [
             new(ChatRole.System, $$"""
                 You are a FAKE INBOX generator for a privacy demo. The user is
@@ -43,15 +48,15 @@ public sealed class InboxService
                 emails that the user has RECEIVED in their inbox and would
                 plausibly want to reply to.
 
-                The user is: "{{UserProfile.Name}}" <{{UserProfile.Email}}>.
+                The user is: "{{OwnerName}}" <{{OwnerEmail}}>.
 
                 CRITICAL — every email is INBOUND to the user:
-                  - "to"   field MUST be the user (toName="{{UserProfile.Name}}",
-                    toEmail="{{UserProfile.Email}}")
+                  - "to"   field MUST be the user (toName="{{OwnerName}}",
+                    toEmail="{{OwnerEmail}}")
                   - "from" field MUST be a DIFFERENT person (a colleague, vendor,
                     customer, etc.) — NEVER the user themselves
                   - the body MUST be written FROM the colleague's perspective,
-                    addressed TO the user. Typical opening: "Hi {{UserProfile.Name.Split(' ')[0]}}, …"
+                    addressed TO the user. Typical opening: "Hi {{OwnerFirstName}}, …"
                   - the body MUST NOT be written by the user — never "Hi <colleague-name>"
                     where the colleague is the from-person
 

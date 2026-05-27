@@ -175,8 +175,8 @@ public static class EmailTriageWorkflow
                 You are a senior email assistant. The user wants help drafting a reply
                 to a colleague. You will be given:
 
-                  - FROM: the colleague's FIRST name
-                  - TO:   the user's FIRST name
+                  - FROM:    the colleague's FIRST name
+                  - TO:      the user's FIRST name
                   - SUBJECT: the subject line of the colleague's email
                   - The body of the colleague's email (with last names, company names,
                     project names, and dollar amounts already replaced by placeholder
@@ -206,6 +206,7 @@ public static class EmailTriageWorkflow
             var pickerAgent      = sp.GetRequiredKeyedService<AIAgent>("local-inbox-picker");
             var redactorAgent    = sp.GetRequiredKeyedService<AIAgent>("local-body-redactor");
             var cloudWriterAgent = sp.GetRequiredKeyedService<AIAgent>("cloud-reply-writer");
+            var inbox            = sp.GetRequiredService<InboxService>();
 
             var hostOpts = new AIAgentHostOptions
             {
@@ -217,7 +218,7 @@ public static class EmailTriageWorkflow
             ExecutorBinding redactor      = redactorAgent.BindAsExecutor(hostOpts);
             ExecutorBinding cloudPrompt   = new CloudPromptAdapter();
             ExecutorBinding cloudWriter   = cloudWriterAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding finalAssembly = new FinalEmailAssembler();
+            ExecutorBinding finalAssembly = new FinalEmailAssembler(inbox);
             ExecutorBinding output        = new OutputMessagesExecutor();
 
             return new WorkflowBuilder(picker)

@@ -1,5 +1,6 @@
 using System.Text;
 using Demo.Orchestrations.SequentialHybrid.Models;
+using Demo.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 
@@ -9,7 +10,8 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// Sits AFTER the cloud reply-writer. Builds the final user-facing markdown
 /// email by combining:
 ///   - the picked email stored in workflow state (for to/from/subject),
-///   - the user identity from <see cref="UserProfile"/> (for the from line + signature),
+///   - the inbox owner identity from <see cref="InboxService"/> (for the
+///     from line + signature),
 ///   - the redaction mapping stored in workflow state (for token rehydration),
 ///   - the cloud's reply body,
 ///   - a mailto: link so the user can open the reply in Mail.app.
@@ -18,7 +20,13 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 [SendsMessage(typeof(TurnToken))]
 public sealed class FinalEmailAssembler : ChatProtocolExecutor
 {
-    public FinalEmailAssembler(string id = "final-email-assembler") : base(id) { }
+    private readonly InboxService _inbox;
+
+    public FinalEmailAssembler(InboxService inbox, string id = "final-email-assembler")
+        : base(id)
+    {
+        _inbox = inbox;
+    }
 
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
         => base.ConfigureProtocol(protocolBuilder).SendsMessage<ChatMessage>();
@@ -85,7 +93,7 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
             {replyBody}
 
             Best,
-            {UserProfile.Name.Split(' ').First()}
+            {_inbox.OwnerFirstName}
             """;
 
         var mailto = BuildMailto(picked.FromEmail, subject, fullBody);
@@ -93,7 +101,7 @@ public sealed class FinalEmailAssembler : ChatProtocolExecutor
         var markdown = new StringBuilder()
             .AppendLine("---")
             .AppendLine($"to: \"{picked.FromFullName}\" <{picked.FromEmail}>")
-            .AppendLine($"from: \"{UserProfile.Name}\" <{UserProfile.Email}>")
+            .AppendLine($"from: \"{_inbox.OwnerName}\" <{_inbox.OwnerEmail}>")
             .AppendLine($"subject: {subject}")
             .AppendLine("---")
             .AppendLine()
