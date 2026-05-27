@@ -114,29 +114,16 @@ public static class EmailTriageWorkflow
                         ChatOptions = new ChatOptions
                         {
                             ResponseFormat = ChatResponseFormat.ForJsonSchema<PickedEmail>(),
-                            Instructions = $$"""
-                                You are an on-device inbox picker. You will see a list of
-                                inbox emails in context. Pick the ONE email most relevant
-                                to the user's request and return it as a JSON object
-                                matching this exact shape:
+                            Instructions = """
+                                You are an on-device inbox picker. The context contains
+                                inbox emails, each starting with FROM_NAME, FROM_EMAIL,
+                                TO_NAME, TO_EMAIL, SUBJECT, RECEIVED and the body.
 
-                                  {
-                                    "fromFullName": "Bob Martinez",
-                                    "fromEmail":    "bob.martinez@acme-corp.com",
-                                    "toFullName":   "{{UserProfile.Name}}",
-                                    "toEmail":      "{{UserProfile.Email}}",
-                                    "subject":      "Q3 budget approval",
-                                    "body":         "<full original email body, verbatim>"
-                                  }
-
-                                Rules:
-                                  - Copy the FROM_NAME / FROM_EMAIL / TO_NAME / TO_EMAIL
-                                    fields exactly as shown in the chosen inbox entry.
-                                  - Copy the Subject exactly.
-                                  - Copy the body verbatim — preserve all paragraphs,
-                                    quotes, dates, dollar amounts, and named people.
-                                  - Do not invent emails. If no inbox entry is a good
-                                    match, pick the closest one anyway.
+                                Pick the ONE entry most relevant to the user's request
+                                and return it via the structured response — copy each
+                                field from that entry verbatim. The recipient (TO) is
+                                always the user; the sender (FROM) is the colleague who
+                                wrote to them. Do not swap them.
                                 """,
                         },
                     });
@@ -162,41 +149,18 @@ public static class EmailTriageWorkflow
                     {
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<RedactedBody>(),
                         Instructions = """
-                            You are an on-device privacy redactor. You will be given a
-                            PickedEmail JSON from the previous stage. Your job is to take
-                            the `body` field, find every sensitive token inside it, and
-                            replace each with a stable placeholder.
+                            You are an on-device privacy spotter. You will be given a
+                            PickedEmail JSON. Look at its body and list every sensitive
+                            entity you find. For each one, classify it as one of:
 
-                            Token scheme — re-use the same token for the same value:
-                              - Last names      → PERSON_1, PERSON_2, ...
-                              - Companies/orgs  → COMPANY_1, COMPANY_2, ...
-                              - Projects/products → PROJECT_1, PROJECT_2, ...
-                              - Dollar amounts  → AMOUNT_1, AMOUNT_2, ...
+                              PERSON   — a person's LAST name only (never a first name)
+                              COMPANY  — a company / organisation name
+                              PROJECT  — a project / product name
+                              AMOUNT   — a specific dollar amount (e.g. "$5,000")
 
-                            FIRST NAMES STAY. So "Bob Lobby from Choppy Corp pitched
-                            Project Zen for $42,000" becomes "Bob PERSON_1 from
-                            COMPANY_1 pitched PROJECT_1 for AMOUNT_1".
-
-                            Do not redact anything outside the body. Do not redact the
-                            subject. Do not redact email addresses (they are handled
-                            separately and never leave the device).
-
-                            Return JSON matching this exact shape:
-
-                              {
-                                "body": "<the body verbatim, with last names,
-                                          companies, projects, and dollar amounts
-                                          swapped for tokens>",
-                                "mapping": [
-                                  { "token": "PERSON_1",  "original": "Lobby" },
-                                  { "token": "COMPANY_1", "original": "Choppy Corp" },
-                                  { "token": "PROJECT_1", "original": "Project Zen" },
-                                  { "token": "AMOUNT_1",  "original": "$42,000" }
-                                ]
-                              }
-
-                            If there is nothing to redact, return the body unchanged and
-                            an empty mapping array.
+                            You are NOT rewriting the body. You are NOT inventing
+                            tokens. Just return the list of entities you spotted, with
+                            each Value copied character-for-character from the body.
                             """,
                     },
                 }));

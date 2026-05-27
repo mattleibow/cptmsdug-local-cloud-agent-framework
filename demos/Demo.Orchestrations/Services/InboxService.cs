@@ -39,11 +39,20 @@ public sealed class InboxService
             new(ChatRole.System, $$"""
                 You are a FAKE INBOX generator for a privacy demo. The user is
                 drafting a reply about a specific topic. Invent 3-5 realistic
-                emails from the user's inbox that would plausibly be relevant.
+                emails that the user has RECEIVED in their inbox and would
+                plausibly want to reply to.
 
                 The user is: "{{UserProfile.Name}}" <{{UserProfile.Email}}>.
-                Every email's "to" field MUST be the user. The "from" field is
-                someone else — vary the cast across emails.
+
+                CRITICAL — every email is INBOUND to the user:
+                  - "to"   field MUST be the user (toName="{{UserProfile.Name}}",
+                    toEmail="{{UserProfile.Email}}")
+                  - "from" field MUST be a DIFFERENT person (a colleague, vendor,
+                    customer, etc.) — NEVER the user themselves
+                  - the body MUST be written FROM the colleague's perspective,
+                    addressed TO the user. Typical opening: "Hi {{UserProfile.Name.Split(' ')[0]}}, …"
+                  - the body MUST NOT be written by the user — never "Hi <colleague-name>"
+                    where the colleague is the from-person
 
                 CRITICAL — each email body MUST contain AT LEAST one of EACH
                 of the following so the privacy redactor has substance:
