@@ -1,8 +1,9 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Demo.Orchestrations.SequentialHybrid.Models;
 
-namespace Demo.Orchestrations.Services;
+namespace Demo.Orchestrations.SequentialHybrid.Services;
 
 /// <summary>
 /// Stands in for "the user's email inbox" in the local + cloud demo.

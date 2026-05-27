@@ -1,4 +1,4 @@
-namespace Demo.Orchestrations;
+namespace Demo.Orchestrations.SequentialHybrid.Models;
 
 /// <summary>
 /// The identity of the user the demo is being run for. This stays constant
