@@ -36,6 +36,19 @@ namespace Demo.MauiAgentApp.Orchestrations;
 //          │ plain-text brief
 //          ▼
 //  ┌──────────────────────────────────────────────────────────────────────┐
+//  │  2a. local-to-cloud-gate          executor, no LLM — PRIVACY VALVE    │
+//  │    • By default agents forward the FULL conversation history          │
+//  │      downstream. That's what makes multi-turn agent chains work, but  │
+//  │      it would let the raw inbox JSON (with PII) reach the cloud.      │
+//  │    • This gate drops everything except the LAST assistant message     │
+//  │      from upstream (the summariser's brief) and re-emits it as a      │
+//  │      single fresh user message. Nothing else crosses the boundary.    │
+//  │    • Pairs with `ForwardIncomingMessages = false` on the cloud agent  │
+//  │      so the drafter sees only what the gate forwards.                 │
+//  └──────────────────────────────────────────────────────────────────────┘
+//          │ single user message: brief
+//          ▼
+//  ┌──────────────────────────────────────────────────────────────────────┐
 //  │  3. cloud-invite-drafter        CLOUD agent + LOCAL TOOL              │
 //  │    • Calls `get_calendar(dateOrRange)` once. The tool runs LOCALLY    │
 //  │      against CalendarService — the cloud agent reaches back to the    │
@@ -99,33 +112,47 @@ public static class MeetingInviteWorkflow
             var drafter    = sp.GetRequiredKeyedService<AIAgent>(drafterAgent);
             var inbox      = sp.GetRequiredService<InboxService>();
 
-            var hostOpts = new AIAgentHostOptions
+            // On-device agents pass full conversation history forward so
+            // multi-turn context works inside the local side of the pipeline.
+            var localHostOpts = new AIAgentHostOptions
             {
                 ReassignOtherAgentsAsUsers = true,
                 ForwardIncomingMessages = true,
             };
 
-            ExecutorBinding e1 = search.BindAsExecutor(hostOpts);
-            ExecutorBinding e2 = summariser.BindAsExecutor(hostOpts);
-            ExecutorBinding e3 = drafter.BindAsExecutor(hostOpts);
-            ExecutorBinding e5 = new LocalInviteFinaliserExecutor(inbox);
-            ExecutorBinding e6 = new OutputMessagesExecutor();
+            // The cloud agent must NOT see upstream history (the raw inbox
+            // JSON contains the customer's PII). It only sees what the
+            // privacy gate forwards: a single user message with the redacted
+            // brief.
+            var cloudHostOpts = new AIAgentHostOptions
+            {
+                ReassignOtherAgentsAsUsers = true,
+                ForwardIncomingMessages = false,
+            };
 
-            return new WorkflowBuilder(e1)
-                .AddEdge(e1, e2)
-                .AddEdge(e2, e3)
-                .AddEdge(e3, e5)
-                .AddEdge(e5, e6)
-                .WithOutputFrom(e6)
+            ExecutorBinding inboxSearch       = search.BindAsExecutor(localHostOpts);
+            ExecutorBinding issueSummariser   = summariser.BindAsExecutor(localHostOpts);
+            ExecutorBinding privacyGate       = new LocalToCloudPrivacyGateExecutor();
+            ExecutorBinding inviteDrafter     = drafter.BindAsExecutor(cloudHostOpts);
+            ExecutorBinding inviteFinaliser   = new LocalInviteFinaliserExecutor(inbox);
+            ExecutorBinding outputMessages    = new OutputMessagesExecutor();
+
+            return new WorkflowBuilder(inboxSearch)
+                .AddEdge(inboxSearch,     issueSummariser)
+                .AddEdge(issueSummariser, privacyGate)
+                .AddEdge(privacyGate,     inviteDrafter)
+                .AddEdge(inviteDrafter,   inviteFinaliser)
+                .AddEdge(inviteFinaliser, outputMessages)
+                .WithOutputFrom(outputMessages)
                 .WithName(key)
                 .WithDescription(
                     """
-                    Local inbox-search → local issue summariser → cloud
-                    invite drafter (with on-device get_calendar tool) →
-                    on-device finaliser. The cloud sees only the redacted
-                    brief and the calendar's free/busy slots — never the
-                    customer's address, phone, password, card, SSN, or the
-                    actual calendar events.
+                    Local inbox-search → local issue summariser → privacy
+                    gate → cloud invite drafter (with on-device get_calendar
+                    tool) → on-device finaliser. The cloud sees only the
+                    redacted brief and the calendar's free/busy slots —
+                    never the customer's address, phone, password, card,
+                    SSN, or the actual calendar events.
                     """)
                 .Build();
         }).AddAsAIAgent();

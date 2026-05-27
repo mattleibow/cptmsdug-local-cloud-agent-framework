@@ -201,16 +201,17 @@ private RAG and PII-omitting summarisation; cloud AI drafts a polished
 invite by calling **back into the device** for free/busy slots.
 
 ```
-USER ─▶ local-inbox-search ──▶ local-issue-summariser ──▶ cloud-invite-drafter ──▶ local-invite-finaliser ──▶ Final output
-        (Apple Intelligence)   (Apple Intelligence)        (Azure OpenAI + tool)    (deterministic wrap)
-                                                                │
-                                                                └─ calls back to device ──▶ get_calendar (LocalCalendarTool → CalendarService → Apple Intelligence)
+USER ─▶ local-inbox-search ──▶ local-issue-summariser ──▶ local-to-cloud-gate ──▶ cloud-invite-drafter ──▶ local-invite-finaliser ──▶ Final output
+        (Apple Intelligence)   (Apple Intelligence)        (privacy valve)         (Azure OpenAI + tool)    (deterministic wrap)
+                                                                                          │
+                                                                                          └─ calls back to device ──▶ get_calendar (LocalCalendarTool → CalendarService → Apple Intelligence)
 ```
 
 | Stage | Where it runs | Tools | Role |
 | --- | --- | --- | --- |
 | `local-inbox-search` | Local (on-device) | RAG over fabricated inbox | Picks one customer email; returns `PickedEmail` JSON |
 | `local-issue-summariser` | Local (on-device) | none | Writes a plain-text brief; **omits addresses, phones, passwords, cards, SSNs** |
+| `local-to-cloud-gate` | Local executor | none | Drops the upstream conversation history (raw inbox JSON + original prompt) and forwards only the summariser's brief as a single user message |
 | `cloud-invite-drafter` | Cloud (Azure OpenAI) | `get_calendar` | Calls back to device for free/busy slots, drafts Markdown invite |
 | `local-invite-finaliser` | Local executor | none | Wraps cloud draft in YAML frontmatter + `[:mail: Open in Mail](mailto:…)` |
 
