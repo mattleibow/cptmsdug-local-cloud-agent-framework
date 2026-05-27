@@ -36,6 +36,7 @@ builder.AddGroupChatWorkflow();
 // Required for DevUI
 builder.Services.AddOpenAIResponses();
 builder.Services.AddOpenAIConversations();
+builder.AddDevUI();
 
 var app = builder.Build();
 app.UseHttpsRedirection();
