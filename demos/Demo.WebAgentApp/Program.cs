@@ -10,7 +10,7 @@ using OpenTelemetry.Trace;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure OpenTelemetry → Aspire Dashboard
-builder.Services.AddDemoTelemetry("Demo.WebAgentApp", configureTracing: tracing =>
+builder.AddDemoTelemetry("Demo.WebAgentApp", configureTracing: tracing =>
 {
     tracing.AddAspNetCoreInstrumentation();
 });

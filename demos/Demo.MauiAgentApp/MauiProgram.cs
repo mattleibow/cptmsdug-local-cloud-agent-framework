@@ -52,8 +52,13 @@ public static class MauiProgram
 		builder.AddMauiDevFlowAgent();
 #endif
 
-		// Configure OpenTelemetry → Aspire Dashboard
-		builder.Services.AddDemoTelemetry("Demo.MauiAgentApp");
+		// Configure OpenTelemetry → Aspire Dashboard.
+		// AddDemoTelemetry now takes the builder directly so it can hook
+		// builder.Logging (the only logging entry point MAUI actually consumes)
+		// alongside Services. Use the IMauiInitializeService below to force
+		// provider resolution after the host is built.
+		builder.AddDemoTelemetry("Demo.MauiAgentApp");
+		builder.Services.AddSingleton<IMauiInitializeService, OpenTelemetryInitializer>();
 
 		// Register services
 		builder.Services.AddSingleton<AIChatService>();
@@ -111,7 +116,19 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
-		return builder.Build();
+		var app = builder.Build();
+
+		return app;
+	}
+
+	// MAUI builds the host but never starts IHostedService instances, so the
+	// OpenTelemetry hosted service never runs and the providers are never
+	// resolved (so no exports happen). IMauiInitializeService is MAUI's
+	// equivalent — it runs after the app is built, on the UI thread.
+	private sealed class OpenTelemetryInitializer : IMauiInitializeService
+	{
+		public void Initialize(IServiceProvider services)
+			=> services.EnsureDemoTelemetryStarted();
 	}
 
 }
