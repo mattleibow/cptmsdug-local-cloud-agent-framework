@@ -15,6 +15,9 @@
 		<PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.6.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Maui.AI.Attributes" Version="0.1.0-preview.10.26274.3" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
 	</ItemGroup>
 
 </Project>

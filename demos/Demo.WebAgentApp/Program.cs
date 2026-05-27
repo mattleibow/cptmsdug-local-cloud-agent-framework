@@ -5,8 +5,15 @@ using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure OpenTelemetry → Aspire Dashboard
+builder.Services.AddDemoTelemetry("Demo.WebAgentApp", configureTracing: tracing =>
+{
+    tracing.AddAspNetCoreInstrumentation();
+});
 
 // Configure Azure OpenAI
 var azureOpenAIEndpoint = new Uri(new Uri(builder.Configuration["AzureOpenAI:Endpoint"]

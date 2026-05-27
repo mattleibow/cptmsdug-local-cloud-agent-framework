@@ -52,9 +52,11 @@ public static class MauiProgram
 		builder.AddMauiDevFlowAgent();
 #endif
 
+		// Configure OpenTelemetry → Aspire Dashboard
+		builder.Services.AddDemoTelemetry("Demo.MauiAgentApp");
+
 		// Register services
 		builder.Services.AddSingleton<AIChatService>();
-
 		// Register both keyed IChatClients for the local + cloud demo.
 		//   - "cloud-model" → Azure OpenAI (AIChatService)
 		//   - "local-model" → Apple Intelligence Foundation Models on
