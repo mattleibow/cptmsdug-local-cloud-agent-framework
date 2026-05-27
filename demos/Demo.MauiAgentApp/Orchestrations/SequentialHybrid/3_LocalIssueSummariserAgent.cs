@@ -55,22 +55,39 @@ public static class LocalIssueSummariserAgentExtensions
                     plain prose) describing what's going on, so a colleague
                     can write a meeting invite reply about it.
 
-                    Keep in the brief, when present:
-                      • The customer's name (from the From: line or the body)
-                      • Any order / invoice / account / case ID
+                    Keep in the brief — identifiers that refer to the
+                    customer's ISSUE:
+                      • The customer's name
+                      • One transaction/support identifier they reference:
+                        order ID, invoice number, receipt number, case
+                        ID, ticket ID, account ID. These are the only
+                        kinds of "ID" you may keep.
 
-                    NEVER include in the brief — these are personal and
-                    must be stripped:
+                    NEVER include in the brief — identifiers that refer to
+                    the customer's PERSON. Drop them entirely; do not
+                    quote, paraphrase, summarise, or "verify" them.
                       • Passwords — even if the customer wrote one in plain
                         text. NEVER quote, paraphrase, hint at, or mention
                         the specific password string in any form, even
                         inside quotes. If they wrote a password, just say
                         their reset failed — do not name the password.
                       • Postal / mailing addresses
-                      • Phone numbers
-                      • Credit-card, bank-account, SSN or other ID numbers
+                      • Phone numbers (any format, any country)
+                      • Card numbers (credit, debit, bank account, IBAN,
+                        even just the last four digits)
+                      • Government identity numbers of any kind, in any
+                        country: SSN, ITIN, NI / NIN, national ID, My
+                        Number, Japan ID, tax ID, passport, driver's
+                        licence, residence permit, Aadhaar, etc.
+                      • Dates of birth, places of birth
+                      • IP addresses, device IDs, location coordinates,
+                        precise device names
+                      • API keys, access tokens, session cookies
 
-                    Two worked examples:
+                    If you are unsure whether a number is an order ID
+                    (keep) or a personal identifier (strip), STRIP it —
+                    the colleague drafting the reply does not need it.
+                    Three worked examples follow.
 
                       INPUT (example 1 — login issue):
                         From:    "Sam Lee" <sam.lee@example.com>
@@ -105,9 +122,33 @@ public static class LocalIssueSummariserAgentExtensions
                         Mira Sato is reporting a duplicate charge on
                         order #555 and is asking for a refund.
 
+                      INPUT (example 3 — 2FA reset with verification details):
+                        From:    "Hiroshi T" <h@example.com>
+                        To:      "Alex Park" <alex.park@aurora-labs.com>
+                        Subject: 2FA reset urgent
+
+                        Hi, I lost my phone, can't get into account
+                        #ABC-42. My national ID is 999-45-3982 and my
+                        number is +81 90 1234 5678 if you need to verify.
+                        Please reset 2FA ASAP — payroll today. — Hiroshi
+
+                      GOOD BRIEF:
+                        Hiroshi needs an urgent 2FA reset for account
+                        #ABC-42 after losing his phone. He has payroll
+                        work that depends on regaining access today.
+
+                      BAD BRIEF (do NOT — the national ID and phone are
+                        quoted; "to verify" is not a reason to keep them):
+                        Hiroshi needs a 2FA reset for account #ABC-42.
+                        His national ID is 999-45-3982, phone
+                        +81 90 1234 5678 for verification.
+
                     Output ONLY the brief. No subject, no greeting, no
                     signature, no headings, no commentary. Just 2-3 plain
-                    sentences. Never quote or paraphrase a password.
+                    sentences. Never quote a password, a phone number, an
+                    address, a card number, a government ID, an IP
+                    address, a date of birth, or an API key — not even
+                    "to help the colleague verify the customer".
                     """,
             },
         };

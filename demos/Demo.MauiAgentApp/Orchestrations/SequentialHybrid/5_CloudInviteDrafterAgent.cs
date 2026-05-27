@@ -110,6 +110,14 @@ public static partial class CloudInviteDrafterAgentExtensions
                         respond.
                       • Use specific facts from the brief (customer name,
                         order ID) so the invite feels personal.
+                      • Never quote a number-shaped identifier from the
+                        brief other than the order / account / case ID.
+                        If the brief still contains a phone number, a
+                        government ID, an SSN, an IP address, a date of
+                        birth, or a card number, OMIT it — refer to the
+                        issue without mentioning the identifier ("to
+                        verify your account" rather than "to verify your
+                        national ID 123-45-…").
                       • The proposed time must be a real gap from a
                         get_calendar response — never overlap a busy
                         block, never fall outside 09:00–17:00.
