@@ -5,54 +5,40 @@ namespace Demo.Orchestrations.SequentialHybrid.Models;
 
 /// <summary>
 /// Structured payload produced by the on-device inbox-picker agent. Flat
-/// fields are easier for smaller on-device models to fill in reliably than
-/// nested objects.
+/// fields and role-named field labels (<c>Sender</c>/<c>Recipient</c> rather
+/// than <c>From</c>/<c>To</c>) so smaller on-device models can't conflate the
+/// roles with the user's reply direction.
 ///
 /// Stored in workflow state by the cloud-prompt adapter; read back by the
 /// final-email assembler at the end of the workflow.
 /// </summary>
-[Description(
-    "The single inbox email the user wants to reply to, copied verbatim " +
-    "from the matching entry in the RAG-injected inbox context.")]
+[Description("The single inbox email the user wants to reply to, copied verbatim from the chosen inbox entry.")]
 public sealed record PickedEmail(
-    [property: Description(
-        "Full name of the colleague who SENT the email — copy the FROM_NAME " +
-        "value from the chosen inbox entry. NEVER use the user's own name here.")]
-    string FromFullName,
+    [property: Description("Copy verbatim from SENDER_NAME in the chosen inbox entry.")]
+    string SenderName,
 
-    [property: Description(
-        "Email address of the colleague who SENT the email — copy the " +
-        "FROM_EMAIL value from the chosen inbox entry.")]
-    string FromEmail,
+    [property: Description("Copy verbatim from SENDER_EMAIL in the chosen inbox entry.")]
+    string SenderEmail,
 
-    [property: Description(
-        "Full name of the recipient — this is always the user, copied from " +
-        "the TO_NAME value of the chosen inbox entry.")]
-    string ToFullName,
+    [property: Description("Copy verbatim from RECIPIENT_NAME in the chosen inbox entry.")]
+    string RecipientName,
 
-    [property: Description(
-        "Recipient email — this is always the user's email, copied from the " +
-        "TO_EMAIL value of the chosen inbox entry.")]
-    string ToEmail,
+    [property: Description("Copy verbatim from RECIPIENT_EMAIL in the chosen inbox entry.")]
+    string RecipientEmail,
 
-    [property: Description(
-        "Subject line of the chosen inbox entry, copied verbatim.")]
+    [property: Description("Copy verbatim from SUBJECT in the chosen inbox entry.")]
     string Subject,
 
-    [property: Description(
-        "FULL body of the chosen inbox entry, copied character-for-character. " +
-        "Never write a placeholder description like '<email body>'. Never " +
-        "summarise. Never shorten. Preserve all paragraphs, dates, dollar " +
-        "amounts, and named people.")]
+    [property: Description("Copy the body of the chosen inbox entry character-for-character. Preserve every paragraph, date, dollar amount, and named person.")]
     string Body)
 {
-    /// <summary>First-name-only view of the sender, used in cloud-bound prompts.</summary>
+    /// <summary>First-name view of the sender, used for greetings + cloud prompts.</summary>
     [JsonIgnore]
-    public string FromFirstName => FirstNameFrom(FromFullName, FromEmail);
+    public string SenderFirstName => FirstNameFrom(SenderName, SenderEmail);
 
-    /// <summary>First-name-only view of the recipient (the user), used in cloud-bound prompts.</summary>
+    /// <summary>First-name view of the recipient (the user), used for cloud prompts.</summary>
     [JsonIgnore]
-    public string ToFirstName => FirstNameFrom(ToFullName, ToEmail);
+    public string RecipientFirstName => FirstNameFrom(RecipientName, RecipientEmail);
 
     private static string FirstNameFrom(string? fullName, string? email) =>
         fullName?.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()

@@ -43,37 +43,31 @@ public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient
         var response = await localChatClient.GetResponseAsync<GeneratedInbox>(
         [
             new(ChatRole.System, $$"""
-                You are a FAKE INBOX generator for a privacy demo. The user is
-                drafting a reply about a specific topic. Invent 3-5 realistic
-                emails that the user has RECEIVED in their inbox and would
-                plausibly want to reply to.
+                You are a FAKE INBOX generator for a privacy demo. Invent 3-5
+                realistic emails the user has RECEIVED and would want to reply
+                to. Vary the senders.
 
-                The user is: "{{OwnerName}}" <{{OwnerEmail}}>.
+                The user (the inbox owner / always the RECIPIENT) is:
+                  RECIPIENT_NAME:  {{OwnerName}}
+                  RECIPIENT_EMAIL: {{OwnerEmail}}
 
-                CRITICAL — every email is INBOUND to the user:
-                  - "to"   field MUST be the user (toName="{{OwnerName}}",
-                    toEmail="{{OwnerEmail}}")
-                  - "from" field MUST be a DIFFERENT person (a colleague, vendor,
-                    customer, etc.) — NEVER the user themselves
-                  - the body MUST be written FROM the colleague's perspective,
-                    addressed TO the user. Typical opening: "Hi {{OwnerFirstName}}, …"
-                  - the body MUST NOT be written by the user — never "Hi <colleague-name>"
-                    where the colleague is the from-person
+                For each generated email, fill the schema fields:
+                  senderName      = a colleague's full name (not the user)
+                  senderEmail     = that colleague's email
+                  recipientName   = "{{OwnerName}}"   (always)
+                  recipientEmail  = "{{OwnerEmail}}"  (always)
+                  subject         = short, work-style subject line
+                  received        = an ISO timestamp within the last 7 days
+                  body            = the email body, written by the sender,
+                                    opening with "Hi {{OwnerFirstName}},"
 
-                CRITICAL — each email body MUST contain AT LEAST one of EACH
-                of the following so the privacy redactor has substance:
-                  - One full person name (first + last) other than the user
-                  - One company / organisation name
-                  - One project or product name
-                  - One specific dollar amount
+                Each body must mention:
+                  - one full person name (first + last) other than the user
+                  - one company / organisation
+                  - one project / product
+                  - one specific dollar amount
 
-                You may include MORE of any of these (e.g. several names,
-                several amounts) — but never fewer than one of each.
-
-                Each email body should be 2-4 short paragraphs. Avoid
-                template-y openings; sound like real work email.
-
-                Return JSON matching the schema.
+                Each body is 2-4 short paragraphs, in a real work-email tone.
                 """),
             new(ChatRole.User, $"What the user wants to reply about: {query}")
         ],
@@ -87,12 +81,12 @@ public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient
         {
             SourceName = $"Inbox #{i + 1}: {e.Subject}",
             Text = $$"""
-                FROM_NAME:    {{e.FromName}}
-                FROM_EMAIL:   {{e.FromEmail}}
-                TO_NAME:      {{e.ToName}}
-                TO_EMAIL:     {{e.ToEmail}}
-                SUBJECT:      {{e.Subject}}
-                RECEIVED:     {{e.Received}}
+                SENDER_NAME:     {{e.SenderName}}
+                SENDER_EMAIL:    {{e.SenderEmail}}
+                RECIPIENT_NAME:  {{e.RecipientName}}
+                RECIPIENT_EMAIL: {{e.RecipientEmail}}
+                SUBJECT:         {{e.Subject}}
+                RECEIVED:        {{e.Received}}
 
                 {{e.Body}}
                 """,
@@ -102,10 +96,10 @@ public sealed class InboxService([FromKeyedServices(AIModels.Local)] IChatClient
     private sealed record GeneratedInbox(IReadOnlyList<GeneratedEmail> Emails);
 
     private sealed record GeneratedEmail(
-        string FromName,
-        string FromEmail,
-        string ToName,
-        string ToEmail,
+        string SenderName,
+        string SenderEmail,
+        string RecipientName,
+        string RecipientEmail,
         string Subject,
         string Received,
         string Body);

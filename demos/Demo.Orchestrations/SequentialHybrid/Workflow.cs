@@ -123,15 +123,23 @@ public static class EmailTriageWorkflow
                         {
                             ResponseFormat = ChatResponseFormat.ForJsonSchema<PickedEmail>(),
                             Instructions = """
-                                You are an on-device inbox picker. The context contains
-                                inbox emails, each starting with FROM_NAME, FROM_EMAIL,
-                                TO_NAME, TO_EMAIL, SUBJECT, RECEIVED and the body.
+                                You are an on-device inbox picker. The context
+                                lists the user's inbox emails, each with these
+                                labels:
 
-                                Pick the ONE entry most relevant to the user's request
-                                and return it via the structured response — copy each
-                                field from that entry verbatim. The recipient (TO) is
-                                always the user; the sender (FROM) is the colleague who
-                                wrote to them. Do not swap them.
+                                  SENDER_NAME, SENDER_EMAIL,
+                                  RECIPIENT_NAME, RECIPIENT_EMAIL,
+                                  SUBJECT, RECEIVED, body
+
+                                Pick the ONE entry most relevant to the user's
+                                request and copy its fields 1:1 into the schema:
+
+                                  SENDER_NAME     → senderName
+                                  SENDER_EMAIL    → senderEmail
+                                  RECIPIENT_NAME  → recipientName
+                                  RECIPIENT_EMAIL → recipientEmail
+                                  SUBJECT         → subject
+                                  body lines      → body
                                 """,
                         },
                     });
@@ -156,35 +164,21 @@ public static class EmailTriageWorkflow
                     ChatOptions = new ChatOptions
                     {
                         ResponseFormat = ChatResponseFormat.ForJsonSchema<RedactedBody>(),
-                        // Bound the spotter's output so it can't run away in
-                        // an unbounded streaming loop. Even on the smaller
-                        // on-device model 400 tokens is enough for ~15
-                        // entities, which is plenty for any single email.
-                        MaxOutputTokens = 400,
+                        // The schema's [MaxLength(5)] per-list cap is the real
+                        // bound on the redactor's output. Keep MaxOutputTokens
+                        // generous enough for the 4 short lists.
+                        MaxOutputTokens = 200,
                         Instructions = """
-                            You are an on-device privacy spotter. You will be given a
-                            PickedEmail JSON. Look at its body and list every sensitive
-                            entity that LITERALLY APPEARS in the body text. For each
-                            one, classify it as one of:
+                            You are a privacy spotter. Read the PickedEmail body
+                            and fill the four lists with substrings copied
+                            character-for-character from the body:
 
-                              PERSON   — a person's LAST name only (never a first name)
-                              COMPANY  — a company / organisation name
-                              PROJECT  — a project / product name
-                              AMOUNT   — a specific dollar amount (e.g. "$5,000")
+                              personLastNames — last names only (no first names)
+                              companies       — company / organisation names
+                              projects        — project / product names
+                              amounts         — dollar amounts like "$5,000"
 
-                            STRICT RULES:
-                              - Only include entities whose Value appears word-for-word
-                                in the body. Do NOT invent values. Do NOT extrapolate
-                                a series (no fake $5,000, $10,000, $15,000, …).
-                              - Do not repeat the same entity twice.
-                              - If a category has no instances in the body, leave it
-                                out entirely. An empty entities array is a valid answer
-                                when the body has nothing sensitive.
-                              - Each Value must be copied character-for-character from
-                                the body so it can be found with a literal string match.
-
-                            You are NOT rewriting the body. You are NOT inventing
-                            tokens. Just list what you actually see.
+                            If a category has none, return an empty list.
                             """,
                     },
                 }));

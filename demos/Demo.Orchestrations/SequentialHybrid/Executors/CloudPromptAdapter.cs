@@ -62,19 +62,18 @@ public sealed class CloudPromptAdapter(string id = "cloud-prompt-adapter")
             return;
         }
 
-        await Log(context, $"stored PickedEmail: from {picked.FromFullName} <{picked.FromEmail}>, subject \"{picked.Subject}\", body {picked.Body.Length} chars", cancellationToken);
+        await Log(context, $"stored PickedEmail: from {picked.SenderName} <{picked.SenderEmail}>, subject \"{picked.Subject}\", body {picked.Body.Length} chars", cancellationToken);
 
         await context.QueueStateUpdateAsync(
             PickedEmailStateKey, picked,
             scopeName: SharedScope,
             cancellationToken: cancellationToken);
 
-        // Deterministic redaction: take the entity list the on-device spotter
-        // returned and substitute each into the body. The token names
-        // (PERSON_1, COMPANY_1, ...) are generated here in code so the AI
-        // never has to invent them — and hallucinated entities are dropped
-        // because their Value won't be found in the original body.
-        var (bodyForCloud, mapping) = ApplyRedactions(picked.Body, redacted?.Entities);
+        // Deterministic redaction: walk the four typed lists from the
+        // on-device spotter, drop anything that isn't literally in the body
+        // (defence against hallucinated series), assign tokens here in code
+        // (PERSON_1, COMPANY_1, …) and run literal string.Replace.
+        var (bodyForCloud, mapping) = ApplyRedactions(picked.Body, redacted);
 
         if (mapping.Count > 0)
         {
@@ -93,8 +92,8 @@ public sealed class CloudPromptAdapter(string id = "cloud-prompt-adapter")
         }
 
         var prompt = $"""
-            FROM: {picked.FromFirstName}
-            TO:   {picked.ToFirstName}
+            FROM: {picked.SenderFirstName}
+            TO:   {picked.RecipientFirstName}
             SUBJECT: {picked.Subject}
 
             {bodyForCloud}
@@ -110,46 +109,27 @@ public sealed class CloudPromptAdapter(string id = "cloud-prompt-adapter")
     }
 
     /// <summary>
-    /// Walks the entity list, drops anything not literally present in the
-    /// original body, assigns a stable token to each surviving unique value
-    /// (PERSON_1, PERSON_2, COMPANY_1, …) and runs literal string.Replace
-    /// over the body. Returns the redacted body and the token → original map.
+    /// Walks the four typed lists from the spotter, drops anything that
+    /// doesn't literally appear in the original body (Apple Intelligence
+    /// occasionally hallucinates values), assigns a stable token per unique
+    /// value (PERSON_1, PERSON_2, COMPANY_1, …) and runs literal
+    /// string.Replace over the body. Returns the redacted body and the
+    /// token → original map.
     /// </summary>
     private static (string Body, Dictionary<string, string> Mapping) ApplyRedactions(
-        string originalBody, IReadOnlyList<IdentifiedEntity>? entities)
+        string originalBody, RedactedBody? redacted)
     {
-        if (entities is null || entities.Count == 0)
+        if (redacted is null)
             return (originalBody, []);
 
-        Dictionary<string, int> counters = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, string> assigned = new(StringComparer.Ordinal);
         Dictionary<string, string> mapping = new(StringComparer.Ordinal);
+        var counters = new int[4]; // PERSON, COMPANY, PROJECT, AMOUNT
 
-        foreach (var entity in entities)
-        {
-            var kind = entity.Kind?.Trim().ToUpperInvariant();
-            var value = entity.Value?.Trim();
-
-            if (string.IsNullOrEmpty(kind) || string.IsNullOrEmpty(value))
-                continue;
-            if (kind is not ("PERSON" or "COMPANY" or "PROJECT" or "AMOUNT"))
-                continue;
-            // Drop hallucinated entities that don't actually appear in the
-            // body — Apple Intelligence sometimes extrapolates a series
-            // (e.g. $5,000, $10,000, $15,000, …) when the JSON schema lets
-            // it run unbounded.
-            if (!originalBody.Contains(value, StringComparison.Ordinal))
-                continue;
-            if (assigned.ContainsKey(value))
-                continue;
-
-            counters.TryGetValue(kind, out var n);
-            counters[kind] = ++n;
-
-            var token = $"{kind}_{n}";
-            assigned[value] = token;
-            mapping[token] = value;
-        }
+        Assign("PERSON",  redacted.PersonLastNames, ref counters[0]);
+        Assign("COMPANY", redacted.Companies,       ref counters[1]);
+        Assign("PROJECT", redacted.Projects,        ref counters[2]);
+        Assign("AMOUNT",  redacted.Amounts,         ref counters[3]);
 
         // Substitute longest values first so "Project Atlas Q3" isn't half-
         // eaten by "Q3".
@@ -158,6 +138,27 @@ public sealed class CloudPromptAdapter(string id = "cloud-prompt-adapter")
             body = body.Replace(value, token);
 
         return (body, mapping);
+
+        void Assign(string kind, IReadOnlyList<string>? values, ref int counter)
+        {
+            if (values is null)
+                return;
+            foreach (var raw in values)
+            {
+                var value = raw?.Trim();
+                if (string.IsNullOrEmpty(value))
+                    continue;
+                // Drop hallucinations that don't literally appear in the body.
+                if (!originalBody.Contains(value, StringComparison.Ordinal))
+                    continue;
+                if (assigned.ContainsKey(value))
+                    continue;
+
+                var token = $"{kind}_{++counter}";
+                assigned[value] = token;
+                mapping[token] = value;
+            }
+        }
     }
 
     private static ValueTask Log(

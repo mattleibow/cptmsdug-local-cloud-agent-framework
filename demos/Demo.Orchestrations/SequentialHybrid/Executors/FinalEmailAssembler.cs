@@ -41,7 +41,7 @@ public sealed class FinalEmailAssembler(InboxService inbox, string id = "final-e
             cancellationToken: cancellationToken)
             ?? [];
 
-        await Log(context, $"read state: picked={picked?.FromFullName ?? "null"}, mapping entries={mapping.Count}", cancellationToken);
+        await Log(context, $"read state: picked={picked?.SenderName ?? "null"}, mapping entries={mapping.Count}", cancellationToken);
 
         if (picked is null)
         {
@@ -76,7 +76,7 @@ public sealed class FinalEmailAssembler(InboxService inbox, string id = "final-e
             : $"Re: {picked.Subject}";
 
         var fullBody = $"""
-            Hi {picked.FromFirstName},
+            Hi {picked.SenderFirstName},
 
             {replyBody}
 
@@ -84,11 +84,11 @@ public sealed class FinalEmailAssembler(InboxService inbox, string id = "final-e
             {inbox.OwnerFirstName}
             """;
 
-        var mailto = BuildMailto(picked.FromEmail, subject, fullBody);
+        var mailto = BuildMailto(picked.SenderEmail, subject, fullBody);
 
         var markdown = new StringBuilder()
             .AppendLine("---")
-            .AppendLine($"to: \"{picked.FromFullName}\" <{picked.FromEmail}>")
+            .AppendLine($"to: \"{picked.SenderName}\" <{picked.SenderEmail}>")
             .AppendLine($"from: \"{inbox.OwnerName}\" <{inbox.OwnerEmail}>")
             .AppendLine($"subject: {subject}")
             .AppendLine("---")
