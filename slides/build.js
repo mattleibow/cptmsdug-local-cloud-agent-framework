@@ -545,16 +545,19 @@ const TOTAL = 16;
   });
   s.addText(
     highlightCode(
-`var client = new AzureOpenAIClient(
-    new Uri(endpoint),
-    new DefaultAzureCredential());
+`// Same client shape used in demos/Demo.WebAgentApp
+var endpoint = new Uri(
+    new Uri(config["AzureOpenAI:Endpoint"]!), "/openai/v1");
 
-var chat = client.GetChatClient("gpt-4.1");
+IChatClient chat = new ChatClient(
+        model: "gpt-4.1",
+        credential: new ApiKeyCredential(config["AzureOpenAI:Key"]!),
+        options: new OpenAIClientOptions { Endpoint = endpoint })
+    .AsIChatClient();
 
-var response = await chat.CompleteChatAsync(
+var response = await chat.GetResponseAsync(
     "Summarise the agenda for today.");
-
-Console.WriteLine(response.Value.Content[0].Text);`, "csharp"),
+Console.WriteLine(response.Text);`, "csharp"),
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
       fontSize: 13, fontFace: F.mono, color: C.textOnDark,
@@ -609,7 +612,7 @@ Console.WriteLine(response.Value.Content[0].Text);`, "csharp"),
       vendor: "Apple",
       product: "Apple Intelligence",
       api: "FoundationModels (Swift)",
-      detail: "iOS 26 · macOS Tahoe\n~3B params · multilingual\nLoRA adapters · tool calls",
+      detail: "iOS 26 · macOS 26 Tahoe\nMultilingual\nTool calling",
       status: "✅  shipped",
       color: C.coral,
     },
@@ -617,7 +620,7 @@ Console.WriteLine(response.Value.Content[0].Text);`, "csharp"),
       vendor: "Microsoft",
       product: "Phi Silica",
       api: "Windows AI APIs (.NET)",
-      detail: "Copilot+ PCs · NPU-accelerated\n~3.3B Phi-3.5-class model\nSummarize · rewrite · generate",
+      detail: "Copilot+ PCs · NPU-accelerated\nSmall language model\nSummarize · rewrite · generate",
       status: "🔜  maui-labs PR #178",
       color: C.indigoBright,
     },
@@ -888,15 +891,17 @@ Console.WriteLine(response.Text);
 
 ` },
       { lang: "csharp", code:
-`// Manager owns the dynamic endpoint + key
-var manager = await FoundryLocalManager
-    .StartModelAsync("phi-4-mini");
+`// Foundry Local exposes an OpenAI-compatible endpoint —
+// same SDK you'd use against the cloud, different URL.
 
-var client = new OpenAIClient(
-    new ApiKeyCredential(manager.ApiKey),
-    new OpenAIClientOptions { Endpoint = manager.Endpoint });
-
-var chat = client.GetChatClient("phi-4-mini");` },
+IChatClient chat = new ChatClient(
+        model: "phi-4-mini",
+        credential: new ApiKeyCredential("not-used"),
+        options: new OpenAIClientOptions
+        {
+            Endpoint = new Uri("http://localhost:5273/v1")
+        })
+    .AsIChatClient();` },
     ]),
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
@@ -979,7 +984,7 @@ var chat = client.GetChatClient("phi-4-mini");` },
     const y = 2.6 + i * 1.05 + 0.45;
     s.addShape("rightTriangle", {
       x: ax, y: y - 0.18, w: 0.4, h: 0.36,
-      fill: { color: C.borderLight }, line: { color: C.borderLight },
+      fill: { color: C.indigoBright }, line: { color: C.indigoBright },
       rotate: 90,
     });
   });
@@ -995,7 +1000,7 @@ var chat = client.GetChatClient("phi-4-mini");` },
     x: mx, y: 2.8, w: mw, h: 0.7,
     fontSize: 40, bold: true, color: C.textOnDark, fontFace: F.header, align: "center",
   });
-  s.addText("AgentThread  ·  Tools  ·  Workflows  ·  Streaming", {
+  s.addText("AgentSession  ·  Tools  ·  Workflows  ·  Streaming", {
     x: mx, y: 3.65, w: mw, h: 0.4,
     fontSize: 14, color: C.textOnDarkMuted, fontFace: F.body, align: "center",
   });
@@ -1004,7 +1009,7 @@ var chat = client.GetChatClient("phi-4-mini");` },
     x: mx + mw * 0.2, y: 4.2, w: mw * 0.6, h: 0,
     line: { color: C.coral, width: 1 },
   });
-  s.addText("ChatClientAgent  ·  WorkflowAgent\nFunctionInvokingChatClient", {
+  s.addText("ChatClientAgent  ·  Workflow.AsAIAgent()\nFunctionInvokingChatClient", {
     x: mx, y: 4.35, w: mw, h: 0.9,
     fontSize: 13, color: C.textOnDarkMuted, fontFace: F.body, align: "center", paraSpaceAfter: 4,
   });
@@ -1017,7 +1022,7 @@ var chat = client.GetChatClient("phi-4-mini");` },
   const rx = mx + mw + 0.4, rw = W - rx - 0.5;
   const pillars = [
     ["Same code", "Swap the IChatClient, keep your agent"],
-    ["Stateful",  "AgentThread persists conversation"],
+    ["Stateful",  "AgentSession persists conversation"],
     ["Tool-aware","Source-generated AITools (no reflection)"],
     ["Streaming", "Token-by-token via IAsyncEnumerable"],
   ];
@@ -1075,15 +1080,16 @@ var chat = client.GetChatClient("phi-4-mini");` },
 IChatClient client = new AppleIntelligenceChatClient();
 
 // 2. Wrap it as an agent (with optional tools)
-AIAgent agent = client.CreateAIAgent(
+AIAgent agent = client.AsAIAgent(
+    name: "agent",
     instructions: "You are a travel guide.",
     tools: [.. TravelToolContext.Default.Tools]);
 
-// 3. Keep a thread for conversation state
-AgentThread thread = agent.GetNewThread();
+// 3. Keep a session for conversation state
+AgentSession session = await agent.CreateSessionAsync();
 
 // 4. Stream the response, token by token
-await foreach (var update in agent.RunStreamingAsync(prompt, thread))
+await foreach (var update in agent.RunStreamingAsync(prompt, session))
 {
     Console.Write(update.Text);
 }`, "csharp"),
@@ -1099,8 +1105,8 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
   const notes = [
     ["1", "Pluggable",   "Any IChatClient — Apple, Foundry Local, Azure OpenAI",                 C.coral],
     ["2", "Tool-aware",  "[ExportAIFunction] generates AITool descriptors at compile time",       C.indigoBright],
-    ["3", "Stateful",    "AgentThread carries history across runs — no manual list-juggling",    C.amber],
-    ["4", "Streaming",   "RunStreamingAsync yields AgentRunResponseUpdate — wire to your UI",    C.coral],
+    ["3", "Stateful",    "AgentSession carries history across runs — no manual list-juggling",    C.amber],
+    ["4", "Streaming",   "RunStreamingAsync yields AgentResponseUpdate — wire to your UI",       C.coral],
   ];
   notes.forEach(([num, h, sub, color], i) => {
     const y = 2.4 + i * 1.1;
@@ -1226,22 +1232,22 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
     highlightCode(
 `// Local — Apple Intelligence, on the device
 AIAgent triage = new AppleIntelligenceChatClient()
-    .CreateAIAgent(
-        "Strip personal info. Return only topic + intent.",
-        name: "triage");
+    .AsAIAgent(
+        name: "triage",
+        instructions: "Strip personal info. Return only topic + intent.");
 
 // Cloud — Azure OpenAI, frontier reasoning
 AIAgent expert = new AzureOpenAIClient(
-        endpoint, new DefaultAzureCredential())
+        new Uri(endpoint), new DefaultAzureCredential())
     .GetChatClient("gpt-4.1").AsIChatClient()
-    .CreateAIAgent(
-        "Answer with depth and current context.",
-        name: "expert");
+    .AsAIAgent(
+        name: "expert",
+        instructions: "Answer with depth and current context.");
 
 // MAF workflow — pipe local → cloud, expose as an agent
 var workflow = AgentWorkflowBuilder
     .BuildSequential("local-then-cloud", triage, expert)
-    .AsAgent();
+    .AsAIAgent("local-then-cloud", "Private triage → cloud expert.");
 
 await foreach (var update in workflow.RunStreamingAsync(userInput))
     Console.Write(update.Text);`, "csharp"),
@@ -1445,13 +1451,13 @@ await foreach (var update in workflow.RunStreamingAsync(userInput))
     {
       label: "Today's deck + demo code",
       url:   "github.com/mattleibow/cptmsdug-local-cloud-agent-framework",
-      desc:  "All slides, all four demos, ready to clone & run",
+      desc:  "Slides, MAUI app, web DevUI app, and orchestration samples",
       color: C.coral, icon: "★",
     },
     {
       label: "Microsoft Agent Framework",
       url:   "github.com/microsoft/agent-framework",
-      desc:  "AIAgent · AgentThread · workflows · DevUI",
+      desc:  "AIAgent · AgentSession · workflows · DevUI",
       color: C.indigoBright, icon: "◆",
     },
     {
