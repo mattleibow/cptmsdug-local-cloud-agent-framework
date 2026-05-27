@@ -903,7 +903,178 @@ Console.WriteLine(response.Text);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 9 — LIVE DEMO 2 (MAF Workflow mixing local + cloud)
+// SLIDE 9 — TOOLS (function calling with source generators)
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = pptx.addSlide();
+  s.background = { color: C.bgLight };
+  eyebrow(s, "Tools", C.coral);
+  title(s, "Give your agent hands");
+
+  s.addText("Decorate a C# method. The source generator turns it into an AI-callable tool — strongly typed, DI-aware, AOT-safe.", {
+    x: 0.6, y: 1.75, w: 12, h: 0.55,
+    fontSize: 15, italic: true, color: C.textMuted, fontFace: F.body,
+  });
+
+  // Left: code block
+  const cx = 0.6, cw = 8.0;
+  s.addShape("roundRect", {
+    x: cx, y: 2.5, w: cw, h: 4.4,
+    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
+    rectRadius: 0.12,
+  });
+  s.addText(
+    highlightCode(
+`// 1. Decorate any method
+//    Params get [Description], DI gets [FromServices]
+public static class TravelTools
+{
+    [Description("Searches restaurants in a city.")]
+    [ExportAIFunction("search_restaurants")]
+    public static async Task<string> SearchRestaurants(
+        [Description("The city")] string city,
+        [FromServices] IChatClient chat) { ... }
+}
+
+// 2. Source generator builds a context class for you
+[AIToolSource(typeof(TravelTools))]
+public partial class TravelToolContext : AIToolContext { }
+
+// 3. Hand the tools to any agent — same pattern, every tier
+AIAgent agent = chatClient.AsAIAgent(
+    instructions: "You are a travel guide.",
+    tools: [.. TravelToolContext.Default.Tools]);`, "csharp"),
+    {
+      x: cx + 0.25, y: 2.65, w: cw - 0.5, h: 4.1,
+      fontSize: 12, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
+      valign: "top",
+    }
+  );
+
+  // Right: 4 numbered callout cards
+  const nx = cx + cw + 0.25, nw = W - nx - 0.5;
+  const notes = [
+    ["1", "Compile-time",  "Source-gen, no reflection — AOT-safe",                C.coral],
+    ["2", "DI-aware",       "[FromServices] injects per call — keep tools static", C.indigoBright],
+    ["3", "Approval gate",  "Wrap in ApprovalRequiredAIFunction → human-in-loop",  C.amber],
+    ["4", "Built-in tools", "Web search · file search · code interpreter · MCP",   C.coral],
+  ];
+  notes.forEach(([num, h, sub, color], i) => {
+    const y = 2.5 + i * 1.1;
+    s.addShape("roundRect", {
+      x: nx, y, w: nw, h: 1.0,
+      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
+      rectRadius: 0.08,
+    });
+    s.addShape("ellipse", {
+      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
+      fill: { color }, line: { color },
+    });
+    s.addText(num, {
+      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
+      fontSize: 18, bold: true, color: C.bgLight, align: "center", valign: "middle", fontFace: F.header,
+    });
+    s.addText(h, {
+      x: nx + 0.9, y: y + 0.15, w: nw - 1.0, h: 0.35,
+      fontSize: 15, bold: true, color: C.textDark, fontFace: F.body,
+    });
+    s.addText(sub, {
+      x: nx + 0.9, y: y + 0.5, w: nw - 1.0, h: 0.45,
+      fontSize: 10, italic: true, color: C.textMuted, fontFace: F.body,
+    });
+  });
+
+  addMotif(s);
+  addFooter(s, 9, TOTAL);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLIDE 10 — CONTEXT PROVIDERS (RAG + Memory)
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = pptx.addSlide();
+  s.background = { color: C.bgLight };
+  eyebrow(s, "Context Providers", C.indigoBright);
+  title(s, "RAG and memory, one plug");
+
+  s.addText("AIContextProviders is the slot where knowledge meets the model — vector search, long-term memory, dynamic instructions.", {
+    x: 0.6, y: 1.75, w: 12, h: 0.55,
+    fontSize: 15, italic: true, color: C.textMuted, fontFace: F.body,
+  });
+
+  // Left: code block
+  const cx = 0.6, cw = 8.0;
+  s.addShape("roundRect", {
+    x: cx, y: 2.5, w: cw, h: 4.4,
+    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
+    rectRadius: 0.12,
+  });
+  s.addText(
+    highlightCode(
+`// Any IVectorStore from Microsoft.Extensions.VectorData
+VectorStore store = new InMemoryVectorStore(...);
+
+AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
+{
+    AIContextProviders =
+    [
+        // RAG — pull the top-k chunks before each model call
+        new TextSearchProvider(async (text, ct) =>
+        {
+            var hits = await store.SearchAsync(text, topK: 3, ct);
+            return hits.Select(h => new TextSearchProvider.TextSearchResult
+                { SourceName = h.Name, Text = h.Text });
+        }),
+
+        // Memory — semantic recall across past sessions
+        new ChatHistoryMemoryProvider(store, "chathistory", 3072)
+    ]
+});`, "csharp"),
+    {
+      x: cx + 0.25, y: 2.65, w: cw - 0.5, h: 4.1,
+      fontSize: 11, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
+      valign: "top",
+    }
+  );
+
+  // Right: feature cards
+  const nx = cx + cw + 0.25, nw = W - nx - 0.5;
+  const features = [
+    { icon: "Search",    color: C.coral,        label: "RAG built in",       sub: "TextSearchProvider injects context every turn" },
+    { icon: "BrainCircuit", color: C.indigoBright, label: "Semantic memory", sub: "Recall similar past chats — across sessions" },
+    { icon: "Database",  color: C.amber,        label: "Any backend",        sub: "InMemory · Azure AI Search · Cosmos · Qdrant" },
+    { icon: "Save",      color: C.coral,        label: "Session persistence", sub: "agent.SerializeSession(s) → ship to SQLite" },
+  ];
+  features.forEach((f, i) => {
+    const y = 2.5 + i * 1.1;
+    s.addShape("roundRect", {
+      x: nx, y, w: nw, h: 1.0,
+      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
+      rectRadius: 0.08,
+    });
+    s.addShape("ellipse", {
+      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
+      fill: { color: f.color }, line: { color: f.color },
+    });
+    addIcon(s, f.icon, {
+      x: nx + 0.295, y: y + 0.295, size: 0.36, color: C.bgLight, strokeWidth: 2.2,
+    });
+    s.addText(f.label, {
+      x: nx + 0.9, y: y + 0.15, w: nw - 1.0, h: 0.35,
+      fontSize: 15, bold: true, color: C.textDark, fontFace: F.body,
+    });
+    s.addText(f.sub, {
+      x: nx + 0.9, y: y + 0.5, w: nw - 1.0, h: 0.45,
+      fontSize: 10, italic: true, color: C.textMuted, fontFace: F.body,
+    });
+  });
+
+  addMotif(s);
+  addFooter(s, 10, TOTAL);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLIDE 11 — LIVE DEMO 2 (MAF Workflow mixing local + cloud)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1023,178 +1194,89 @@ await foreach (var update in workflow.RunStreamingAsync(userInput))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 10 — TOOLS (function calling with source generators)
+// SLIDE 12 — RULES OF THUMB (full-width decision table)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
   s.background = { color: C.bgLight };
-  eyebrow(s, "Tools", C.coral);
-  title(s, "Give your agent hands");
+  eyebrow(s, "Rules of Thumb");
+  title(s, "Your choice. Your code stays the same.");
 
-  s.addText("Decorate a C# method. The source generator turns it into an AI-callable tool — strongly typed, DI-aware, AOT-safe.", {
-    x: 0.6, y: 1.75, w: 12, h: 0.55,
-    fontSize: 15, italic: true, color: C.textMuted, fontFace: F.body,
+  s.addText("There's no single right answer — pick the tier that fits the task, and let MAF handle the rest.", {
+    x: 0.6, y: 1.85, w: 12, h: 0.45,
+    fontSize: 16, italic: true, color: C.textMuted, fontFace: F.body,
   });
 
-  // Left: code block
-  const cx = 0.6, cw = 8.0;
-  s.addShape("roundRect", {
-    x: cx, y: 2.5, w: cw, h: 4.4,
-    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
-    rectRadius: 0.12,
-  });
-  s.addText(
-    highlightCode(
-`// 1. Decorate any method
-//    Params get [Description], DI gets [FromServices]
-public static class TravelTools
-{
-    [Description("Searches restaurants in a city.")]
-    [ExportAIFunction("search_restaurants")]
-    public static async Task<string> SearchRestaurants(
-        [Description("The city")] string city,
-        [FromServices] IChatClient chat) { ... }
-}
+  // Two-column comparison: Stay Local  vs  Reach for Cloud
+  const colY = 2.55, colH = 3.6, gap = 0.3;
+  const colW = (W - 1.2 - gap) / 2;
+  const leftX = 0.6, rightX = leftX + colW + gap;
 
-// 2. Source generator builds a context class for you
-[AIToolSource(typeof(TravelTools))]
-public partial class TravelToolContext : AIToolContext { }
-
-// 3. Hand the tools to any agent — same pattern, every tier
-AIAgent agent = chatClient.AsAIAgent(
-    instructions: "You are a travel guide.",
-    tools: [.. TravelToolContext.Default.Tools]);`, "csharp"),
-    {
-      x: cx + 0.25, y: 2.65, w: cw - 0.5, h: 4.1,
-      fontSize: 12, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
-      valign: "top",
-    }
-  );
-
-  // Right: 4 numbered callout cards
-  const nx = cx + cw + 0.25, nw = W - nx - 0.5;
-  const notes = [
-    ["1", "Compile-time",  "Source-gen, no reflection — AOT-safe",                C.coral],
-    ["2", "DI-aware",       "[FromServices] injects per call — keep tools static", C.indigoBright],
-    ["3", "Approval gate",  "Wrap in ApprovalRequiredAIFunction → human-in-loop",  C.amber],
-    ["4", "Built-in tools", "Web search · file search · code interpreter · MCP",   C.coral],
-  ];
-  notes.forEach(([num, h, sub, color], i) => {
-    const y = 2.5 + i * 1.1;
+  function addRulesCard(x, color, eyebrowTxt, headline, items) {
     s.addShape("roundRect", {
-      x: nx, y, w: nw, h: 1.0,
+      x, y: colY, w: colW, h: colH,
       fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
-      rectRadius: 0.08,
+      rectRadius: 0.12,
     });
-    s.addShape("ellipse", {
-      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
+    s.addShape("rect", {
+      x, y: colY, w: colW, h: 0.18,
       fill: { color }, line: { color },
     });
-    s.addText(num, {
-      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
-      fontSize: 18, bold: true, color: C.bgLight, align: "center", valign: "middle", fontFace: F.header,
+    s.addText(eyebrowTxt, {
+      x: x + 0.3, y: colY + 0.35, w: colW - 0.6, h: 0.35,
+      fontSize: 12, bold: true, color, charSpacing: 4, fontFace: F.body,
     });
-    s.addText(h, {
-      x: nx + 0.9, y: y + 0.15, w: nw - 1.0, h: 0.35,
-      fontSize: 15, bold: true, color: C.textDark, fontFace: F.body,
+    s.addText(headline, {
+      x: x + 0.3, y: colY + 0.7, w: colW - 0.6, h: 0.55,
+      fontSize: 26, bold: true, color: C.textDark, fontFace: F.header,
     });
-    s.addText(sub, {
-      x: nx + 0.9, y: y + 0.5, w: nw - 1.0, h: 0.45,
-      fontSize: 10, italic: true, color: C.textMuted, fontFace: F.body,
+    items.forEach(([when, then], i) => {
+      const y = colY + 1.4 + i * 0.55;
+      // dot
+      s.addShape("ellipse", {
+        x: x + 0.35, y: y + 0.08, w: 0.18, h: 0.18,
+        fill: { color }, line: { color },
+      });
+      s.addText([
+        { text: when,  options: { color: C.textDark,  bold: true } },
+        { text: "  ·  ", options: { color: C.borderLight } },
+        { text: then,  options: { color: C.textMuted, italic: true } },
+      ], {
+        x: x + 0.65, y, w: colW - 0.85, h: 0.45,
+        fontSize: 13, fontFace: F.body, valign: "middle",
+      });
     });
+  }
+
+  addRulesCard(leftX, C.coral, "Stay Local", "Keep it on the device", [
+    ["Privacy non-negotiable",   "OS Local · BYO Local"],
+    ["Offline / poor network",   "OS Local · BYO Local"],
+    ["Instant first token",      "OS Local"],
+    ["Cost matters at scale",    "Local pre/post-roll"],
+  ]);
+
+  addRulesCard(rightX, C.indigoBright, "Reach for Cloud", "Use the frontier brain", [
+    ["Need deep reasoning",      "Cloud"],
+    ["Huge context · multimodal","Cloud"],
+    ["Tools requiring web data", "Cloud"],
+    ["Cloud capability, no egress", "BYO Local (Foundry Local)"],
+  ]);
+
+  // Bottom tagline (icon + text composed as one line)
+  addIcon(s, "Workflow", {
+    x: 0.6 + 1.4, y: 6.42, size: 0.34, color: C.coral, strokeWidth: 2,
+  });
+  s.addText("Hand-off pattern:  local triage  →  cloud reasoning  →  local rendering", {
+    x: 0.6 + 1.85, y: 6.4, w: 10.2, h: 0.45,
+    fontSize: 16, italic: true, bold: true, color: C.coral, fontFace: F.header, valign: "middle",
   });
 
   addMotif(s);
-  addFooter(s, 10, TOTAL);
+  addFooter(s, 12, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 11 — CONTEXT PROVIDERS (RAG + Memory)
-// ═══════════════════════════════════════════════════════════════════════════
-{
-  const s = pptx.addSlide();
-  s.background = { color: C.bgLight };
-  eyebrow(s, "Context Providers", C.indigoBright);
-  title(s, "RAG and memory, one plug");
-
-  s.addText("AIContextProviders is the slot where knowledge meets the model — vector search, long-term memory, dynamic instructions.", {
-    x: 0.6, y: 1.75, w: 12, h: 0.55,
-    fontSize: 15, italic: true, color: C.textMuted, fontFace: F.body,
-  });
-
-  // Left: code block
-  const cx = 0.6, cw = 8.0;
-  s.addShape("roundRect", {
-    x: cx, y: 2.5, w: cw, h: 4.4,
-    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
-    rectRadius: 0.12,
-  });
-  s.addText(
-    highlightCode(
-`// Any IVectorStore from Microsoft.Extensions.VectorData
-VectorStore store = new InMemoryVectorStore(...);
-
-AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
-{
-    AIContextProviders =
-    [
-        // RAG — pull the top-k chunks before each model call
-        new TextSearchProvider(async (text, ct) =>
-        {
-            var hits = await store.SearchAsync(text, topK: 3, ct);
-            return hits.Select(h => new TextSearchProvider.TextSearchResult
-                { SourceName = h.Name, Text = h.Text });
-        }),
-
-        // Memory — semantic recall across past sessions
-        new ChatHistoryMemoryProvider(store, "chathistory", 3072)
-    ]
-});`, "csharp"),
-    {
-      x: cx + 0.25, y: 2.65, w: cw - 0.5, h: 4.1,
-      fontSize: 11, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
-      valign: "top",
-    }
-  );
-
-  // Right: feature cards
-  const nx = cx + cw + 0.25, nw = W - nx - 0.5;
-  const features = [
-    { icon: "Search",    color: C.coral,        label: "RAG built in",       sub: "TextSearchProvider injects context every turn" },
-    { icon: "BrainCircuit", color: C.indigoBright, label: "Semantic memory", sub: "Recall similar past chats — across sessions" },
-    { icon: "Database",  color: C.amber,        label: "Any backend",        sub: "InMemory · Azure AI Search · Cosmos · Qdrant" },
-    { icon: "Save",      color: C.coral,        label: "Session persistence", sub: "agent.SerializeSession(s) → ship to SQLite" },
-  ];
-  features.forEach((f, i) => {
-    const y = 2.5 + i * 1.1;
-    s.addShape("roundRect", {
-      x: nx, y, w: nw, h: 1.0,
-      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
-      rectRadius: 0.08,
-    });
-    s.addShape("ellipse", {
-      x: nx + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
-      fill: { color: f.color }, line: { color: f.color },
-    });
-    addIcon(s, f.icon, {
-      x: nx + 0.295, y: y + 0.295, size: 0.36, color: C.bgLight, strokeWidth: 2.2,
-    });
-    s.addText(f.label, {
-      x: nx + 0.9, y: y + 0.15, w: nw - 1.0, h: 0.35,
-      fontSize: 15, bold: true, color: C.textDark, fontFace: F.body,
-    });
-    s.addText(f.sub, {
-      x: nx + 0.9, y: y + 0.5, w: nw - 1.0, h: 0.45,
-      fontSize: 10, italic: true, color: C.textMuted, fontFace: F.body,
-    });
-  });
-
-  addMotif(s);
-  addFooter(s, 11, TOTAL);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 12 — BUILT WITH (maui-labs credits)
+// SLIDE 13 — BUILT WITH (maui-labs credits)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1279,88 +1361,6 @@ AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
   s.addText("github.com/dotnet/maui-labs", {
     x: 0.6, y: 6.6, w: W - 1.2, h: 0.4,
     fontSize: 15, bold: true, color: C.coral, fontFace: F.mono, align: "center",
-  });
-
-  addMotif(s);
-  addFooter(s, 12, TOTAL);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 13 — RULES OF THUMB (full-width decision table)
-// ═══════════════════════════════════════════════════════════════════════════
-{
-  const s = pptx.addSlide();
-  s.background = { color: C.bgLight };
-  eyebrow(s, "Rules of Thumb");
-  title(s, "Your choice. Your code stays the same.");
-
-  s.addText("There's no single right answer — pick the tier that fits the task, and let MAF handle the rest.", {
-    x: 0.6, y: 1.85, w: 12, h: 0.45,
-    fontSize: 16, italic: true, color: C.textMuted, fontFace: F.body,
-  });
-
-  // Two-column comparison: Stay Local  vs  Reach for Cloud
-  const colY = 2.55, colH = 3.6, gap = 0.3;
-  const colW = (W - 1.2 - gap) / 2;
-  const leftX = 0.6, rightX = leftX + colW + gap;
-
-  function addRulesCard(x, color, eyebrowTxt, headline, items) {
-    s.addShape("roundRect", {
-      x, y: colY, w: colW, h: colH,
-      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
-      rectRadius: 0.12,
-    });
-    s.addShape("rect", {
-      x, y: colY, w: colW, h: 0.18,
-      fill: { color }, line: { color },
-    });
-    s.addText(eyebrowTxt, {
-      x: x + 0.3, y: colY + 0.35, w: colW - 0.6, h: 0.35,
-      fontSize: 12, bold: true, color, charSpacing: 4, fontFace: F.body,
-    });
-    s.addText(headline, {
-      x: x + 0.3, y: colY + 0.7, w: colW - 0.6, h: 0.55,
-      fontSize: 26, bold: true, color: C.textDark, fontFace: F.header,
-    });
-    items.forEach(([when, then], i) => {
-      const y = colY + 1.4 + i * 0.55;
-      // dot
-      s.addShape("ellipse", {
-        x: x + 0.35, y: y + 0.08, w: 0.18, h: 0.18,
-        fill: { color }, line: { color },
-      });
-      s.addText([
-        { text: when,  options: { color: C.textDark,  bold: true } },
-        { text: "  ·  ", options: { color: C.borderLight } },
-        { text: then,  options: { color: C.textMuted, italic: true } },
-      ], {
-        x: x + 0.65, y, w: colW - 0.85, h: 0.45,
-        fontSize: 13, fontFace: F.body, valign: "middle",
-      });
-    });
-  }
-
-  addRulesCard(leftX, C.coral, "Stay Local", "Keep it on the device", [
-    ["Privacy non-negotiable",   "OS Local · BYO Local"],
-    ["Offline / poor network",   "OS Local · BYO Local"],
-    ["Instant first token",      "OS Local"],
-    ["Cost matters at scale",    "Local pre/post-roll"],
-  ]);
-
-  addRulesCard(rightX, C.indigoBright, "Reach for Cloud", "Use the frontier brain", [
-    ["Need deep reasoning",      "Cloud"],
-    ["Huge context · multimodal","Cloud"],
-    ["Tools requiring web data", "Cloud"],
-    ["Cloud capability, no egress", "BYO Local (Foundry Local)"],
-  ]);
-
-  // Bottom tagline (icon + text composed as one line)
-  addIcon(s, "Workflow", {
-    x: 0.6 + 1.4, y: 6.42, size: 0.34, color: C.coral, strokeWidth: 2,
-  });
-  s.addText("Hand-off pattern:  local triage  →  cloud reasoning  →  local rendering", {
-    x: 0.6 + 1.85, y: 6.4, w: 10.2, h: 0.45,
-    fontSize: 16, italic: true, bold: true, color: C.coral, fontFace: F.header, valign: "middle",
   });
 
   addMotif(s);
