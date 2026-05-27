@@ -1120,70 +1120,110 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 12 — DEMO 4 (MAF mixing it all) — vertical stack
+// SLIDE 12 — DEMO 4 (MAF Workflow mixing local + cloud)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
   darkBg(s);
 
-  // Tri-color left bar (coral / amber / indigo) reinforces the three tiers
-  s.addShape("rect", { x: 0, y: 0,     w: 0.4, h: H/3, fill: { color: C.coral },        line: { color: C.coral } });
-  s.addShape("rect", { x: 0, y: H/3,   w: 0.4, h: H/3, fill: { color: C.amber },        line: { color: C.amber } });
-  s.addShape("rect", { x: 0, y: 2*H/3, w: 0.4, h: H/3, fill: { color: C.indigoBright }, line: { color: C.indigoBright } });
+  // Two-color left bar (coral / indigo) — privacy-sensitive ↔ frontier brain
+  s.addShape("rect", { x: 0, y: 0,   w: 0.4, h: H/2, fill: { color: C.coral },        line: { color: C.coral } });
+  s.addShape("rect", { x: 0, y: H/2, w: 0.4, h: H/2, fill: { color: C.indigoBright }, line: { color: C.indigoBright } });
 
   s.addText("DEMO  04", {
-    x: 0.9, y: 0.7, w: 6, h: 0.5,
+    x: 0.9, y: 0.55, w: 6, h: 0.45,
     fontSize: 18, bold: true, color: C.textOnDarkMuted, charSpacing: 8, fontFace: F.body,
   });
-  s.addText("Mixing It All", {
-    x: 0.9, y: 1.25, w: 12, h: 1.0,
-    fontSize: 52, bold: true, color: C.textOnDark, fontFace: F.header,
+  s.addText("A Workflow of Agents", {
+    x: 0.9, y: 1.05, w: 12, h: 0.95,
+    fontSize: 48, bold: true, color: C.textOnDark, fontFace: F.header,
   });
-  s.addText("Three different chatClient brains.  Same agent code path.", {
-    x: 0.9, y: 2.35, w: 12, h: 0.45,
-    fontSize: 17, italic: true, color: C.textOnDarkMuted, fontFace: F.body,
+  s.addText("MAF workflows compose agents — local privacy on the bookends, cloud reasoning in the middle.", {
+    x: 0.9, y: 2.05, w: 12, h: 0.45,
+    fontSize: 16, italic: true, color: C.textOnDarkMuted, fontFace: F.body,
   });
 
-  // ── One big code block, full-width ────────────────────────────────────
+  // ── Flow diagram strip ───────────────────────────────────────────────
+  // [👤 User] → [📱 triage  (Apple)] → [☁️ expert  (Azure)] → [👤 User]
+  const stripY = 2.7, pillH = 0.6;
+  const pills = [
+    { label: "User",           sub: "input",            color: C.textOnDarkMuted, glyph: "👤" },
+    { label: "triage",         sub: "Apple Intelligence", color: C.coral,        glyph: "📱" },
+    { label: "expert",         sub: "Azure OpenAI",      color: C.indigoBright, glyph: "☁️" },
+    { label: "User",           sub: "answer",            color: C.textOnDarkMuted, glyph: "👤" },
+  ];
+  // Compute positions: pills centered, arrows between
+  const totalW = W - 1.8;
+  const pillW = 2.6, arrowW = (totalW - pillW * pills.length) / (pills.length - 1);
+  pills.forEach((p, i) => {
+    const x = 0.9 + i * (pillW + arrowW);
+    s.addShape("roundRect", {
+      x, y: stripY, w: pillW, h: pillH,
+      fill: { color: C.indigoMid }, line: { color: p.color, width: 2 },
+      rectRadius: 0.3,
+    });
+    s.addText([
+      { text: `${p.glyph}  `, options: { fontSize: 16 } },
+      { text: p.label,        options: { color: C.textOnDark, bold: true, fontSize: 14 } },
+      { text: `   ${p.sub}`,  options: { color: C.textOnDarkMuted, italic: true, fontSize: 11 } },
+    ], {
+      x: x + 0.1, y: stripY, w: pillW - 0.2, h: pillH,
+      fontFace: F.body, align: "center", valign: "middle",
+    });
+    // Arrow to the next pill
+    if (i < pills.length - 1) {
+      const ax = x + pillW + 0.05;
+      const ay = stripY + pillH / 2;
+      s.addShape("line", {
+        x: ax, y: ay, w: arrowW - 0.1, h: 0,
+        line: { color: C.coral, width: 2 },
+      });
+      // arrowhead
+      s.addShape("rightTriangle", {
+        x: ax + arrowW - 0.25, y: ay - 0.08, w: 0.18, h: 0.16,
+        fill: { color: C.coral }, line: { color: C.coral },
+        rotate: 90,
+      });
+    }
+  });
+
+  // ── Workflow code block ───────────────────────────────────────────────
   const cx = 0.9, cw = W - cx - 0.5;
-  const cy = 2.95, ch = H - cy - 0.4;
+  const cy = 3.6, ch = H - cy - 0.4;
 
   s.addShape("roundRect", {
     x: cx, y: cy, w: cw, h: ch,
     fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
     rectRadius: 0.1,
   });
-
-  // We build a single highlighted block so syntax highlighting flows naturally.
-  // Inline tier-marker comments tell the story visually.
   s.addText(
     highlightCode(
-`// 📱  OS Local — Apple Intelligence
-chatClient = new AppleIntelligenceChatClient();
+`// 📱  Local — Apple Intelligence, on the device
+AIAgent triage = new AppleIntelligenceChatClient()
+    .CreateAIAgent("Strip personal info. Return only topic + intent.", name: "triage");
 
-// 🧪  BYO Local — Foundry Local hosting a Phi-class LLM
-var mgr = await FoundryLocalManager.StartModelAsync("phi-4-mini");
-chatClient = new OpenAIClient(
-        new ApiKeyCredential("nope"),
-        new OpenAIClientOptions { Endpoint = mgr.Endpoint })
-    .GetChatClient(mgr.ModelId).AsIChatClient();
+// ☁️  Cloud — Azure OpenAI, frontier reasoning
+AIAgent expert = new AzureOpenAIClient(endpoint, new DefaultAzureCredential())
+    .GetChatClient("gpt-4.1").AsIChatClient()
+    .CreateAIAgent("Answer with depth and current context.", name: "expert");
 
-// ☁️   Cloud — Azure OpenAI
-chatClient = new AzureOpenAIClient(endpoint, new DefaultAzureCredential())
-    .GetChatClient("gpt-4.1").AsIChatClient();
+// 🔗  MAF workflow — pipe local → cloud, expose as an agent
+var workflow = AgentWorkflowBuilder
+    .BuildSequential("local-then-cloud", triage, expert)
+    .AsAgent();
 
-// ✨  Same agent. Every tier.
-var agent = chatClient.CreateAIAgent("You are helpful.");`, "csharp"),
+await foreach (var update in workflow.RunStreamingAsync(userInput))
+    Console.Write(update.Text);`, "csharp"),
     {
       x: cx + 0.25, y: cy + 0.18, w: cw - 0.5, h: ch - 0.35,
-      fontSize: 14, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
+      fontSize: 12, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
       valign: "top",
     }
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 12 — BUILT WITH (maui-labs credits)
+// SLIDE 13 — BUILT WITH (maui-labs credits)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
