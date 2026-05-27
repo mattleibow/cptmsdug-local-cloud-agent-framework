@@ -23,18 +23,18 @@ namespace Demo.Orchestrations.SequentialHybrid.Models;
     body has none of that kind.
     """)]
 public sealed record RedactedBody(
-    [property: Description("Person LAST names appearing in the body. First names are not sensitive.")]
+    [property: Description("Person LAST names that appear in the body, copied character-for-character. Never include first names. Do not invent or guess — only copy what is literally written.")]
     [property: MaxLength(5)]
     List<string> PersonLastNames,
 
-    [property: Description("Company or organisation names appearing in the body.")]
+    [property: Description("Company or organisation names that appear in the body, copied character-for-character. Do not invent or guess — only copy what is literally written.")]
     [property: MaxLength(5)]
     List<string> Companies,
 
-    [property: Description("Project or product names appearing in the body.")]
+    [property: Description("Project or product names that appear in the body, copied character-for-character. Do not invent or guess — only copy what is literally written.")]
     [property: MaxLength(5)]
     List<string> Projects,
 
-    [property: Description("Dollar amounts appearing in the body, e.g. \"$5,000\".")]
+    [property: Description("Dollar amounts that appear in the body, copied character-for-character — every character from the '$' to the end of the number (e.g. the digits and any thousand-separator commas). Must match a pattern like $N or $N,NNN. Do not construct, round, infer, or extrapolate amounts. Never include a partial amount like '$' or '$3' on its own. Only copy amounts you can see.")]
     [property: MaxLength(5)]
     List<string> Amounts);

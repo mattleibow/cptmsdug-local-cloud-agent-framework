@@ -94,6 +94,12 @@ public sealed class CloudPromptAdapterExecutor(InboxService inbox, string id = "
             await Log(context, "no entities to redact — forwarding raw body", cancellationToken);
         }
 
+        // Surface the deterministically-redacted body as its own log entry so
+        // the demo can show the audience EXACTLY what will leave the device.
+        // This is the actual text the cloud sees (post-hallucination-drop),
+        // not the model's claim of what it redacted.
+        await Log(context, $"redacted body sent to cloud:\n{bodyForCloud}", cancellationToken);
+
         var prompt = $"""
             FROM: {picked.SenderFirstName}
             TO:   {inbox.OwnerFirstName}

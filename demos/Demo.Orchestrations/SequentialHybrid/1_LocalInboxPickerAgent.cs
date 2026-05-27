@@ -40,39 +40,42 @@ public static class LocalInboxPickerAgentExtensions
                         CitationsPrompt = string.Empty,
                     });
 
+                var options = new ChatClientAgentOptions
+                {
+                    Name = key,
+                    Description =
+                        """
+                        On-device inbox picker: chooses the single inbox email most
+                        relevant to the user's request and returns it as structured JSON.
+                        """,
+                    AIContextProviders = [ragProvider],
+                    ChatOptions = new ChatOptions
+                    {
+                        ResponseFormat = ChatResponseFormat.ForJsonSchema<PickedEmail>(),
+                        Instructions = """
+                            You are an on-device inbox picker. The context
+                            lists the user's inbox emails, each with these
+                            labels:
+
+                                SENDER_EMAIL, SENDER_NAME,
+                                SUBJECT, RECEIVED, body
+
+                            Pick the ONE entry most relevant to the user's
+                            request and copy its fields 1:1 into the schema:
+
+                                SENDER_EMAIL → senderEmail
+                                SENDER_NAME  → senderName
+                                SUBJECT      → subject
+                                body lines   → body
+                            """,
+                    },
+                };
+
                 return new ChatClientAgent(
                     sp.GetRequiredKeyedService<IChatClient>(AIModels.Local),
-                    new ChatClientAgentOptions
-                    {
-                        Name = key,
-                        Description =
-                            """
-                            On-device inbox picker: chooses the single inbox email most
-                            relevant to the user's request and returns it as structured JSON.
-                            """,
-                        AIContextProviders = [ragProvider],
-                        ChatOptions = new ChatOptions
-                        {
-                            ResponseFormat = ChatResponseFormat.ForJsonSchema<PickedEmail>(),
-                            Instructions = """
-                                You are an on-device inbox picker. The context
-                                lists the user's inbox emails, each with these
-                                labels:
-
-                                  SENDER_EMAIL, SENDER_NAME,
-                                  SUBJECT, RECEIVED, body
-
-                                Pick the ONE entry most relevant to the user's
-                                request and copy its fields 1:1 into the schema:
-
-                                  SENDER_EMAIL → senderEmail
-                                  SENDER_NAME  → senderName
-                                  SUBJECT      → subject
-                                  body lines   → body
-                                """,
-                        },
-                    });
+                    options);
             });
+
         return builder;
     }
 }

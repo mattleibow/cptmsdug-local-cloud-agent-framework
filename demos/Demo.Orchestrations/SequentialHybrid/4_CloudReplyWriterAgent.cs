@@ -18,6 +18,7 @@ public static class CloudReplyWriterAgentExtensions
         this IHostApplicationBuilder builder, string name)
     {
         builder.AddAIAgent(
+            chatClientServiceKey: AIModels.Cloud,
             name: name,
             instructions: """
                 You are a senior email assistant. The user wants help drafting a reply
@@ -47,8 +48,8 @@ public static class CloudReplyWriterAgentExtensions
                 """
                 Cloud-side reply drafter — sees only first names + redacted body,
                 returns a reply body.
-                """,
-            chatClientServiceKey: AIModels.Cloud);
+                """);
+
         return builder;
     }
 }
