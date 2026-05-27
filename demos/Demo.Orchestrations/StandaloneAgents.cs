@@ -16,7 +16,7 @@ public static class StandaloneAgents
                 surprising twists.
                 """,
             description: "Creative storyteller that writes imaginative short stories with vivid language.",
-            chatClientServiceKey: null);
+            chatClientServiceKey: AIModels.Local);
 
         builder.AddAIAgent(
             name: "code-mentor",
