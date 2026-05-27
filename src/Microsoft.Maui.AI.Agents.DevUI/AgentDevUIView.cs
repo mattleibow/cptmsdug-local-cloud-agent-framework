@@ -655,13 +655,11 @@ public partial class AgentDevUIView : ContentView
 
                 case WorkflowOutputEvent output:
                 {
-                    // The workflow's final aggregated result.
-                    // We log it as an event but DO NOT add a chat bubble — for every workflow
-                    // shape we currently support, the per-executor AgentResponseEvent chat
-                    // bubbles already show what the user needs. Re-adding the final output
-                    // would be a duplicate (the synthesizer's bubble in sequential, the
-                    // specialist's bubble in handoff, or the concatenated specialist content
-                    // in concurrent).
+                    // The workflow's final aggregated result. Surface it as a final
+                    // "Final output" chat bubble so the user always sees a clear end-of-run
+                    // artifact (e.g. concurrent's stitched trip plan). For workflow shapes
+                    // where the output overlaps with the last per-agent bubble that's fine —
+                    // the duplication is explicit and the final bubble makes "done" obvious.
                     string? consolidatedText = null;
                     if (output.Data is List<ChatMessage> msgs)
                     {
@@ -678,7 +676,23 @@ public partial class AgentDevUIView : ContentView
                     }
 
                     if (!string.IsNullOrWhiteSpace(consolidatedText))
+                    {
                         AddEvent("workflow.output", $"Final result ({consolidatedText.Length} chars)");
+                        var tokenEst = consolidatedText.Split(' ').Length * 2;
+                        await RunOnUIAsync(() =>
+                        {
+                            _messages.Add(new DevUIChatMessage
+                            {
+                                Role = "assistant",
+                                Content = consolidatedText,
+                                AgentLabel = "Final output",
+                                Timestamp = DateTime.Now,
+                                TokenCount = tokenEst,
+                                IsStreaming = false,
+                            });
+                            TotalTokens += tokenEst;
+                        });
+                    }
                     break;
                 }
             }

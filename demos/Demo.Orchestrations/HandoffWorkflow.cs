@@ -17,8 +17,7 @@ namespace Demo.Orchestrations;
 
 public static class HelpDeskTools
 {
-    [Description("Searches the internal IT knowledge base for solutions to common " +
-        "problems. Returns matching articles.")]
+    [Description("Searches the internal IT knowledge base for solutions to common problems. Returns matching articles.")]
     [ExportAIFunction("search_knowledge_base")]
     public static async Task<string> SearchKnowledgeBase(
         string issue,
@@ -39,8 +38,7 @@ public static class HelpDeskTools
         return response.Text ?? $"KB-0000: No match found for \"{issue}\"";
     }
 
-    [Description("Creates a support ticket in the ticketing system. Returns the ticket " +
-        "ID for tracking.")]
+    [Description("Creates a support ticket in the ticketing system. Returns the ticket ID for tracking.")]
     [ExportAIFunction("create_ticket")]
     public static string CreateTicket(string summary, string priority, string assignedTeam)
     {
@@ -59,8 +57,7 @@ public static class HelpDeskTools
             """;
     }
 
-    [Description("Checks the current system status for known outages or maintenance " +
-        "windows.")]
+    [Description("Checks the current system status for known outages or maintenance windows.")]
     [ExportAIFunction("check_system_status")]
     public static async Task<string> CheckSystemStatus(
         [FromServices] IChatClient chatClient)
