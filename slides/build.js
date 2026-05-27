@@ -546,13 +546,12 @@ const TOTAL = 17;
   s.addText(
     highlightCode(
 `// Same client shape used in demos/Demo.WebAgentApp
-var endpoint = new Uri(
-    new Uri(config["AzureOpenAI:Endpoint"]!), "/openai/v1");
+var endpoint = new Uri(azureBase, "/openai/v1");
 
 IChatClient chat = new ChatClient(
         model: "gpt-4.1",
-        credential: new ApiKeyCredential(config["AzureOpenAI:Key"]!),
-        options: new OpenAIClientOptions { Endpoint = endpoint })
+        credential: new ApiKeyCredential(apiKey),
+        options: new() { Endpoint = endpoint })
     .AsIChatClient();
 
 var response = await chat.GetResponseAsync(
@@ -897,10 +896,7 @@ Console.WriteLine(response.Text);
 IChatClient chat = new ChatClient(
         model: "phi-4-mini",
         credential: new ApiKeyCredential("not-used"),
-        options: new OpenAIClientOptions
-        {
-            Endpoint = new Uri("http://localhost:5273/v1")
-        })
+        options: new() { Endpoint = new Uri("http://localhost:5273/v1") })
     .AsIChatClient();` },
     ]),
     {
@@ -1196,14 +1192,15 @@ await foreach (var update in workflow.RunStreamingAsync(userInput))
   });
   s.addText(
     highlightCode(
-`// 1. Decorate any method — params get [Description], DI gets [FromServices]
+`// 1. Decorate any method
+//    Params get [Description], DI gets [FromServices]
 public static class TravelTools
 {
     [Description("Searches restaurants in a city.")]
     [ExportAIFunction("search_restaurants")]
     public static async Task<string> SearchRestaurants(
         [Description("The city")] string city,
-        [FromServices] IChatClient chat) { /* ... */ }
+        [FromServices] IChatClient chat) { ... }
 }
 
 // 2. Source generator builds a context class for you
@@ -1282,10 +1279,7 @@ AIAgent agent = chatClient.AsAIAgent(
   s.addText(
     highlightCode(
 `// Any IVectorStore from Microsoft.Extensions.VectorData
-VectorStore store = new InMemoryVectorStore(new()
-{
-    EmbeddingGenerator = embeddingClient.AsIEmbeddingGenerator()
-});
+VectorStore store = new InMemoryVectorStore(...);
 
 AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
 {
@@ -1293,9 +1287,11 @@ AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
     [
         // RAG — pull the top-k chunks before each model call
         new TextSearchProvider(async (text, ct) =>
-            (await store.SearchAsync(text, topK: 3, ct))
-                .Select(r => new TextSearchProvider.TextSearchResult
-                    { SourceName = r.Name, Text = r.Text })),
+        {
+            var hits = await store.SearchAsync(text, topK: 3, ct);
+            return hits.Select(h => new TextSearchProvider.TextSearchResult
+                { SourceName = h.Name, Text = h.Text });
+        }),
 
         // Memory — semantic recall across past sessions
         new ChatHistoryMemoryProvider(store, "chathistory", 3072)
