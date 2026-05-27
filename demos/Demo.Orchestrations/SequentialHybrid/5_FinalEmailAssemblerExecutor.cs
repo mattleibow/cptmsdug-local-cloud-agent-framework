@@ -4,7 +4,7 @@ using Demo.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 
-namespace Demo.Orchestrations.SequentialHybrid.Executors;
+namespace Demo.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Sits AFTER the cloud reply-writer. Builds the final user-facing markdown
@@ -18,7 +18,7 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// </summary>
 [SendsMessage(typeof(ChatMessage))]
 [SendsMessage(typeof(TurnToken))]
-public sealed class FinalEmailAssembler(InboxService inbox, string id = "final-email-assembler")
+public sealed class FinalEmailAssemblerExecutor(InboxService inbox, string id = "final-email-assembler")
     : ChatProtocolExecutor(id)
 {
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
@@ -31,13 +31,13 @@ public sealed class FinalEmailAssembler(InboxService inbox, string id = "final-e
         CancellationToken cancellationToken = default)
     {
         var picked = await context.ReadStateAsync<PickedEmail>(
-            CloudPromptAdapter.PickedEmailStateKey,
-            scopeName: CloudPromptAdapter.SharedScope,
+            CloudPromptAdapterExecutor.PickedEmailStateKey,
+            scopeName: CloudPromptAdapterExecutor.SharedScope,
             cancellationToken: cancellationToken);
 
         var mapping = await context.ReadStateAsync<Dictionary<string, string>>(
-            CloudPromptAdapter.RedactionMappingStateKey,
-            scopeName: CloudPromptAdapter.SharedScope,
+            CloudPromptAdapterExecutor.RedactionMappingStateKey,
+            scopeName: CloudPromptAdapterExecutor.SharedScope,
             cancellationToken: cancellationToken)
             ?? [];
 

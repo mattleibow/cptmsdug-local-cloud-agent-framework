@@ -4,7 +4,7 @@ using Demo.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 
-namespace Demo.Orchestrations.SequentialHybrid.Executors;
+namespace Demo.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Sits AFTER the inbox-picker agent and AFTER the body-redactor agent.
@@ -30,7 +30,7 @@ namespace Demo.Orchestrations.SequentialHybrid.Executors;
 /// </summary>
 [SendsMessage(typeof(ChatMessage))]
 [SendsMessage(typeof(TurnToken))]
-public sealed class CloudPromptAdapter(InboxService inbox, string id = "cloud-prompt-adapter")
+public sealed class CloudPromptAdapterExecutor(InboxService inbox, string id = "cloud-prompt-adapter")
     : ChatProtocolExecutor(id)
 {
     public const string SharedScope = "email-triage";
@@ -61,9 +61,7 @@ public sealed class CloudPromptAdapter(InboxService inbox, string id = "cloud-pr
         if (picked is null)
         {
             await Log(context, "PickedEmail JSON did not deserialize — workflow will stall", cancellationToken);
-            await SendAsync(
-                "Inbox picker produced no parseable email. Please try again.",
-                context, cancellationToken);
+            await SendAsync("Inbox picker produced no parseable email. Please try again.", context, cancellationToken);
             return;
         }
 
