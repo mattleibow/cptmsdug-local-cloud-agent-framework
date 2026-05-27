@@ -208,7 +208,7 @@ function darkBg(slide) {
   slide.background = { color: C.indigoDeep };
 }
 
-const TOTAL = 14;
+const TOTAL = 16;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLIDE 1 — TITLE
@@ -1120,80 +1120,64 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 11 — DEMO 4 (MAF mixing it all)
+// SLIDE 12 — DEMO 4 (MAF mixing it all) — vertical stack
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
   darkBg(s);
 
-  // Tri-color left bar (coral / amber / indigo)
-  s.addShape("rect", { x: 0, y: 0,         w: 0.4, h: H/3, fill: { color: C.coral }, line: { color: C.coral } });
-  s.addShape("rect", { x: 0, y: H/3,       w: 0.4, h: H/3, fill: { color: C.amber }, line: { color: C.amber } });
-  s.addShape("rect", { x: 0, y: 2*H/3,     w: 0.4, h: H/3, fill: { color: C.indigoBright }, line: { color: C.indigoBright } });
+  // Tri-color left bar (coral / amber / indigo) reinforces the three tiers
+  s.addShape("rect", { x: 0, y: 0,     w: 0.4, h: H/3, fill: { color: C.coral },        line: { color: C.coral } });
+  s.addShape("rect", { x: 0, y: H/3,   w: 0.4, h: H/3, fill: { color: C.amber },        line: { color: C.amber } });
+  s.addShape("rect", { x: 0, y: 2*H/3, w: 0.4, h: H/3, fill: { color: C.indigoBright }, line: { color: C.indigoBright } });
 
   s.addText("DEMO  04", {
-    x: 0.9, y: 0.7, w: 6, h: 0.6,
+    x: 0.9, y: 0.7, w: 6, h: 0.5,
     fontSize: 18, bold: true, color: C.textOnDarkMuted, charSpacing: 8, fontFace: F.body,
   });
   s.addText("Mixing It All", {
-    x: 0.9, y: 1.4, w: 12, h: 1.3,
-    fontSize: 60, bold: true, color: C.textOnDark, fontFace: F.header,
+    x: 0.9, y: 1.25, w: 12, h: 1.0,
+    fontSize: 52, bold: true, color: C.textOnDark, fontFace: F.header,
   });
-  s.addText("One MAUI app. Three AI tiers. Same AIAgent code path.", {
-    x: 0.9, y: 2.7, w: 12, h: 0.5,
-    fontSize: 18, italic: true, color: C.textOnDarkMuted, fontFace: F.body,
-  });
-
-  // Live wire-up: three columns showing what each provider line looks like
-  const items = [
-    {
-      tier: "OS Local",
-      code: `chatClient = new AppleIntelligenceChatClient();\n//  Microsoft.Maui.Essentials.AI`,
-      color: C.coral,
-    },
-    {
-      tier: "BYO Local",
-      code: `chatClient = new OpenAIClient(\n    new ApiKeyCredential("not-used"),\n    new OpenAIClientOptions {\n      Endpoint = manager.Endpoint\n    })\n    .GetChatClient("phi-4-mini")\n    .AsIChatClient();`,
-      color: C.amber,
-    },
-    {
-      tier: "Cloud",
-      code: `chatClient = new AzureOpenAIClient(\n    endpoint, new DefaultAzureCredential())\n    .GetChatClient("gpt-4.1")\n    .AsIChatClient();`,
-      color: C.indigoBright,
-    },
-  ];
-  const cw = 4.0, gap = 0.15, sx = 0.9;
-  items.forEach((it, i) => {
-    const x = sx + i * (cw + gap);
-    s.addShape("roundRect", {
-      x, y: 3.5, w: cw, h: 2.4,
-      fill: { color: C.indigoMid }, line: { color: it.color, width: 2 },
-      rectRadius: 0.1,
-    });
-    s.addText(it.tier.toUpperCase(), {
-      x: x + 0.2, y: 3.65, w: cw - 0.4, h: 0.35,
-      fontSize: 12, bold: true, color: it.color, charSpacing: 3, fontFace: F.body,
-    });
-    s.addText(highlightCode(it.code, "csharp"), {
-      x: x + 0.2, y: 4.05, w: cw - 0.4, h: 1.8,
-      fontSize: 10, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
-    });
+  s.addText("Three different chatClient brains.  Same agent code path.", {
+    x: 0.9, y: 2.35, w: 12, h: 0.45,
+    fontSize: 17, italic: true, color: C.textOnDarkMuted, fontFace: F.body,
   });
 
-  // Bottom unified line
+  // ── One big code block, full-width ────────────────────────────────────
+  const cx = 0.9, cw = W - cx - 0.5;
+  const cy = 2.95, ch = H - cy - 0.4;
+
   s.addShape("roundRect", {
-    x: 0.9, y: 6.1, w: W - 1.8, h: 0.9,
-    fill: { color: C.indigoDeep }, line: { color: C.coral, width: 1 },
+    x: cx, y: cy, w: cw, h: ch,
+    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
     rectRadius: 0.1,
   });
+
+  // We build a single highlighted block so syntax highlighting flows naturally.
+  // Inline tier-marker comments tell the story visually.
   s.addText(
-    [
-      ...highlightCode(`var agent = chatClient.CreateAIAgent("You are helpful.");`, "csharp"),
-      { text: `   ←  identical for every tier`, options: { color: C.coral, italic: true, fontFace: F.mono } },
-    ],
+    highlightCode(
+`// 📱  OS Local — Apple Intelligence
+chatClient = new AppleIntelligenceChatClient();
+
+// 🧪  BYO Local — Foundry Local hosting a Phi-class LLM
+var mgr = await FoundryLocalManager.StartModelAsync("phi-4-mini");
+chatClient = new OpenAIClient(
+        new ApiKeyCredential("nope"),
+        new OpenAIClientOptions { Endpoint = mgr.Endpoint })
+    .GetChatClient(mgr.ModelId).AsIChatClient();
+
+// ☁️   Cloud — Azure OpenAI
+chatClient = new AzureOpenAIClient(endpoint, new DefaultAzureCredential())
+    .GetChatClient("gpt-4.1").AsIChatClient();
+
+// ✨  Same agent. Every tier.
+var agent = chatClient.CreateAIAgent("You are helpful.");`, "csharp"),
     {
-      x: 0.9, y: 6.1, w: W - 1.8, h: 0.9,
-      fontSize: 15, fontFace: F.mono, align: "center", valign: "middle",
+      x: cx + 0.25, y: cy + 0.18, w: cw - 0.5, h: ch - 0.35,
+      fontSize: 14, fontFace: F.mono, color: C.textOnDark, paraSpaceAfter: 0,
+      valign: "top",
     }
   );
 }
@@ -1291,99 +1275,232 @@ await foreach (var update in agent.RunStreamingAsync(prompt, thread))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 13 — RULES OF THUMB + RESOURCES (closing, dark)
+// SLIDE 14 — RULES OF THUMB (full-width decision table)
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = pptx.addSlide();
+  s.background = { color: C.bgLight };
+  eyebrow(s, "Rules of Thumb");
+  title(s, "Your choice. Your code stays the same.");
+
+  s.addText("There's no single right answer — pick the tier that fits the task, and let MAF handle the rest.", {
+    x: 0.6, y: 1.85, w: 12, h: 0.45,
+    fontSize: 16, italic: true, color: C.textMuted, fontFace: F.body,
+  });
+
+  // Two-column comparison: Stay Local  vs  Reach for Cloud
+  const colY = 2.55, colH = 3.6, gap = 0.3;
+  const colW = (W - 1.2 - gap) / 2;
+  const leftX = 0.6, rightX = leftX + colW + gap;
+
+  function addRulesCard(x, color, eyebrowTxt, headline, items) {
+    s.addShape("roundRect", {
+      x, y: colY, w: colW, h: colH,
+      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
+      rectRadius: 0.12,
+    });
+    s.addShape("rect", {
+      x, y: colY, w: colW, h: 0.18,
+      fill: { color }, line: { color },
+    });
+    s.addText(eyebrowTxt, {
+      x: x + 0.3, y: colY + 0.35, w: colW - 0.6, h: 0.35,
+      fontSize: 12, bold: true, color, charSpacing: 4, fontFace: F.body,
+    });
+    s.addText(headline, {
+      x: x + 0.3, y: colY + 0.7, w: colW - 0.6, h: 0.55,
+      fontSize: 26, bold: true, color: C.textDark, fontFace: F.header,
+    });
+    items.forEach(([when, then], i) => {
+      const y = colY + 1.4 + i * 0.55;
+      // dot
+      s.addShape("ellipse", {
+        x: x + 0.35, y: y + 0.08, w: 0.18, h: 0.18,
+        fill: { color }, line: { color },
+      });
+      s.addText([
+        { text: when,  options: { color: C.textDark,  bold: true } },
+        { text: "  ·  ", options: { color: C.borderLight } },
+        { text: then,  options: { color: C.textMuted, italic: true } },
+      ], {
+        x: x + 0.65, y, w: colW - 0.85, h: 0.45,
+        fontSize: 13, fontFace: F.body, valign: "middle",
+      });
+    });
+  }
+
+  addRulesCard(leftX, C.coral, "Stay Local", "Keep it on the device", [
+    ["Privacy non-negotiable",   "OS Local · BYO Local"],
+    ["Offline / poor network",   "OS Local · BYO Local"],
+    ["Instant first token",      "OS Local"],
+    ["Cost matters at scale",    "Local pre/post-roll"],
+  ]);
+
+  addRulesCard(rightX, C.indigoBright, "Reach for Cloud", "Use the frontier brain", [
+    ["Need deep reasoning",      "Cloud"],
+    ["Huge context · multimodal","Cloud"],
+    ["Tools requiring web data", "Cloud"],
+    ["Cloud capability, no egress", "BYO Local (Foundry Local)"],
+  ]);
+
+  // Bottom tagline
+  s.addText("📐  Hand-off pattern:  local triage  →  cloud reasoning  →  local rendering", {
+    x: 0.6, y: 6.4, w: 12, h: 0.45,
+    fontSize: 16, italic: true, bold: true, color: C.coral, fontFace: F.header, align: "center",
+  });
+
+  addMotif(s);
+  addFooter(s, 14, TOTAL);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLIDE 15 — LINKS (where to go next)
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = pptx.addSlide();
+  s.background = { color: C.bgLight };
+  eyebrow(s, "Resources");
+  title(s, "Where to go next");
+
+  s.addText("Start with these — the deck, the demos, and the docs that back every claim today.", {
+    x: 0.6, y: 1.85, w: 12, h: 0.45,
+    fontSize: 16, italic: true, color: C.textMuted, fontFace: F.body,
+  });
+
+  const links = [
+    {
+      label: "Today's deck + demo code",
+      url:   "github.com/mattleibow/cptmsdug-local-cloud-agent-framework",
+      desc:  "All slides, all four demos, ready to clone & run",
+      color: C.coral, icon: "★",
+    },
+    {
+      label: "Microsoft Agent Framework",
+      url:   "github.com/microsoft/agent-framework",
+      desc:  "AIAgent · AgentThread · workflows · DevUI",
+      color: C.indigoBright, icon: "◆",
+    },
+    {
+      label: "Microsoft.Extensions.AI",
+      url:   "learn.microsoft.com/dotnet/ai/microsoft-extensions-ai",
+      desc:  "The IChatClient abstraction MAF builds on",
+      color: C.indigoBright, icon: "◆",
+    },
+    {
+      label: "maui-labs (Essentials.AI · AI.Attributes · DevFlow)",
+      url:   "github.com/dotnet/maui-labs",
+      desc:  "Apple Intelligence wrapper, source-gen tools, AI-driven app debugging",
+      color: C.coral, icon: "◆",
+    },
+    {
+      label: "Foundry Local",
+      url:   "github.com/microsoft/Foundry-Local",
+      desc:  "Cloud-grade LLMs running on your laptop",
+      color: C.amber, icon: "▣",
+    },
+    {
+      label: "Apple FoundationModels  ·  Windows AI APIs",
+      url:   "developer.apple.com/documentation/foundationmodels  ·  learn.microsoft.com/windows/ai/apis",
+      desc:  "On-device LLM platforms — straight from the source",
+      color: C.amber, icon: "▣",
+    },
+  ];
+
+  // 2-column × 3-row grid
+  const cols = 2, rows = 3;
+  const cardW = (W - 1.2 - 0.3) / cols, cardH = 1.45;
+  const startX = 0.6, startY = 2.5, gapX = 0.3, gapY = 0.15;
+
+  links.forEach((l, i) => {
+    const cx = i % cols, cy = Math.floor(i / cols);
+    const x = startX + cx * (cardW + gapX);
+    const y = startY + cy * (cardH + gapY);
+
+    s.addShape("roundRect", {
+      x, y, w: cardW, h: cardH,
+      fill: { color: C.cardLight }, line: { color: C.borderLight, width: 1 },
+      rectRadius: 0.1,
+    });
+    // left color bar
+    s.addShape("rect", {
+      x, y, w: 0.12, h: cardH,
+      fill: { color: l.color }, line: { color: l.color },
+    });
+    // icon glyph
+    s.addText(l.icon, {
+      x: x + 0.25, y: y + 0.2, w: 0.5, h: 0.5,
+      fontSize: 22, bold: true, color: l.color, fontFace: F.header,
+      align: "center", valign: "middle",
+    });
+    // label
+    s.addText(l.label, {
+      x: x + 0.85, y: y + 0.15, w: cardW - 1.0, h: 0.4,
+      fontSize: 14, bold: true, color: C.textDark, fontFace: F.body,
+    });
+    // url
+    s.addText(l.url, {
+      x: x + 0.85, y: y + 0.55, w: cardW - 1.0, h: 0.35,
+      fontSize: 11, color: l.color, fontFace: F.mono,
+    });
+    // desc
+    s.addText(l.desc, {
+      x: x + 0.85, y: y + 0.95, w: cardW - 1.0, h: 0.45,
+      fontSize: 11, italic: true, color: C.textMuted, fontFace: F.body,
+    });
+  });
+
+  addMotif(s);
+  addFooter(s, 15, TOTAL);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLIDE 16 — THANK YOU + QUESTIONS  (dark closing slide)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
   darkBg(s);
 
-  s.addText("RULES OF THUMB", {
-    x: 0.6, y: 0.55, w: 8, h: 0.4,
-    fontSize: 14, bold: true, color: C.coral, charSpacing: 6, fontFace: F.body,
+  // Mirror the title slide motif: tri-color bar on right, large glyphs top-right
+  s.addShape("rect", { x: W - 0.4, y: 0, w: 0.4, h: H, fill: { color: C.coral }, line: { color: C.coral } });
+
+  // Big motif top-right (echoes title slide)
+  s.addText("☁", {
+    x: 0.9, y: 0.55, w: 1.2, h: 1.25,
+    fontSize: 64, align: "center", valign: "middle", color: C.indigoBright, fontFace: F.body,
   });
-  s.addText("Your choice. Your code stays the same.", {
-    x: 0.6, y: 1.0, w: 12, h: 0.9,
-    fontSize: 40, bold: true, color: C.textOnDark, fontFace: F.header,
+  s.addText("↔", {
+    x: 1.7, y: 0.8, w: 1.0, h: 1.0,
+    fontSize: 50, align: "center", valign: "middle", color: C.textOnDarkMuted, bold: true, fontFace: F.body,
+  });
+  s.addText("📱", {
+    x: 2.5, y: 0.6, w: 1.2, h: 1.2,
+    fontSize: 60, align: "center", valign: "middle", color: C.coral, fontFace: F.body,
   });
 
-  // Decision table
-  const rows = [
-    ["Privacy is non-negotiable",         "OS Local · BYO Local",        C.coral],
-    ["Offline / poor connectivity",       "OS Local · BYO Local",        C.coral],
-    ["Instant first token matters",       "OS Local",                    C.coral],
-    ["Need frontier reasoning / tools",   "Cloud",                       C.indigoBright],
-    ["Huge context / multimodal",         "Cloud",                       C.indigoBright],
-    ["Cloud capability, no data egress",  "BYO Local (Foundry Local)",   C.amber],
-    ["Cost matters at scale",             "Local — pre-roll, post-roll", C.amber],
-  ];
-
-  const tx = 0.6, ty = 2.3, tw = 8.0;
-  // header
-  s.addShape("rect", {
-    x: tx, y: ty, w: tw, h: 0.5,
-    fill: { color: C.indigoMid }, line: { color: C.indigoMid },
-  });
-  s.addText("WHEN…", {
-    x: tx + 0.2, y: ty, w: 4.5, h: 0.5,
-    fontSize: 11, bold: true, color: C.textOnDarkMuted, charSpacing: 3, valign: "middle", fontFace: F.body,
-  });
-  s.addText("REACH FOR", {
-    x: tx + 4.5, y: ty, w: tw - 4.7, h: 0.5,
-    fontSize: 11, bold: true, color: C.textOnDarkMuted, charSpacing: 3, valign: "middle", fontFace: F.body,
+  // Big "Thank you"
+  s.addText("Thank you.", {
+    x: 0.9, y: 2.6, w: 12, h: 1.4,
+    fontSize: 110, bold: true, color: C.textOnDark, fontFace: F.header,
   });
 
-  rows.forEach(([when, pick, color], i) => {
-    const y = ty + 0.55 + i * 0.55;
-    if (i % 2 === 0) {
-      s.addShape("rect", {
-        x: tx, y, w: tw, h: 0.55,
-        fill: { color: C.indigoMid }, line: { color: C.indigoMid },
-      });
-    }
-    s.addText(when, {
-      x: tx + 0.2, y, w: 4.3, h: 0.55,
-      fontSize: 13, color: C.textOnDark, valign: "middle", fontFace: F.body,
-    });
-    s.addShape("ellipse", {
-      x: tx + 4.5, y: y + 0.16, w: 0.22, h: 0.22,
-      fill: { color }, line: { color },
-    });
-    s.addText(pick, {
-      x: tx + 4.8, y, w: tw - 5.0, h: 0.55,
-      fontSize: 13, bold: true, color: C.textOnDark, valign: "middle", fontFace: F.body,
-    });
-  });
-
-  // Resources card (right)
-  const rx = 9.0, rw = W - rx - 0.5;
-  s.addShape("roundRect", {
-    x: rx, y: 2.3, w: rw, h: 4.4,
-    fill: { color: C.coral }, line: { color: C.coral },
-    rectRadius: 0.12,
-  });
-  s.addText("THANK YOU", {
-    x: rx + 0.3, y: 2.5, w: rw - 0.6, h: 0.35,
-    fontSize: 12, bold: true, color: C.indigoDeep, charSpacing: 4, fontFace: F.body,
-  });
-  s.addText("Find me", {
-    x: rx + 0.3, y: 2.95, w: rw - 0.6, h: 0.55,
-    fontSize: 28, bold: true, color: C.indigoDeep, fontFace: F.header,
-  });
-  s.addText([
-    { text: "@mattleibow\n", options: { bold: true, fontSize: 18, color: C.indigoDeep } },
-    { text: "GitHub · X · LinkedIn\n\n", options: { fontSize: 12, italic: true, color: C.indigoDeep } },
-    { text: "Slides + demo code\n", options: { bold: true, fontSize: 14, color: C.indigoDeep } },
-    { text: "github.com/mattleibow\n", options: { fontSize: 13, italic: true, fontFace: F.mono, color: C.indigoDeep } },
-    { text: "  /cptmsdug-local-cloud-\n  agent-framework", options: { fontSize: 11, italic: true, fontFace: F.mono, color: C.indigoDeep } },
-  ], {
-    x: rx + 0.3, y: 3.6, w: rw - 0.6, h: 3.0,
-    fontFace: F.body, paraSpaceAfter: 2,
-  });
-
-  // Q&A
+  // Questions?
   s.addText("Questions?", {
-    x: 0.6, y: 6.6, w: 8, h: 0.5,
-    fontSize: 22, italic: true, color: C.coral, fontFace: F.header,
+    x: 0.9, y: 4.1, w: 12, h: 0.9,
+    fontSize: 54, italic: true, color: C.coral, fontFace: F.header,
+  });
+
+  // Speaker line + repo at bottom
+  s.addText([
+    { text: "Matthew Leibowitz",                    options: { bold: true, color: C.textOnDark } },
+    { text: "   ·   Software Engineer @ Microsoft   ·   ", options: { color: C.textOnDarkMuted } },
+    { text: "@mattleibow",                          options: { bold: true, color: C.amber } },
+  ], {
+    x: 0.9, y: H - 1.4, w: 12, h: 0.4,
+    fontSize: 16, fontFace: F.body,
+  });
+  s.addText("github.com/mattleibow/cptmsdug-local-cloud-agent-framework", {
+    x: 0.9, y: H - 0.9, w: 12, h: 0.4,
+    fontSize: 13, italic: true, color: C.coral, fontFace: F.mono,
   });
 }
 
