@@ -65,7 +65,6 @@ public sealed class LocalInviteFinaliserExecutor(InboxService inbox, string id =
             .AppendLine($"from:    \"{inbox.OwnerName}\" <{inbox.OwnerEmail}>")
             .AppendLine($"to:      \"{recipientName}\" <{recipientEmail}>")
             .AppendLine($"subject: {subject}")
-            .AppendLine("kind:    meeting invite (draft)")
             .AppendLine("---")
             .AppendLine()
             .AppendLine(cloudBody)

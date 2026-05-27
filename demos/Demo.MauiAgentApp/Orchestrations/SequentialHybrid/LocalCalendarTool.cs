@@ -18,18 +18,22 @@ public static class LocalCalendarTool
 {
     [Description(
         """
-        Returns the user's working hours and an OPAQUE list of busy time
-        ranges for the given day or range. Use a natural-language date
-        like "tomorrow", "Tuesday", or "this week". The tool intentionally
-        does not reveal event titles, attendees, or projects — only when
-        the user is busy. Call this once before proposing a meeting time
-        so you can suggest a slot inside working hours that does not
-        overlap any busy block.
+        Returns the user's calendar for a single day: a fixed working
+        window (09:00–17:00) and an OPAQUE list of busy time ranges.
+        Busy ranges have no event titles, attendees, or project names —
+        only when the user is busy. Working hours never change.
+
+        Call this once before proposing a meeting time. If every gap
+        inside working hours is taken (the day is fully booked), call
+        the tool again with a later date until you find a day with a
+        usable gap, then propose a time inside that day's working hours
+        that does not overlap any busy block.
         """)]
     [ExportAIFunction("get_calendar")]
     public static Task<string> GetCalendar(
-        string dateOrRange,
+        [Description("Date to read, like 2026-05-29. Start with today and walk forward one day at a time if you cannot find a free slot.")]
+        DateOnly date,
         [FromServices] CalendarService calendar,
         CancellationToken cancellationToken = default)
-        => calendar.GetCalendarAsync(dateOrRange, cancellationToken);
+        => calendar.GetCalendarAsync(date, cancellationToken);
 }

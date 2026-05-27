@@ -1,8 +1,5 @@
-using System.ComponentModel;
+using System.Globalization;
 using System.Text;
-using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 
@@ -10,100 +7,113 @@ namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 /// Stands in for "the user's local calendar" in the meeting-invite demo.
 ///
 /// The cloud invite-drafter calls into this via the <c>get_calendar</c>
-/// tool to plan a meeting time. The cloud never sees the calendar itself —
-/// only an opaque view: the user's working hours plus a list of busy
-/// time ranges. No event titles, no attendees, no projects. The drafter
-/// has to propose a meeting time INSIDE working hours and OUTSIDE any
-/// busy block — it cannot just grep for a "free" tag.
+/// tool to plan a meeting time. The cloud never sees the calendar itself
+/// — only an opaque view: a fixed 09:00–17:00 working window plus a list
+/// of busy time ranges. No event titles, no attendees, no projects.
 ///
 /// In a real app this would read EventKit / Microsoft Graph. For the
-/// demo we fabricate the schedule per call so each run feels fresh.
-/// We use the CLOUD chat client because the data is invented and the
-/// cloud model produces richer, more varied schedules — the privacy
-/// story is preserved by the SHAPE of the data returned (working hours
-/// + opaque busy ranges) rather than by where it's generated.
+/// demo we generate the schedule deterministically per date — calling
+/// the tool twice for the same date returns the same calendar (matches
+/// a real calendar) but consecutive days differ:
+///
+///   • Working hours are fixed at <see cref="WorkingHoursStartMinutes"/>
+///     to <see cref="WorkingHoursEndMinutes"/>. Never randomised.
+///   • ~30% of dates land on a "fully booked" day — the whole working
+///     window is back-to-back blocks with no usable gap. The agent
+///     should detect this and call the tool again for a later date.
+///   • The other ~70% of dates have 0-4 busy blocks of 30-120 minutes
+///     placed inside the window with random gaps.
 /// </summary>
-public sealed class CalendarService([FromKeyedServices(AIModels.Cloud)] IChatClient cloudChatClient)
+public sealed class CalendarService
 {
+    private const int WorkingHoursStartMinutes = 9 * 60;   // 09:00
+    private const int WorkingHoursEndMinutes   = 17 * 60;  // 17:00
+    private const int FullyBookedPercent       = 30;
+
     /// <summary>
-    /// Returns a Markdown view of the user's calendar for the given date
-    /// or range: working hours on one line, then an opaque list of busy
-    /// time ranges. Never names an event, never names a person.
+    /// Returns a Markdown view of the user's calendar for the given date:
+    /// the date header, fixed working hours, and an opaque list of busy
+    /// ranges. Never names an event, never names a person.
     /// </summary>
-    public async Task<string> GetCalendarAsync(
-        string dateOrRange,
+    public Task<string> GetCalendarAsync(
+        DateOnly date,
         CancellationToken cancellationToken)
     {
-        var response = await cloudChatClient.GetResponseAsync<GeneratedSchedule>(
-        [
-            new(ChatRole.System,
-                """
-                You are a calendar generator for a privacy demo. Given a
-                date or range like "tomorrow", "this week", "Tuesday",
-                invent a plausible busy schedule for the user.
+        // Deterministic per-date seed: same date → same calendar; the
+        // tool behaves like a real calendar where re-reading doesn't
+        // shuffle your schedule.
+        var rng = new Random(date.DayNumber);
 
-                Output shape:
-                  • workingHoursStart / workingHoursEnd: when the user is
-                    available in principle. Pick a plausible workday like
-                    08:30–17:30 or 09:00–18:00 — vary slightly across
-                    requests.
-                  • busyBlocks: 4-7 ordered ranges INSIDE working hours,
-                    representing meetings or focus blocks. Use a mix of
-                    short (15-30 min) and longer (45-90 min) blocks with
-                    real gaps of 15-90 minutes between them. The busy
-                    blocks MUST NOT overlap each other.
-
-                CRITICAL — privacy:
-                  • Do NOT include any event name, title, attendee, room,
-                    project, or other label. The schema has no such field.
-                    The busy blocks are OPAQUE — the only information that
-                    leaves the device is "the user is busy from A to B".
-
-                Return JSON matching the schema.
-                """),
-            new(ChatRole.User, $"Date or range: {dateOrRange}")
-        ],
-        new ChatOptions
-        {
-            MaxOutputTokens = 600,
-            // High temperature so subsequent runs aren't identical
-            // schedules.
-            Temperature = 1.0f,
-            TopP = 0.95f,
-        },
-        cancellationToken: cancellationToken);
-
-        if (!response.TryGetResult(out var schedule) || schedule.BusyBlocks is null)
-            return "_(could not read calendar)_";
+        var fullyBooked = rng.Next(0, 100) < FullyBookedPercent;
+        var blocks = fullyBooked ? BuildFullyBookedDay(rng) : BuildNormalDay(rng);
 
         var md = new StringBuilder()
+            .Append("Calendar for ")
+            .Append(date.ToString("yyyy-MM-dd (dddd)", CultureInfo.InvariantCulture))
+            .AppendLine()
+            .AppendLine()
             .Append("Working hours: ")
-            .Append(schedule.WorkingHoursStart)
+            .Append(FormatTime(WorkingHoursStartMinutes))
             .Append('–')
-            .Append(schedule.WorkingHoursEnd)
-            .AppendLine()
-            .AppendLine()
-            .AppendLine("Busy:");
-        foreach (var b in schedule.BusyBlocks)
-            md.Append("  - ").Append(b.Start).Append('–').AppendLine(b.End);
-        return md.ToString();
+            .Append(FormatTime(WorkingHoursEndMinutes))
+            .AppendLine();
+
+        if (blocks.Count == 0)
+        {
+            md.AppendLine().AppendLine("Busy: _(none)_");
+        }
+        else
+        {
+            md.AppendLine().AppendLine("Busy:");
+            foreach (var (s, e) in blocks)
+                md.Append("  - ").Append(FormatTime(s)).Append('–').AppendLine(FormatTime(e));
+        }
+
+        return Task.FromResult(md.ToString());
     }
 
-    [Description("Opaque view of the user's calendar — working hours and busy time ranges, no event titles.")]
-    private sealed record GeneratedSchedule(
-        [property: Description("Start of the user's available window for the day, like \"09:00\".")]
-        string WorkingHoursStart,
+    // Walk forward through the working day, picking gaps and blocks of
+    // random length — bail out cleanly when there's no room left.
+    private static List<(int Start, int End)> BuildNormalDay(Random rng)
+    {
+        var blocks = new List<(int Start, int End)>();
+        int blockCount = rng.Next(0, 5);              // 0..4 inclusive
+        int cursor = WorkingHoursStartMinutes + 15;    // brief lead-in
 
-        [property: Description("End of the user's available window for the day, like \"17:30\".")]
-        string WorkingHoursEnd,
+        for (int i = 0; i < blockCount; i++)
+        {
+            // Random gap before this block (0..90 min, snapped to 15 min).
+            cursor += rng.Next(0, 7) * 15;
+            int duration = rng.Next(1, 5) * 30;        // 30..120 min
+            if (cursor + duration > WorkingHoursEndMinutes - 15)
+                break;
 
-        [property: Description("Time-ordered busy ranges inside working hours. Mix short and longer blocks with realistic gaps between them. Must not overlap each other or fall outside working hours.")]
-        List<BusyBlock> BusyBlocks);
+            blocks.Add((cursor, cursor + duration));
+            cursor += duration;
+        }
 
-    private sealed record BusyBlock(
-        [property: Description("Start time of a busy block, like \"10:30\".")]
-        string Start,
+        return blocks;
+    }
 
-        [property: Description("End time of a busy block, like \"11:15\".")]
-        string End);
+    // Back-to-back blocks covering the full window. Built as 30-90 min
+    // chunks so the demo's "fully booked" view still looks like real
+    // meetings rather than one giant slab.
+    private static List<(int Start, int End)> BuildFullyBookedDay(Random rng)
+    {
+        var blocks = new List<(int Start, int End)>();
+        int cursor = WorkingHoursStartMinutes;
+
+        while (cursor < WorkingHoursEndMinutes)
+        {
+            int duration = rng.Next(1, 4) * 30;        // 30..90 min
+            int end = Math.Min(cursor + duration, WorkingHoursEndMinutes);
+            blocks.Add((cursor, end));
+            cursor = end;
+        }
+
+        return blocks;
+    }
+
+    private static string FormatTime(int totalMinutes) =>
+        $"{totalMinutes / 60:D2}:{totalMinutes % 60:D2}";
 }

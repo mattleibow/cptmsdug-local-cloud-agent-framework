@@ -57,25 +57,28 @@ public static partial class CloudInviteDrafterAgentExtensions
 
                     Your job:
 
-                      1. Call the `get_calendar` tool ONCE with a natural-
-                         language date like "tomorrow" or "this week". The
-                         tool returns the user's WORKING HOURS and a list
-                         of BUSY time ranges. There is no "free" tag — any
-                         time inside working hours that is NOT inside a
-                         busy range is fair game.
-                      2. Propose a specific meeting time INSIDE working
-                         hours and OUTSIDE every busy range. Pick a real
-                         gap from the calendar — do not invent a time, do
-                         not pick a time that overlaps a busy block, do
-                         not pick a time outside working hours.
-                      3. Write the BODY of a meeting-invite email
+                      1. Call the `get_calendar` tool with TODAY's date
+                         (use a real YYYY-MM-DD value). The tool returns
+                         ONE day at a time: a fixed working window
+                         (09:00–17:00) and an OPAQUE list of BUSY time
+                         ranges. Any time inside working hours that is
+                         not inside a busy range is free.
+                      2. If today is fully booked (the busy blocks
+                         cover the whole window with no usable gap),
+                         call the tool again for the NEXT day. Walk
+                         forward one day at a time, up to about three
+                         attempts, until you find a day with a real
+                         gap. Do not invent a time.
+                      3. Pick a specific real gap (inside working hours,
+                         outside every busy block) on the chosen day and
+                         write the BODY of a meeting-invite email
                          addressed to the customer named in the brief.
 
                     Use this exact Markdown structure for the body:
 
                         ## :event: Meeting invite — <one-line reason>
 
-                        **Proposed time:** <date and time, e.g. "Tuesday 2pm">
+                        **Proposed time:** <date and time, e.g. "Tue 2 Jun, 14:00">
 
                         Hi <first name>,
 
@@ -92,9 +95,9 @@ public static partial class CloudInviteDrafterAgentExtensions
                         respond.
                       • Use specific facts from the brief (customer name,
                         order ID) so the invite feels personal.
-                      • Pick a real gap between busy blocks from the
-                        get_calendar response — do not invent one and do
-                        not propose a time that overlaps any busy block.
+                      • The proposed time must be a real gap from a
+                        get_calendar response — never overlap a busy
+                        block, never fall outside 09:00–17:00.
                       • 4-6 sentences total. No sign-off, no extra notes.
                     """,
                 tools: [.. tools]).WithTelemetry());
