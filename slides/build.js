@@ -223,7 +223,7 @@ function darkBg(slide) {
   slide.background = { color: C.indigoDeep };
 }
 
-const TOTAL = 17;
+const TOTAL = 15;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLIDE 1 — TITLE
@@ -516,83 +516,7 @@ const TOTAL = 17;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 5 — DEMO 1 (Cloud)
-// ═══════════════════════════════════════════════════════════════════════════
-{
-  const s = pptx.addSlide();
-  darkBg(s);
-
-  s.addShape("rect", { x: 0, y: 0, w: 0.4, h: H, fill: { color: C.indigoBright }, line: { color: C.indigoBright } });
-
-  s.addText("DEMO  01", {
-    x: 0.9, y: 0.7, w: 6, h: 0.6,
-    fontSize: 18, bold: true, color: C.indigoBright, charSpacing: 8, fontFace: F.body,
-  });
-  s.addText("Calling the Cloud", {
-    x: 0.9, y: 1.4, w: 12, h: 1.3,
-    fontSize: 60, bold: true, color: C.textOnDark, fontFace: F.header,
-  });
-  s.addText("A direct Azure OpenAI call — the baseline everyone already ships", {
-    x: 0.9, y: 2.7, w: 12, h: 0.5,
-    fontSize: 18, italic: true, color: C.textOnDarkMuted, fontFace: F.body,
-  });
-
-  // Code block
-  s.addShape("roundRect", {
-    x: 0.9, y: 3.5, w: 7.5, h: 3.4,
-    fill: { color: C.indigoMid }, line: { color: C.indigoBright, width: 1 },
-    rectRadius: 0.1,
-  });
-  s.addText(
-    highlightCode(
-`// Same client shape used in demos/Demo.WebAgentApp
-var endpoint = new Uri(azureBase, "/openai/v1");
-
-IChatClient chat = new ChatClient(
-        model: "gpt-4.1",
-        credential: new ApiKeyCredential(apiKey),
-        options: new() { Endpoint = endpoint })
-    .AsIChatClient();
-
-var response = await chat.GetResponseAsync(
-    "Summarise the agenda for today.");
-Console.WriteLine(response.Text);`, "csharp"),
-    {
-      x: 1.1, y: 3.7, w: 7.1, h: 3.0,
-      fontSize: 13, fontFace: F.mono, color: C.textOnDark,
-      paraSpaceAfter: 0,
-    }
-  );
-
-  // "Watch for" side panel
-  s.addText("WATCH FOR", {
-    x: 8.8, y: 3.5, w: 4, h: 0.3,
-    fontSize: 12, bold: true, color: C.coral, charSpacing: 4, fontFace: F.body,
-  });
-  const watchItems = [
-    { icon: "Zap",      color: C.indigoBright, label: "Latency",      sub: "Network round-trip — feel it" },
-    { icon: "Globe",    color: C.indigoBright, label: "Connectivity", sub: "Toggle Wi-Fi off and watch it fail" },
-    { icon: "Brain",    color: C.indigoBright, label: "Quality",      sub: "Frontier-class reasoning" },
-    { icon: "Coins",    color: C.indigoBright, label: "Cost",         sub: "Each token is metered" },
-  ];
-  watchItems.forEach((it, i) => {
-    const y = 3.95 + i * 0.7;
-    addIcon(s, it.icon, { x: 8.8, y: y + 0.04, size: 0.28, color: it.color, strokeWidth: 2 });
-    s.addText(it.label, {
-      x: 9.18, y, w: 3.6, h: 0.3,
-      fontSize: 14, bold: true, color: C.textOnDark, fontFace: F.body,
-    });
-    s.addText(it.sub, {
-      x: 9.18, y: y + 0.3, w: 3.6, h: 0.3,
-      fontSize: 12, color: C.textOnDarkMuted, italic: true, fontFace: F.body,
-    });
-  });
-
-  addMotif(s, { color: C.indigoBright });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 6 — OS ON-DEVICE MODELS (the surprise)
+// SLIDE 5 — OS ON-DEVICE MODELS (the surprise)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -704,11 +628,11 @@ Console.WriteLine(response.Text);`, "csharp"),
   );
 
   addMotif(s);
-  addFooter(s, 6, TOTAL);
+  addFooter(s, 5, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 7 — DEMO 2 (Apple Intelligence)
+// SLIDE 6 — LIVE DEMO 1 (Apple Intelligence)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -716,7 +640,7 @@ Console.WriteLine(response.Text);`, "csharp"),
 
   s.addShape("rect", { x: 0, y: 0, w: 0.4, h: H, fill: { color: C.coral }, line: { color: C.coral } });
 
-  s.addText("DEMO  02", {
+  s.addText("DEMO  01", {
     x: 0.9, y: 0.7, w: 6, h: 0.6,
     fontSize: 18, bold: true, color: C.coral, charSpacing: 8, fontFace: F.body,
   });
@@ -785,7 +709,7 @@ Console.WriteLine(response.Text);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 8 — BRING YOUR OWN LOCAL (the middle ground)
+// SLIDE 7 — BRING YOUR OWN LOCAL (the middle ground)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -858,88 +782,11 @@ Console.WriteLine(response.Text);
   });
 
   addMotif(s);
-  addFooter(s, 8, TOTAL);
+  addFooter(s, 7, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 9 — DEMO 3 (Foundry Local)
-// ═══════════════════════════════════════════════════════════════════════════
-{
-  const s = pptx.addSlide();
-  darkBg(s);
-
-  s.addShape("rect", { x: 0, y: 0, w: 0.4, h: H, fill: { color: C.amber }, line: { color: C.amber } });
-
-  s.addText("DEMO  03", {
-    x: 0.9, y: 0.7, w: 6, h: 0.6,
-    fontSize: 18, bold: true, color: C.amber, charSpacing: 8, fontFace: F.body,
-  });
-  s.addText("A Big Brain, Locally", {
-    x: 0.9, y: 1.4, w: 12, h: 1.3,
-    fontSize: 60, bold: true, color: C.textOnDark, fontFace: F.header,
-  });
-  s.addText("Foundry Local hosting a Phi-class LLM on this laptop — OpenAI-compatible endpoint", {
-    x: 0.9, y: 2.7, w: 12, h: 0.5,
-    fontSize: 18, italic: true, color: C.textOnDarkMuted, fontFace: F.body,
-  });
-
-  s.addShape("roundRect", {
-    x: 0.9, y: 3.5, w: 7.5, h: 3.4,
-    fill: { color: C.indigoMid }, line: { color: C.amber, width: 1 },
-    rectRadius: 0.1,
-  });
-  s.addText(
-    highlightMulti([
-      { lang: "bash", code:
-`# Start a local model from the CLI
-> foundry model run phi-4-mini
-
-` },
-      { lang: "csharp", code:
-`// Foundry Local exposes an OpenAI-compatible endpoint —
-// same SDK you'd use against the cloud, different URL.
-
-IChatClient chat = new ChatClient(
-        model: "phi-4-mini",
-        credential: new ApiKeyCredential("not-used"),
-        options: new() { Endpoint = new Uri("http://localhost:5273/v1") })
-    .AsIChatClient();` },
-    ]),
-    {
-      x: 1.1, y: 3.7, w: 7.1, h: 3.0,
-      fontSize: 11, fontFace: F.mono, color: C.textOnDark,
-      paraSpaceAfter: 0,
-    }
-  );
-
-  s.addText("WATCH FOR", {
-    x: 8.8, y: 3.5, w: 4, h: 0.3,
-    fontSize: 12, bold: true, color: C.amber, charSpacing: 4, fontFace: F.body,
-  });
-  const watchItems = [
-    { icon: "Brain",     color: C.amber, label: "Real reasoning",    sub: "Multi-billion-param model" },
-    { icon: "Shield",    color: C.amber, label: "Stays on device",   sub: "No data egress, no API key" },
-    { icon: "Plug",      color: C.amber, label: "OpenAI-compatible", sub: "Same SDK, swap the URL" },
-    { icon: "HardDrive", color: C.amber, label: "The tradeoff",      sub: "Disk + RAM + warm-up time" },
-  ];
-  watchItems.forEach((it, i) => {
-    const y = 3.95 + i * 0.7;
-    addIcon(s, it.icon, { x: 8.8, y: y + 0.04, size: 0.28, color: it.color, strokeWidth: 2 });
-    s.addText(it.label, {
-      x: 9.18, y, w: 3.6, h: 0.3,
-      fontSize: 14, bold: true, color: C.textOnDark, fontFace: F.body,
-    });
-    s.addText(it.sub, {
-      x: 9.18, y: y + 0.3, w: 3.6, h: 0.3,
-      fontSize: 12, color: C.textOnDarkMuted, italic: true, fontFace: F.body,
-    });
-  });
-
-  addMotif(s, { color: C.amber });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 10 — MICROSOFT AGENT FRAMEWORK (the unifier)
+// SLIDE 8 — MICROSOFT AGENT FRAMEWORK (the unifier)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1052,11 +899,11 @@ IChatClient chat = new ChatClient(
   });
 
   addMotif(s);
-  addFooter(s, 10, TOTAL);
+  addFooter(s, 8, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 11 — DEMO 4 (MAF Workflow mixing local + cloud)
+// SLIDE 9 — LIVE DEMO 2 (MAF Workflow mixing local + cloud)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1066,7 +913,7 @@ IChatClient chat = new ChatClient(
   s.addShape("rect", { x: 0, y: 0,   w: 0.4, h: H/2, fill: { color: C.coral },        line: { color: C.coral } });
   s.addShape("rect", { x: 0, y: H/2, w: 0.4, h: H/2, fill: { color: C.indigoBright }, line: { color: C.indigoBright } });
 
-  s.addText("DEMO  04", {
+  s.addText("DEMO  02", {
     x: 0.9, y: 0.55, w: 6, h: 0.45,
     fontSize: 18, bold: true, color: C.textOnDarkMuted, charSpacing: 8, fontFace: F.body,
   });
@@ -1176,7 +1023,7 @@ await foreach (var update in workflow.RunStreamingAsync(userInput))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 12 — TOOLS (function calling with source generators)
+// SLIDE 10 — TOOLS (function calling with source generators)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1258,11 +1105,11 @@ AIAgent agent = chatClient.AsAIAgent(
   });
 
   addMotif(s);
-  addFooter(s, 12, TOTAL);
+  addFooter(s, 10, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 13 — CONTEXT PROVIDERS (RAG + Memory)
+// SLIDE 11 — CONTEXT PROVIDERS (RAG + Memory)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1343,11 +1190,11 @@ AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
   });
 
   addMotif(s);
-  addFooter(s, 13, TOTAL);
+  addFooter(s, 11, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 14 — BUILT WITH (maui-labs credits)
+// SLIDE 12 — BUILT WITH (maui-labs credits)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1435,11 +1282,11 @@ AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
   });
 
   addMotif(s);
-  addFooter(s, 14, TOTAL);
+  addFooter(s, 12, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 15 — RULES OF THUMB (full-width decision table)
+// SLIDE 13 — RULES OF THUMB (full-width decision table)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1517,11 +1364,11 @@ AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
   });
 
   addMotif(s);
-  addFooter(s, 15, TOTAL);
+  addFooter(s, 13, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 16 — LINKS (where to go next)
+// SLIDE 14 — LINKS (where to go next)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -1617,11 +1464,11 @@ AIAgent agent = chatClient.AsAIAgent(new ChatClientAgentOptions
   });
 
   addMotif(s);
-  addFooter(s, 16, TOTAL);
+  addFooter(s, 14, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 17 — THANK YOU + QUESTIONS  (dark closing slide)
+// SLIDE 15 — THANK YOU + QUESTIONS  (dark closing slide)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
