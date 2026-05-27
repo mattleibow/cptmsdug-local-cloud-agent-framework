@@ -18,7 +18,7 @@ namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 /// downstream stages can work against typed fields.
 ///
 /// This is the LOCAL RAG step. The inbox content never leaves the device —
-/// only the summary produced by stage 2 does.
+/// only the summary produced by stage 3 (the issue summariser) does.
 /// </summary>
 public static class LocalInboxSearchAgentExtensions
 {

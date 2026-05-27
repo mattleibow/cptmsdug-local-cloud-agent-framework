@@ -12,8 +12,9 @@ namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 ///
 /// Receives only the short prose brief from stage 3 — no addresses, no
 /// phone numbers, no passwords, no card/SSN numbers, no JSON wrapper.
-/// Uses the <see cref="LocalCalendarTool.GetCalendar"/> tool to find a slot
-/// when the user is free, then writes the BODY of a meeting-invite email.
+/// Uses the <see cref="LocalCalendarTool.GetCalendar"/> tool to find a
+/// day with a real gap inside working hours, then writes the BODY of a
+/// meeting-invite email.
 ///
 /// The body alone — subject, from, to lines are added by the local
 /// <c>LocalInviteFinaliserExecutor</c> using fields read from workflow
@@ -22,8 +23,10 @@ namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 ///
 /// The local-tool call is the demo's headline moment: the cloud agent
 /// reaches BACK to the device for something only the device knows (the
-/// user's calendar). The tool's input is the natural-language date, the
-/// output is a free/busy view — no PII in either direction.
+/// user's calendar). The tool's input is a <c>DateOnly</c>; the tool's
+/// output is the fixed working window and an opaque list of busy time
+/// ranges — no titles, no attendees, nothing the cloud could use to
+/// reconstruct what the user is doing.
 /// </summary>
 public static partial class CloudInviteDrafterAgentExtensions
 {
@@ -35,6 +38,15 @@ public static partial class CloudInviteDrafterAgentExtensions
     {
         var tools = InviteToolContext.Default.Tools;
 
+        // Anchor the cloud agent to today's date — without this the model
+        // tends to fall back to a date from its training era when filling
+        // the get_calendar tool's typed DateOnly parameter. Captured once
+        // at agent build time, which is fine for a demo. A production app
+        // would refresh this per turn via a context provider.
+        var today = DateTime.Now;
+        var todayIso = today.ToString("yyyy-MM-dd");
+        var todayPretty = today.ToString("yyyy-MM-dd (dddd)");
+
         builder.AddAIAgent(
             name,
             (sp, key) => new ChatClientAgent(
@@ -45,10 +57,13 @@ public static partial class CloudInviteDrafterAgentExtensions
                     Cloud-side meeting-invite drafter. Receives a short
                     customer-issue brief from the on-device summariser and
                     writes the BODY of a meeting-invite email, proposing a
-                    free slot read on-device via the get_calendar tool.
+                    time on a day the user is free (read on-device via
+                    the get_calendar tool).
                     """,
                 instructions:
-                    """
+                    $$"""
+                    Today is {{todayPretty}}.
+
                     The user message you receive is a SHORT BRIEF written by
                     an on-device colleague summarising a customer email. It
                     contains the customer name and what they are asking for —
@@ -57,18 +72,18 @@ public static partial class CloudInviteDrafterAgentExtensions
 
                     Your job:
 
-                      1. Call the `get_calendar` tool with TODAY's date
-                         (use a real YYYY-MM-DD value). The tool returns
-                         ONE day at a time: a fixed working window
+                      1. Call the `get_calendar` tool with today's date
+                         ({{todayIso}}) as the `date` argument. The tool
+                         returns ONE day at a time: a fixed working window
                          (09:00–17:00) and an OPAQUE list of BUSY time
                          ranges. Any time inside working hours that is
                          not inside a busy range is free.
-                      2. If today is fully booked (the busy blocks
-                         cover the whole window with no usable gap),
-                         call the tool again for the NEXT day. Walk
-                         forward one day at a time, up to about three
-                         attempts, until you find a day with a real
-                         gap. Do not invent a time.
+                      2. If today is fully booked (the busy blocks cover
+                         the whole window with no usable gap), call the
+                         tool again for the NEXT day. Walk forward one
+                         day at a time, up to about three attempts,
+                         until you find a day with a real gap. Do not
+                         invent a time.
                       3. Pick a specific real gap (inside working hours,
                          outside every busy block) on the chosen day and
                          write the BODY of a meeting-invite email

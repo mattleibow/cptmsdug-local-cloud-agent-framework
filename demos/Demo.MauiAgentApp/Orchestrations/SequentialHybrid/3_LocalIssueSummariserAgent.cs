@@ -7,10 +7,11 @@ using Microsoft.Extensions.Hosting;
 namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 
 /// <summary>
-/// Stage 2 of the meeting-invite pipeline. Runs on-device.
+/// Stage 3 of the meeting-invite pipeline. Runs on-device.
 ///
-/// Reads the picked customer email and produces a SHORT prose brief
-/// — 3-4 sentences — capturing what the cloud needs to draft a useful
+/// Reads the picked customer email (forwarded by stage 2 as a small
+/// From/To/Subject envelope + body) and produces a SHORT prose brief
+/// — 2-3 sentences — capturing what the cloud needs to draft a useful
 /// meeting invite:
 ///
 ///   • Who the customer is (full name, so the invite can address them)
