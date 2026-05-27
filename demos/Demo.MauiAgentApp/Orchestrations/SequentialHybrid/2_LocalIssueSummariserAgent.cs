@@ -4,7 +4,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Demo.Orchestrations.SequentialHybrid;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Stage 2 of the meeting-invite pipeline. Runs on-device.
@@ -70,7 +70,7 @@ public static class LocalIssueSummariserAgentExtensions
 
         builder.AddAIAgent(name, (sp, key) => new ChatClientAgent(
             sp.GetRequiredKeyedService<IChatClient>(AIModels.Local),
-            options));
+            options).WithTelemetry());
 
         return builder;
     }

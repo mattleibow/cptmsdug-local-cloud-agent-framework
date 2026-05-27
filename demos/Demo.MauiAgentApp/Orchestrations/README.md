@@ -1,18 +1,29 @@
-# Demo.Orchestrations
+# Orchestrations
 
-Shared workflows + agents + tools used by both the web (`Demo.WebAgentApp`)
-and MAUI (`Demo.MauiAgentApp`) DevUI hosts.
-
-The project is **flat** — each workflow file at the project root contains
-the workflow extension method, its tools, and its tool context together:
+Agents, workflows, and shared tools used by `Demo.MauiAgentApp`. Each
+workflow is self-contained — extension method, tool definitions, and
+tool context all in the same folder:
 
 ```
-Demo.Orchestrations/
-├─ SequentialWorkflow.cs   (NewsDeskTools + Context + Workflow)
-├─ ConcurrentWorkflow.cs   (TravelTools  + Context + Workflow)
-├─ HandoffWorkflow.cs      (HelpDeskTools + Context + Workflow)
-├─ GroupChatWorkflow.cs    (StartupTools + Context + Workflow)
-└─ StandaloneAgents.cs     (single-agent demos: storyteller, code-mentor)
+Orchestrations/
+├─ Sequential/Workflow.cs         (NewsDesk: reporter → factchecker → editor)
+├─ Concurrent/Workflow.cs         (Travel: food + culture + logistics fan-out)
+├─ Handoff/Workflow.cs            (Help Desk: dispatcher → specialist)
+├─ GroupChat/Workflow.cs          (Startup pitch: founder + investor + advisor)
+├─ SequentialHybrid/              (local + cloud meeting-invite pipeline)
+│  ├─ Workflow.cs
+│  ├─ 1_LocalInboxSearchAgent.cs
+│  ├─ 2_LocalIssueSummariserAgent.cs
+│  ├─ 3_CloudInviteDrafterAgent.cs
+│  ├─ 4_LocalCalendarTool.cs
+│  ├─ 5_LocalInviteFinaliserExecutor.cs
+│  ├─ 6_OutputMessagesExecutor.cs
+│  ├─ Models/PickedEmail.cs
+│  └─ Services/{InboxService,CalendarService}.cs
+├─ StandaloneAgents.cs            (storyteller, code-mentor — single-agent)
+├─ AIModels.cs                    (DI keys: "local-model", "cloud-model")
+├─ WorkflowExtensions.cs          (shared helpers)
+└─ TelemetryExtensions.cs         (AddDemoTelemetry → Aspire Dashboard)
 ```
 
 ---
@@ -183,7 +194,49 @@ USER ─▶ GroupChatHost  ◀─▶ investor  ◀─▶  (3 rounds)  ─▶ Fin
 
 ---
 
-## Switching destinations / topics in prompts
+## Sequential Hybrid — Local + Cloud meeting invite ⭐
+
+**Demos:** the headline local + cloud story. Local on-device AI does
+private RAG and PII-omitting summarisation; cloud AI drafts a polished
+invite by calling **back into the device** for free/busy slots.
+
+```
+USER ─▶ local-inbox-search ──▶ local-issue-summariser ──▶ cloud-invite-drafter ──▶ local-invite-finaliser ──▶ Final output
+        (Apple Intelligence)   (Apple Intelligence)        (Azure OpenAI + tool)    (deterministic wrap)
+                                                                │
+                                                                └─ calls back to device ──▶ get_calendar (LocalCalendarTool → CalendarService → Apple Intelligence)
+```
+
+| Stage | Where it runs | Tools | Role |
+| --- | --- | --- | --- |
+| `local-inbox-search` | Local (on-device) | RAG over fabricated inbox | Picks one customer email; returns `PickedEmail` JSON |
+| `local-issue-summariser` | Local (on-device) | none | Writes a plain-text brief; **omits addresses, phones, passwords, cards, SSNs** |
+| `cloud-invite-drafter` | Cloud (Azure OpenAI) | `get_calendar` | Calls back to device for free/busy slots, drafts Markdown invite |
+| `local-invite-finaliser` | Local executor | none | Wraps cloud draft in YAML frontmatter + `[:mail: Open in Mail](mailto:…)` |
+
+**Privacy contract** — cloud sees:
+- the PII-stripped brief (customer name + order ID kept; address/phone/password/card/SSN dropped)
+- calendar free/busy slots with generic labels (`Standup`, `Focus block` — no real event titles)
+
+Cloud **never** sees:
+- the customer's raw email, address, phone, password, card, SSN
+- the user's actual calendar events
+- the rest of the inbox
+
+**Try:**
+- `Draft a meeting invite to resolve the latest customer issue`
+- `Find the most urgent customer issue and propose a meeting`
+- `Schedule a follow-up with the customer about the lockout problem`
+
+**What you'll see (5 graph nodes, all green):**
+- **Inbox search bubble** — JSON picked email (sender, subject, body).
+- **Summariser bubble** — short prose brief, no PII.
+- **Drafter bubble** — `## :event: Meeting invite — <reason>` heading, `get_calendar` tool call visible in the Tools sidebar, draft body with proposed slot.
+- **Finaliser bubble** — YAML frontmatter (`to:`, `from:`, `subject:`, `mailto:`) + the cloud's draft + `:mail: Open in Mail` link.
+
+---
+
+
 
 Most prompts are open — the agents pull the topic out of the user message
 and adapt. Use this for live demos:

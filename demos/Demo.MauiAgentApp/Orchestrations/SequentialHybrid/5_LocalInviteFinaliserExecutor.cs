@@ -1,9 +1,9 @@
 using System.Text;
-using Demo.Orchestrations.SequentialHybrid.Services;
+using Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 
-namespace Demo.Orchestrations.SequentialHybrid;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Stage 5 of the meeting-invite pipeline. Pure executor — no LLM.

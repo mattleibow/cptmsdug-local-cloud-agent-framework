@@ -1,7 +1,7 @@
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 
-namespace Demo.Orchestrations.SequentialHybrid;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Terminal executor that yields the final accumulated chat messages as the

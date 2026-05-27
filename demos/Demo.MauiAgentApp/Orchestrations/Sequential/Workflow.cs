@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Maui.AI.Attributes;
 
-namespace Demo.Orchestrations;
+namespace Demo.MauiAgentApp.Orchestrations;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tools used by the sequential newsdesk workflow
@@ -147,7 +147,7 @@ public static partial class SequentialWorkflow
                     <Closing paragraph — context or implication.>
                     """,
                 tools: [.. newsTools.Where(t => t.Name == "search_news")]
-            ));
+            ).WithTelemetry());
 
         builder.AddAIAgent(
             "sequential-newsdesk-factchecker",
@@ -178,7 +178,7 @@ public static partial class SequentialWorkflow
                     rewritten, or sourced before publication.>
                     """,
                 tools: [.. newsTools.Where(t => t.Name == "verify_fact")]
-            ));
+            ).WithTelemetry());
 
         builder.AddAIAgent(
             "sequential-newsdesk-editor",
@@ -201,7 +201,7 @@ public static partial class SequentialWorkflow
                     <Article paragraphs.>
                     """,
                 tools: []
-            ));
+            ).WithTelemetry());
 
         builder.AddWorkflow("sequential-newsdesk", (sp, key) =>
         {

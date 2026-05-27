@@ -49,14 +49,18 @@
 		<PackageReference Include="Microsoft.Agents.AI" Version="1.7.0" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" Version="1.7.0-preview.260526.1" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" Version="1.7.0" />
+		<PackageReference Include="Microsoft.Maui.AI.Attributes" Version="0.1.0-preview.10.26274.3" />
 		<PackageReference Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.10.26274.3" />
 		<PackageReference Include="Microsoft.Maui.DevFlow.Logging" Version="0.1.0-preview.10.26274.3" />
 		<PackageReference Include="OpenAI" Version="2.10.0" />
+		<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+		<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+		<PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.12.0" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Microsoft.Maui.AI.Agents.DevUI\Microsoft.Maui.AI.Agents.DevUI.csproj" />
-		<ProjectReference Include="..\Demo.Orchestrations\Demo.Orchestrations.csproj" />
 	</ItemGroup>
 
 	<!-- WARNING: Embeds secrets.json into app binary. Local dev only. -->

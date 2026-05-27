@@ -9,7 +9,7 @@ using Microsoft.Maui.AI.Attributes;
 
 #pragma warning disable MAAIW001 // Experimental API
 
-namespace Demo.Orchestrations;
+namespace Demo.MauiAgentApp.Orchestrations;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tools used by the handoff helpdesk workflow
@@ -140,7 +140,7 @@ public static partial class HandoffWorkflow
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base" or "check_system_status" or "create_ticket")]
-            ));
+            ).WithTelemetry());
 
         builder.AddAIAgent(
             "handoff-helpdesk-software",
@@ -169,7 +169,7 @@ public static partial class HandoffWorkflow
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base" or "create_ticket")]
-            ));
+            ).WithTelemetry());
 
         builder.AddAIAgent(
             "handoff-helpdesk-hardware",
@@ -198,7 +198,7 @@ public static partial class HandoffWorkflow
                     """,
                 tools: [.. helpTools.Where(t =>
                     t.Name is "search_knowledge_base" or "create_ticket")]
-            ));
+            ).WithTelemetry());
 
         builder.AddWorkflow("handoff-helpdesk", (sp, key) =>
         {

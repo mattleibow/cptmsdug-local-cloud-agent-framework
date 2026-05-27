@@ -1,12 +1,12 @@
-using Demo.Orchestrations.SequentialHybrid.Models;
-using Demo.Orchestrations.SequentialHybrid.Services;
+using Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Models;
+using Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Demo.Orchestrations.SequentialHybrid;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Stage 1 of the meeting-invite pipeline. Runs on-device.
@@ -86,7 +86,7 @@ public static class LocalInboxSearchAgentExtensions
 
                 return new ChatClientAgent(
                     sp.GetRequiredKeyedService<IChatClient>(AIModels.Local),
-                    options);
+                    options).WithTelemetry();
             });
 
         return builder;

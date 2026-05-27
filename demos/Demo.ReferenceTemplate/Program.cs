@@ -10,14 +10,15 @@ using OpenAI.Chat;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// You will need to set the token to your own value
-// You can do this using Visual Studio's "Manage User Secrets" UI, or on the command line:
-//   cd this-project-directory
-//   dotnet user-secrets set "GITHUB_TOKEN" "your-github-models-token-here"
+// Configure Azure OpenAI
+var azureOpenAIEndpoint = new Uri(new Uri(builder.Configuration["AzureOpenAI:Endpoint"]
+    ?? throw new InvalidOperationException("Missing configuration: AzureOpenAI:Endpoint")), "/openai/v1");
+
 var chatClient = new ChatClient(
-        "gpt-4o-mini",
-        new ApiKeyCredential(builder.Configuration["GITHUB_TOKEN"] ?? throw new InvalidOperationException("Missing configuration: GITHUB_TOKEN")),
-        new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") })
+        builder.Configuration["AzureOpenAI:DeploymentName"] ?? "gpt-4.1",
+        new ApiKeyCredential(builder.Configuration["AzureOpenAI:Key"]
+            ?? throw new InvalidOperationException("Missing configuration: AzureOpenAI:Key")),
+        new OpenAIClientOptions { Endpoint = azureOpenAIEndpoint })
     .AsIChatClient();
 
 builder.Services.AddChatClient(chatClient);

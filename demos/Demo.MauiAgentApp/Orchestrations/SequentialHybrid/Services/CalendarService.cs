@@ -3,7 +3,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Demo.Orchestrations.SequentialHybrid.Services;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 
 /// <summary>
 /// Stands in for "the user's local calendar" in the meeting-invite demo.

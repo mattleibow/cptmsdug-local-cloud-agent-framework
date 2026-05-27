@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Maui.AI.Attributes;
 
-namespace Demo.Orchestrations.SequentialHybrid;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Stage 3 of the meeting-invite pipeline. Runs in the cloud (Azure OpenAI).
@@ -80,7 +80,7 @@ public static partial class CloudInviteDrafterAgentExtensions
                         — do not invent one.
                       - 4-6 sentences total. No sign-off, no extra notes.
                     """,
-                tools: [.. tools]));
+                tools: [.. tools]).WithTelemetry());
 
         return builder;
     }

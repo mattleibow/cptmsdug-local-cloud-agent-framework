@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Maui.AI.Attributes;
 
-namespace Demo.Orchestrations;
+namespace Demo.MauiAgentApp.Orchestrations;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tools used by the startup group chat workflow
@@ -128,7 +128,7 @@ public static partial class GroupChatWorkflow
                     to emphasise key claims.
                     """,
                 tools: [.. startupTools.Where(t => t.Name == "lookup_market_data")]
-            ));
+            ).WithTelemetry());
 
         builder.AddAIAgent(
             "groupchat-startup-investor",
@@ -154,7 +154,7 @@ public static partial class GroupChatWorkflow
                     """,
                 tools: [.. startupTools.Where(t =>
                     t.Name is "estimate_unit_economics" or "search_competitors")]
-            ));
+            ).WithTelemetry());
 
         builder.AddAIAgent(
             "groupchat-startup-advisor",
@@ -208,7 +208,7 @@ public static partial class GroupChatWorkflow
                     for actionable suggestions.
                     """,
                 tools: [.. startupTools.Where(t => t.Name == "lookup_market_data")]
-            ));
+            ).WithTelemetry());
 
         builder.AddWorkflow("groupchat-startup", (sp, key) =>
         {

@@ -1,4 +1,4 @@
-namespace Demo.Orchestrations;
+namespace Demo.MauiAgentApp.Orchestrations;
 
 /// <summary>
 /// Keys used to identify which IChatClient an agent talks to.

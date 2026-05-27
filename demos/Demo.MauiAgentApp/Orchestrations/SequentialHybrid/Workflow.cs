@@ -1,12 +1,12 @@
-using Demo.Orchestrations.SequentialHybrid;
-using Demo.Orchestrations.SequentialHybrid.Services;
+using Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
+using Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Demo.Orchestrations;
+namespace Demo.MauiAgentApp.Orchestrations;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  local-cloud-meeting-invite workflow

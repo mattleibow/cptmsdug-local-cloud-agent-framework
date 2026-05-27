@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Maui.AI.Attributes;
 
-namespace Demo.Orchestrations;
+namespace Demo.MauiAgentApp.Orchestrations;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tools used by the concurrent travel workflow
@@ -136,7 +136,7 @@ public static partial class ConcurrentWorkflow
                 **Booking tips:** <1-2 sentences>
                 """,
             tools: [.. travelTools.Where(t => t.Name == "search_restaurants")]
-        ));
+        ).WithTelemetry());
 
         builder.AddAIAgent("concurrent-travel-culture", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
@@ -165,7 +165,7 @@ public static partial class ConcurrentWorkflow
                 - *<Neighbourhood 2>* — ...
                 """,
             tools: []
-        ));
+        ).WithTelemetry());
 
         builder.AddAIAgent("concurrent-travel-logistics", (sp, key) => new ChatClientAgent(
             sp.GetRequiredService<IChatClient>(),
@@ -200,7 +200,7 @@ public static partial class ConcurrentWorkflow
                 """,
             tools: [.. travelTools.Where(t =>
                 t.Name is "check_transport" or "check_accommodation")]
-        ));
+        ).WithTelemetry());
 
         var parallelAgents = new[]
         {

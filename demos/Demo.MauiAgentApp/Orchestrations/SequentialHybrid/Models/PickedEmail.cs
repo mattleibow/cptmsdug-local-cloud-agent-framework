@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 
-namespace Demo.Orchestrations.SequentialHybrid.Models;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Models;
 
 /// <summary>
 /// Structured payload produced by the on-device inbox-picker agent. Only

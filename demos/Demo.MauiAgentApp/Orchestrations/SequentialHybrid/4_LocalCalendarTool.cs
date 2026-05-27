@@ -1,9 +1,9 @@
 using System.ComponentModel;
-using Demo.Orchestrations.SequentialHybrid.Services;
+using Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.AI.Attributes;
 
-namespace Demo.Orchestrations.SequentialHybrid;
+namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 
 /// <summary>
 /// Tools exposed to the cloud invite-drafter agent (stage 3).
