@@ -516,7 +516,84 @@ const TOTAL = 15;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 5 — OS ON-DEVICE MODELS (the surprise)
+// SLIDE 5 — BRING YOUR OWN LOCAL (the middle ground)
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const s = pptx.addSlide();
+  s.background = { color: C.bgLight };
+  eyebrow(s, "Tier 2  ·  The Practical Middle", C.amber);
+  title(s, "Bring your own local model");
+
+  s.addText("The forgotten tier — cloud-class capability with local-class privacy", {
+    x: 0.6, y: 1.75, w: 12, h: 0.5,
+    fontSize: 17, italic: true, color: C.textMuted, fontFace: F.body,
+  });
+
+  // Three approach cards
+  const approaches = [
+    {
+      title: "Foundry Local",
+      sub: "Cloud-grade LLMs, local host",
+      body: "Microsoft's runtime for running Phi, Llama, Qwen and friends on the user's box. .NET-friendly, ONNX-backed, GPU/NPU accelerated.",
+      tag: "RECOMMENDED",
+      color: C.coral,
+    },
+    {
+      title: "ONNX Runtime GenAI",
+      sub: "Ship your own model",
+      body: "Cross-platform C# / native inference. Bring any ONNX-converted model — tiny custom classifiers to multi-billion-param LLMs.",
+      tag: "FLEXIBLE",
+      color: C.indigoBright,
+    },
+    {
+      title: "Tiny Bespoke Models",
+      sub: "Right-sized for the task",
+      body: "Sometimes a 50MB classifier beats a 3B LLM. Embeddings, intent detection, structured extraction — fast, cheap, embarrassingly good.",
+      tag: "UNDERRATED",
+      color: C.amber,
+    },
+  ];
+
+  const colW = 4.05, gap = 0.15, startX = 0.6;
+  approaches.forEach((a, i) => {
+    const x = startX + i * (colW + gap);
+    s.addShape("roundRect", {
+      x, y: 2.5, w: colW, h: 4.3,
+      fill: { color: C.cardLight }, line: { color: a.color, width: 2 },
+      rectRadius: 0.12,
+    });
+    // tag pill
+    s.addShape("roundRect", {
+      x: x + 0.3, y: 2.75, w: 1.7, h: 0.32,
+      fill: { color: a.color }, line: { color: a.color },
+      rectRadius: 0.16,
+    });
+    s.addText(a.tag, {
+      x: x + 0.3, y: 2.75, w: 1.7, h: 0.32,
+      fontSize: 9, bold: true, color: C.bgLight, charSpacing: 2, fontFace: F.body,
+      align: "center", valign: "middle",
+    });
+    // title
+    s.addText(a.title, {
+      x: x + 0.3, y: 3.25, w: colW - 0.6, h: 0.6,
+      fontSize: 22, bold: true, color: C.textDark, fontFace: F.header,
+    });
+    s.addText(a.sub, {
+      x: x + 0.3, y: 3.85, w: colW - 0.6, h: 0.4,
+      fontSize: 13, italic: true, color: a.color, fontFace: F.body,
+    });
+    s.addText(a.body, {
+      x: x + 0.3, y: 4.4, w: colW - 0.6, h: 2.2,
+      fontSize: 13, color: C.textDark, fontFace: F.body,
+    });
+  });
+
+  addMotif(s);
+  addFooter(s, 5, TOTAL);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SLIDE 6 — OS ON-DEVICE MODELS (the surprise)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -628,11 +705,11 @@ const TOTAL = 15;
   );
 
   addMotif(s);
-  addFooter(s, 5, TOTAL);
+  addFooter(s, 6, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 6 — LIVE DEMO 1 (Apple Intelligence)
+// SLIDE 7 — LIVE DEMO 1 (Apple Intelligence)
 // ═══════════════════════════════════════════════════════════════════════════
 {
   const s = pptx.addSlide();
@@ -706,83 +783,6 @@ Console.WriteLine(response.Text);
   });
 
   addMotif(s, { color: C.coral });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// SLIDE 7 — BRING YOUR OWN LOCAL (the middle ground)
-// ═══════════════════════════════════════════════════════════════════════════
-{
-  const s = pptx.addSlide();
-  s.background = { color: C.bgLight };
-  eyebrow(s, "Tier 2  ·  The Practical Middle", C.amber);
-  title(s, "Bring your own local model");
-
-  s.addText("The forgotten tier — cloud-class capability with local-class privacy", {
-    x: 0.6, y: 1.75, w: 12, h: 0.5,
-    fontSize: 17, italic: true, color: C.textMuted, fontFace: F.body,
-  });
-
-  // Three approach cards
-  const approaches = [
-    {
-      title: "Foundry Local",
-      sub: "Cloud-grade LLMs, local host",
-      body: "Microsoft's runtime for running Phi, Llama, Qwen and friends on the user's box. .NET-friendly, ONNX-backed, GPU/NPU accelerated.",
-      tag: "RECOMMENDED",
-      color: C.coral,
-    },
-    {
-      title: "ONNX Runtime GenAI",
-      sub: "Ship your own model",
-      body: "Cross-platform C# / native inference. Bring any ONNX-converted model — tiny custom classifiers to multi-billion-param LLMs.",
-      tag: "FLEXIBLE",
-      color: C.indigoBright,
-    },
-    {
-      title: "Tiny Bespoke Models",
-      sub: "Right-sized for the task",
-      body: "Sometimes a 50MB classifier beats a 3B LLM. Embeddings, intent detection, structured extraction — fast, cheap, embarrassingly good.",
-      tag: "UNDERRATED",
-      color: C.amber,
-    },
-  ];
-
-  const colW = 4.05, gap = 0.15, startX = 0.6;
-  approaches.forEach((a, i) => {
-    const x = startX + i * (colW + gap);
-    s.addShape("roundRect", {
-      x, y: 2.5, w: colW, h: 4.3,
-      fill: { color: C.cardLight }, line: { color: a.color, width: 2 },
-      rectRadius: 0.12,
-    });
-    // tag pill
-    s.addShape("roundRect", {
-      x: x + 0.3, y: 2.75, w: 1.7, h: 0.32,
-      fill: { color: a.color }, line: { color: a.color },
-      rectRadius: 0.16,
-    });
-    s.addText(a.tag, {
-      x: x + 0.3, y: 2.75, w: 1.7, h: 0.32,
-      fontSize: 9, bold: true, color: C.bgLight, charSpacing: 2, fontFace: F.body,
-      align: "center", valign: "middle",
-    });
-    // title
-    s.addText(a.title, {
-      x: x + 0.3, y: 3.25, w: colW - 0.6, h: 0.6,
-      fontSize: 22, bold: true, color: C.textDark, fontFace: F.header,
-    });
-    s.addText(a.sub, {
-      x: x + 0.3, y: 3.85, w: colW - 0.6, h: 0.4,
-      fontSize: 13, italic: true, color: a.color, fontFace: F.body,
-    });
-    s.addText(a.body, {
-      x: x + 0.3, y: 4.4, w: colW - 0.6, h: 2.2,
-      fontSize: 13, color: C.textDark, fontFace: F.body,
-    });
-  });
-
-  addMotif(s);
-  addFooter(s, 7, TOTAL);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
