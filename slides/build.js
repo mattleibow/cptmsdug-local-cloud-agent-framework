@@ -165,24 +165,17 @@ const H = 7.5;
 // Recurring motif: device ↔ cloud glyph (small, top-right or bottom)
 function addMotif(slide, opts = {}) {
   const { x = W - 2.2, y = 0.55, color = C.indigoBright, scale = 1 } = opts;
-  // device square
-  slide.addShape("roundRect", {
-    x, y, w: 0.32 * scale, h: 0.32 * scale,
-    line: { color, width: 1.5 },
-    fill: { type: "none" },
-    rectRadius: 0.05,
+  // smartphone icon
+  addIcon(slide, "Smartphone", {
+    x, y, size: 0.36 * scale, color, strokeWidth: 1.75,
   });
-  // arrow
-  slide.addText("↔", {
-    x: x + 0.32 * scale, y: y - 0.05 * scale, w: 0.45 * scale, h: 0.42 * scale,
-    fontSize: 18 * scale, color, bold: true, fontFace: F.body,
-    align: "center", valign: "middle",
+  // arrows between
+  addIcon(slide, "ArrowLeftRight", {
+    x: x + 0.42 * scale, y, size: 0.36 * scale, color, strokeWidth: 1.75,
   });
-  // cloud (use ☁)
-  slide.addText("☁", {
-    x: x + 0.78 * scale, y: y - 0.08 * scale, w: 0.45 * scale, h: 0.5 * scale,
-    fontSize: 22 * scale, color, fontFace: F.body,
-    align: "center", valign: "middle",
+  // cloud icon
+  addIcon(slide, "Cloud", {
+    x: x + 0.84 * scale, y, size: 0.36 * scale, color, strokeWidth: 1.75,
   });
 }
 
@@ -243,17 +236,14 @@ const TOTAL = 16;
   s.addShape("rect", { x: 0, y: 0, w: 0.4, h: H, fill: { color: C.coral }, line: { color: C.coral } });
 
   // Big motif top-right (oversized for impact)
-  s.addText("📱", {
-    x: W - 3.2, y: 0.6, w: 1.2, h: 1.2,
-    fontSize: 60, align: "center", valign: "middle", color: C.coral, fontFace: F.body,
+  addIcon(s, "Smartphone", {
+    x: W - 3.2, y: 0.7, size: 1.1, color: C.coral, strokeWidth: 2.5,
   });
-  s.addText("↔", {
-    x: W - 2.2, y: 0.8, w: 1.0, h: 1.0,
-    fontSize: 50, align: "center", valign: "middle", color: C.textOnDarkMuted, bold: true, fontFace: F.body,
+  addIcon(s, "ArrowLeftRight", {
+    x: W - 2.05, y: 0.78, size: 0.95, color: C.textOnDarkMuted, strokeWidth: 2.5,
   });
-  s.addText("☁", {
-    x: W - 1.4, y: 0.55, w: 1.2, h: 1.25,
-    fontSize: 64, align: "center", valign: "middle", color: C.indigoBright, fontFace: F.body,
+  addIcon(s, "Cloud", {
+    x: W - 1.45, y: 0.7, size: 1.15, color: C.indigoBright, strokeWidth: 2.5,
   });
 
   // Eyebrow
@@ -450,10 +440,9 @@ const TOTAL = 16;
   eyebrow(s, "Tier 3  ·  Start With What You Know", C.indigoBright);
   title(s, "Cloud AI — the frontier brain");
 
-  // Left: big cloud glyph
-  s.addText("☁", {
-    x: 0.6, y: 2.4, w: 4.5, h: 4.0,
-    fontSize: 220, color: C.indigoBright, align: "center", valign: "middle", fontFace: F.body,
+  // Left: big cloud icon as decorative graphic
+  addIcon(s, "Cloud", {
+    x: 0.6, y: 2.6, size: 3.6, color: C.indigoBright, strokeWidth: 1.5,
   });
 
   // Right: provider chips + strengths/limits
@@ -579,19 +568,20 @@ Console.WriteLine(response.Value.Content[0].Text);`, "csharp"),
     fontSize: 12, bold: true, color: C.coral, charSpacing: 4, fontFace: F.body,
   });
   const watchItems = [
-    ["⚡ Latency", "Network round-trip — feel it"],
-    ["🌐 Connectivity", "Toggle Wi-Fi off and watch it fail"],
-    ["🧠 Quality", "Frontier-class reasoning"],
-    ["💸 Cost", "Each token is metered"],
+    { icon: "Zap",      color: C.indigoBright, label: "Latency",      sub: "Network round-trip — feel it" },
+    { icon: "Globe",    color: C.indigoBright, label: "Connectivity", sub: "Toggle Wi-Fi off and watch it fail" },
+    { icon: "Brain",    color: C.indigoBright, label: "Quality",      sub: "Frontier-class reasoning" },
+    { icon: "Coins",    color: C.indigoBright, label: "Cost",         sub: "Each token is metered" },
   ];
-  watchItems.forEach(([h, sub], i) => {
+  watchItems.forEach((it, i) => {
     const y = 3.95 + i * 0.7;
-    s.addText(h, {
-      x: 8.8, y, w: 4, h: 0.3,
+    addIcon(s, it.icon, { x: 8.8, y: y + 0.04, size: 0.28, color: it.color, strokeWidth: 2 });
+    s.addText(it.label, {
+      x: 9.18, y, w: 3.6, h: 0.3,
       fontSize: 14, bold: true, color: C.textOnDark, fontFace: F.body,
     });
-    s.addText(sub, {
-      x: 8.8, y: y + 0.3, w: 4, h: 0.3,
+    s.addText(it.sub, {
+      x: 9.18, y: y + 0.3, w: 3.6, h: 0.3,
       fontSize: 12, color: C.textOnDarkMuted, italic: true, fontFace: F.body,
     });
   });
@@ -749,9 +739,9 @@ var response = await chat.GetResponseAsync(
 
 Console.WriteLine(response.Text);
 
-// ✈️  Works in airplane mode
-// 🆓  No API key, no per-token cost
-// 🔒  Data never leaves the device`, "csharp"),
+// Works in airplane mode
+// No API key, no per-token cost
+// Data never leaves the device`, "csharp"),
     {
       x: 1.1, y: 3.7, w: 7.1, h: 3.0,
       fontSize: 12, fontFace: F.mono, color: C.textOnDark,
@@ -765,19 +755,20 @@ Console.WriteLine(response.Text);
     fontSize: 12, bold: true, color: C.coral, charSpacing: 4, fontFace: F.body,
   });
   const watchItems = [
-    ["⚡ Instant first token", "No round-trip — sub-second"],
-    ["🔒 Airplane mode", "Disconnect — still works"],
-    ["📏 Tiny but capable", "~3B params on the NPU"],
-    ["⚠ The limit", "Short context · narrow skills"],
+    { icon: "Zap",          color: C.coral, label: "Instant first token", sub: "No round-trip — sub-second" },
+    { icon: "WifiOff",      color: C.coral, label: "Airplane mode",       sub: "Disconnect — still works" },
+    { icon: "Ruler",        color: C.coral, label: "Tiny but capable",    sub: "~3B params on the NPU" },
+    { icon: "AlertTriangle",color: C.coral, label: "The limit",           sub: "Short context · narrow skills" },
   ];
-  watchItems.forEach(([h, sub], i) => {
+  watchItems.forEach((it, i) => {
     const y = 3.95 + i * 0.7;
-    s.addText(h, {
-      x: 8.8, y, w: 4, h: 0.3,
+    addIcon(s, it.icon, { x: 8.8, y: y + 0.04, size: 0.28, color: it.color, strokeWidth: 2 });
+    s.addText(it.label, {
+      x: 9.18, y, w: 3.6, h: 0.3,
       fontSize: 14, bold: true, color: C.textOnDark, fontFace: F.body,
     });
-    s.addText(sub, {
-      x: 8.8, y: y + 0.3, w: 4, h: 0.3,
+    s.addText(it.sub, {
+      x: 9.18, y: y + 0.3, w: 3.6, h: 0.3,
       fontSize: 12, color: C.textOnDarkMuted, italic: true, fontFace: F.body,
     });
   });
@@ -919,19 +910,20 @@ var chat = client.GetChatClient("phi-4-mini");` },
     fontSize: 12, bold: true, color: C.amber, charSpacing: 4, fontFace: F.body,
   });
   const watchItems = [
-    ["🧠 Real reasoning", "Multi-billion-param model"],
-    ["🔒 Stays on device", "No data egress, no API key"],
-    ["🔌 OpenAI-compatible", "Same SDK, swap the URL"],
-    ["💾 The tradeoff", "Disk + RAM + warm-up time"],
+    { icon: "Brain",     color: C.amber, label: "Real reasoning",    sub: "Multi-billion-param model" },
+    { icon: "Shield",    color: C.amber, label: "Stays on device",   sub: "No data egress, no API key" },
+    { icon: "Plug",      color: C.amber, label: "OpenAI-compatible", sub: "Same SDK, swap the URL" },
+    { icon: "HardDrive", color: C.amber, label: "The tradeoff",      sub: "Disk + RAM + warm-up time" },
   ];
-  watchItems.forEach(([h, sub], i) => {
+  watchItems.forEach((it, i) => {
     const y = 3.95 + i * 0.7;
-    s.addText(h, {
-      x: 8.8, y, w: 4, h: 0.3,
+    addIcon(s, it.icon, { x: 8.8, y: y + 0.04, size: 0.28, color: it.color, strokeWidth: 2 });
+    s.addText(it.label, {
+      x: 9.18, y, w: 3.6, h: 0.3,
       fontSize: 14, bold: true, color: C.textOnDark, fontFace: F.body,
     });
-    s.addText(sub, {
-      x: 8.8, y: y + 0.3, w: 4, h: 0.3,
+    s.addText(it.sub, {
+      x: 9.18, y: y + 0.3, w: 3.6, h: 0.3,
       fontSize: 12, color: C.textOnDarkMuted, italic: true, fontFace: F.body,
     });
   });
@@ -1422,10 +1414,13 @@ await foreach (var update in workflow.RunStreamingAsync(userInput))
     ["Cloud capability, no egress", "BYO Local (Foundry Local)"],
   ]);
 
-  // Bottom tagline
-  s.addText("📐  Hand-off pattern:  local triage  →  cloud reasoning  →  local rendering", {
-    x: 0.6, y: 6.4, w: 12, h: 0.45,
-    fontSize: 16, italic: true, bold: true, color: C.coral, fontFace: F.header, align: "center",
+  // Bottom tagline (icon + text composed as one line)
+  addIcon(s, "Workflow", {
+    x: 0.6 + 1.4, y: 6.42, size: 0.34, color: C.coral, strokeWidth: 2,
+  });
+  s.addText("Hand-off pattern:  local triage  →  cloud reasoning  →  local rendering", {
+    x: 0.6 + 1.85, y: 6.4, w: 10.2, h: 0.45,
+    fontSize: 16, italic: true, bold: true, color: C.coral, fontFace: F.header, valign: "middle",
   });
 
   addMotif(s);
@@ -1542,18 +1537,15 @@ await foreach (var update in workflow.RunStreamingAsync(userInput))
   // Mirror the title slide motif: tri-color bar on right, large glyphs top-right
   s.addShape("rect", { x: W - 0.4, y: 0, w: 0.4, h: H, fill: { color: C.coral }, line: { color: C.coral } });
 
-  // Big motif top-right (echoes title slide)
-  s.addText("☁", {
-    x: 0.9, y: 0.55, w: 1.2, h: 1.25,
-    fontSize: 64, align: "center", valign: "middle", color: C.indigoBright, fontFace: F.body,
+  // Big motif top-left (echoes title slide)
+  addIcon(s, "Cloud", {
+    x: 0.9, y: 0.65, size: 1.15, color: C.indigoBright, strokeWidth: 2.5,
   });
-  s.addText("↔", {
-    x: 1.7, y: 0.8, w: 1.0, h: 1.0,
-    fontSize: 50, align: "center", valign: "middle", color: C.textOnDarkMuted, bold: true, fontFace: F.body,
+  addIcon(s, "ArrowLeftRight", {
+    x: 2.15, y: 0.78, size: 0.95, color: C.textOnDarkMuted, strokeWidth: 2.5,
   });
-  s.addText("📱", {
-    x: 2.5, y: 0.6, w: 1.2, h: 1.2,
-    fontSize: 60, align: "center", valign: "middle", color: C.coral, fontFace: F.body,
+  addIcon(s, "Smartphone", {
+    x: 3.2, y: 0.7, size: 1.1, color: C.coral, strokeWidth: 2.5,
   });
 
   // Big "Thank you"
