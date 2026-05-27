@@ -67,19 +67,15 @@ public static class MauiProgram
 
 #if IOS || MACCATALYST
 #pragma warning disable CA1416, MAUIAI0001 // iOS / macCatalyst 26.0 + experimental Apple Intelligence API
-		// TEMP: route the Local key at the cloud client while debugging the
-		// workflow plumbing. Flip USE_APPLE_INTELLIGENCE back on to use the
-		// real on-device client.
-#if USE_APPLE_INTELLIGENCE
+		// Real on-device inference via Apple Intelligence Foundation Models.
+		// Requires iOS / macCatalyst 26+ on Apple silicon. Comment this
+		// branch out and use the cloud fallback below if you want to debug
+		// the workflow shape without the on-device model in the loop.
 		builder.Services.AddKeyedSingleton<IChatClient>(AIModels.Local, (sp, _) =>
 			new Microsoft.Maui.Essentials.AI.AppleIntelligenceChatClient()
 				.AsBuilder()
 				.UseFunctionInvocation()
 				.Build(sp));
-#else
-		builder.Services.AddKeyedSingleton<IChatClient>(AIModels.Local, (sp, _) =>
-			sp.GetRequiredService<AIChatService>().ChatClient);
-#endif
 #pragma warning restore CA1416, MAUIAI0001
 #else
 		// Fallback: on platforms without on-device AI, route "local-model"

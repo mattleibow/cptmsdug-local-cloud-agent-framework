@@ -51,8 +51,41 @@ public sealed class MarkdownLabel : Label
             return;
         }
 
+        // Strip leading YAML frontmatter (delimited by --- on its own line at
+        // the start, ended by another --- line). Render it as a monospaced
+        // metadata header above the markdown body so the user can see fields
+        // like to:, from:, subject:, mailto: etc. verbatim.
+        string? frontmatter = null;
+        if (md.StartsWith("---"))
+        {
+            var endIdx = md.IndexOf("\n---", 3, StringComparison.Ordinal);
+            if (endIdx > 0)
+            {
+                var fmLineEnd = md.IndexOf('\n', endIdx + 4);
+                frontmatter = md.Substring(4, endIdx - 4).Trim('\r', '\n');
+                md = fmLineEnd > 0
+                    ? md[(fmLineEnd + 1)..].TrimStart('\r', '\n')
+                    : string.Empty;
+            }
+        }
+
         var doc = Markdig.Markdown.Parse(md, s_pipeline);
         var fs = new FormattedString();
+
+        if (frontmatter is not null)
+        {
+            fs.Spans.Add(new Span
+            {
+                Text = frontmatter,
+                FontFamily = "Courier New",
+                FontSize = FontSize * 0.9,
+                TextColor = TextColor,
+                BackgroundColor = Color.FromArgb("#11808080"),
+            });
+            if (doc.Count > 0)
+                fs.Spans.Add(new Span { Text = "\n\n" });
+        }
+
         bool first = true;
         foreach (var block in doc)
         {
@@ -177,10 +210,39 @@ public sealed class MarkdownLabel : Label
 
             case LinkInline link:
             {
-                // Render link text only — no navigation in v1
-                var linkAttrs = (forcedAttrs ?? FontAttributes.None) | FontAttributes.Italic;
+                // Underlined + accent colour. Tap → Launcher.OpenAsync (mailto:, https:, etc.).
+                var linkAttrs = (forcedAttrs ?? FontAttributes.None);
+                var linkColor = Color.FromArgb("#643FB2");
+                var url = link.Url ?? string.Empty;
                 foreach (var child in link)
-                    RenderInline(child, fs, sizeMultiplier, linkAttrs);
+                {
+                    if (child is LiteralInline lit)
+                    {
+                        var span = new Span
+                        {
+                            Text = lit.Content.ToString(),
+                            FontSize = FontSize * sizeMultiplier,
+                            TextColor = linkColor,
+                            TextDecorations = TextDecorations.Underline,
+                            FontAttributes = linkAttrs,
+                        };
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            var tap = new TapGestureRecognizer();
+                            tap.Tapped += async (_, _) =>
+                            {
+                                try { await Launcher.Default.OpenAsync(new Uri(url)); }
+                                catch { /* swallow — best-effort opener */ }
+                            };
+                            span.GestureRecognizers.Add(tap);
+                        }
+                        fs.Spans.Add(span);
+                    }
+                    else
+                    {
+                        RenderInline(child, fs, sizeMultiplier, linkAttrs);
+                    }
+                }
                 break;
             }
 

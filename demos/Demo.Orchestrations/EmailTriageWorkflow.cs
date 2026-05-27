@@ -8,39 +8,84 @@ using Microsoft.Extensions.Hosting;
 
 namespace Demo.Orchestrations;
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Local + cloud email triage workflow.
+// ════════════════════════════════════════════════════════════════════════════
+//  local-cloud-email-triage workflow
+// ════════════════════════════════════════════════════════════════════════════
 //
-//   local-email-redactor   → on-device. A TextSearchProvider invents 3-5 fake
-//                            inbox emails relevant to the user's request and
-//                            injects them as RAG context. The redactor then
-//                            tokenises every name / email / org / project and
-//                            stores the mapping in workflow state via a
-//                            hook-supplied tool.
+//  USER INPUT (free-text request, e.g. "reply to Bob about budget")
+//          │
+//          ▼
+//  ┌──────────────────────────────────────────────────────────────────────┐
+//  │  inbox-picker            local agent                                  │
+//  │    • TextSearchProvider → InboxService fabricates 3-5 fake emails    │
+//  │      on-device, exposes them as RAG context.                          │
+//  │    • Picks ONE email, returns structured PickedEmail JSON.            │
+//  └──────────────────────────────────────────────────────────────────────┘
+//          │ PickedEmail JSON
+//          ▼
+//  ┌──────────────────────────────────────────────────────────────────────┐
+//  │  body-redactor           local agent                                  │
+//  │    • Replaces last names, companies, projects, and dollar amounts    │
+//  │      mentioned IN the body with PERSON_n / COMPANY_n / PROJECT_n /   │
+//  │      AMOUNT_n tokens. First names stay.                               │
+//  │    • Returns RedactedBody { body, mapping }.                          │
+//  └──────────────────────────────────────────────────────────────────────┘
+//          │ RedactedBody JSON
+//          ▼
+//  ┌──────────────────────────────────────────────────────────────────────┐
+//  │  cloud-prompt-adapter    executor, no LLM                             │
+//  │    • Parses PickedEmail + RedactedBody from the two assistant turns.  │
+//  │    • Stores both in workflow state for the assembler.                 │
+//  │    • Emits the cloud prompt — first names only, subject, redacted     │
+//  │      body — and tells the cloud to draft just a reply BODY.           │
+//  └──────────────────────────────────────────────────────────────────────┘
+//          │ ChatMessage (no last names, no emails, no $, no project names)
+//          ▼
+//  ┌──────────────────────────────────────────────────────────────────────┐
+//  │  cloud-reply-writer      CLOUD agent                                  │
+//  │    • Drafts a reply body. No greeting, no sign-off — the device       │
+//  │      will assemble those. Re-uses tokens verbatim.                    │
+//  └──────────────────────────────────────────────────────────────────────┘
+//          │ reply body text
+//          ▼
+//  ┌──────────────────────────────────────────────────────────────────────┐
+//  │  final-email-assembler   executor, no LLM                             │
+//  │    • Reads PickedEmail from workflow state (for to/from/subject).     │
+//  │    • Reads cloud body from the latest assistant turn.                 │
+//  │    • Emits a single Markdown document with YAML frontmatter and a     │
+//  │      mailto: link — the DevUI's MarkdownLabel surfaces the link as    │
+//  │      a clickable "Open in Mail" button via Launcher.OpenAsync.        │
+//  └──────────────────────────────────────────────────────────────────────┘
+//          │ markdown
+//          ▼
+//  OutputMessagesExecutor → workflow.output
 //
-//   cloud-reply-writer     → cloud. Sees only the tokenised text. Drafts the
-//                            reply against placeholders like PERSON_1, ORG_2.
+// ─── Privacy contract ─────────────────────────────────────────────────────
+//   Leaves the device → cloud:
+//     • First names (sender + user)
+//     • Subject line
+//     • Body with last names, companies, projects, and dollar amounts
+//       already swapped for tokens
 //
-//   local-email-finisher   → on-device. Calls a hook-supplied tool that reads
-//                            the redaction map back from workflow state and
-//                            rehydrates the cloud's draft.
-//
-// The cloud agent never sees a real name, address, or company.
-// ──────────────────────────────────────────────────────────────────────────────
+//   Never leaves the device:
+//     • Last names
+//     • Email addresses
+//     • Company / org names appearing inside the body
+//     • Project / product names
+//     • Dollar amounts
+//     • The full inbox
+// ──────────────────────────────────────────────────────────────────────────
 
 public static class EmailTriageWorkflow
 {
-    public const string RedactionMapStateKey = "redaction_map";
-
     public static void AddEmailTriageWorkflow(this IHostApplicationBuilder builder)
     {
-        // The inbox is fabricated on-device on demand — see InboxService.
         builder.Services.AddSingleton<InboxService>();
 
-        // 1. Redactor — local. RAG via TextSearchProvider auto-injects fake
-        //    inbox emails generated on-device, then the agent tokenises PII.
+        // 1. INBOX PICKER — local agent that does RAG over the fake inbox and
+        //    picks the single email most relevant to the user's request.
         builder.AddAIAgent(
-            "local-email-redactor",
+            "local-inbox-picker",
             (sp, key) =>
             {
                 var inbox = sp.GetRequiredService<InboxService>();
@@ -51,10 +96,9 @@ public static class EmailTriageWorkflow
                         SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
                         RecentMessageMemoryLimit = 6,
                         ContextPrompt =
-                            "## Inbox\n" +
-                            "The following emails were retrieved from the user's inbox " +
-                            "for context. They contain sensitive personal data — your " +
-                            "job is to redact it before forwarding downstream.",
+                            "## Inbox candidates\n" +
+                            "Each entry below is a separate email from the user's inbox. " +
+                            "Pick exactly ONE — the most relevant to the user's request.",
                         CitationsPrompt = string.Empty,
                     });
 
@@ -64,136 +108,138 @@ public static class EmailTriageWorkflow
                     {
                         Name = key,
                         Description =
-                            "On-device redactor: pulls the inbox via RAG, " +
-                            "swaps every name / email / org / project for a " +
-                            "stable placeholder token, and emits a structured " +
-                            "JSON document with the mapping for the next stage.",
+                            "On-device inbox picker: chooses the single inbox email most " +
+                            "relevant to the user's request and returns it as structured JSON.",
                         AIContextProviders = [ragProvider],
                         ChatOptions = new ChatOptions
                         {
-                            ResponseFormat = ChatResponseFormat.ForJsonSchema<RedactionResult>(),
+                            ResponseFormat = ChatResponseFormat.ForJsonSchema<PickedEmail>(),
                             Instructions = $$"""
-                                You are an on-device privacy redactor. You will be given:
-                                  1. The user's request (what they want a reply about).
-                                  2. A list of inbox emails injected as context by the
-                                     RAG provider.
-
-                                The user (the inbox owner) is:
-                                  Name:  {{UserProfile.Name}}
-                                  Email: {{UserProfile.Email}}
-
-                                Your job is to produce a TOKEN-REDACTED, VERBATIM copy
-                                of the relevant inbox email(s), preserving the full
-                                content. You are NOT summarising, NOT shortening, NOT
-                                paraphrasing — you are just running a find-and-replace
-                                over the original text.
-
-                                Build a token mapping. For EVERY occurrence of sensitive
-                                data in the inbox emails AND the user's request, assign
-                                a stable placeholder token. Use the SAME token for the
-                                SAME value across the whole conversation:
-
-                                  - The user themselves        → PERSON_USER (name) and EMAIL_USER (address)
-                                  - OTHER person names         → PERSON_1, PERSON_2, ...
-                                  - OTHER email addresses      → EMAIL_1, EMAIL_2, ...
-                                  - Company / org names        → ORG_1, ORG_2, ...
-                                  - Project / product          → PROJECT_1, PROJECT_2, ...
-
-                                Respond with a JSON object matching this exact shape:
+                                You are an on-device inbox picker. You will see a list of
+                                inbox emails in context. Pick the ONE email most relevant
+                                to the user's request and return it as a JSON object
+                                matching this exact shape:
 
                                   {
-                                    "redacted": "<the full text of every relevant inbox
-                                                  email, verbatim, with sensitive data
-                                                  replaced by tokens. Preserve all
-                                                  paragraph breaks, dates, dollar
-                                                  amounts, quoted text, and original
-                                                  wording. Append a single trailing
-                                                  paragraph stating: 'The user
-                                                  (PERSON_USER, EMAIL_USER) is asking
-                                                  for help drafting a reply about: ...'>",
-                                    "tokens": {
-                                      "PERSON_USER": "{{UserProfile.Name}}",
-                                      "EMAIL_USER":  "{{UserProfile.Email}}",
-                                      "PERSON_1":    "Bob Martinez",
-                                      "EMAIL_1":     "bob.martinez@acme-corp.com",
-                                      "ORG_1":       "Acme Corp",
-                                      ...
-                                    }
+                                    "fromFullName": "Bob Martinez",
+                                    "fromEmail":    "bob.martinez@acme-corp.com",
+                                    "toFullName":   "{{UserProfile.Name}}",
+                                    "toEmail":      "{{UserProfile.Email}}",
+                                    "subject":      "Q3 budget approval",
+                                    "body":         "<full original email body, verbatim>"
                                   }
 
                                 Rules:
-                                  - The 'redacted' field MUST be the full email body,
-                                    not a summary. If the inbox has 3 emails, include
-                                    all 3, each separated by '---'.
-                                  - The 'redacted' field MUST contain NO original
-                                    names, emails, companies, or projects — only the
-                                    placeholder tokens.
-                                  - The 'tokens' field MUST cover EVERY token that
-                                    appears in 'redacted'.
-                                  - The 'tokens' field MUST always include
-                                    PERSON_USER → "{{UserProfile.Name}}" and
-                                    EMAIL_USER → "{{UserProfile.Email}}", even if those
-                                    tokens don't appear in the redacted text.
+                                  - Copy the FROM_NAME / FROM_EMAIL / TO_NAME / TO_EMAIL
+                                    fields exactly as shown in the chosen inbox entry.
+                                  - Copy the Subject exactly.
+                                  - Copy the body verbatim — preserve all paragraphs,
+                                    quotes, dates, dollar amounts, and named people.
+                                  - Do not invent emails. If no inbox entry is a good
+                                    match, pick the closest one anyway.
                                 """,
                         },
                     });
             });
 
-        // 2. Cloud reply writer — sees ONLY tokens. No tools, no private data.
+        // 2. BODY REDACTOR — local agent that swaps last names and company
+        //    names INSIDE the body for placeholder tokens. The token map is
+        //    purely informational; we do not rehydrate it into the final
+        //    reply body (per design: the user-facing email uses originals,
+        //    only the cloud-bound prompt uses tokens).
+        builder.AddAIAgent(
+            "local-body-redactor",
+            (sp, key) => new ChatClientAgent(
+                sp.GetRequiredKeyedService<IChatClient>(AIModels.Local),
+                new ChatClientAgentOptions
+                {
+                    Name = key,
+                    Description =
+                        "On-device body redactor: replaces last names and company names " +
+                        "inside the email body with placeholder tokens before the cloud " +
+                        "sees the text.",
+                    ChatOptions = new ChatOptions
+                    {
+                        ResponseFormat = ChatResponseFormat.ForJsonSchema<RedactedBody>(),
+                        Instructions = """
+                            You are an on-device privacy redactor. You will be given a
+                            PickedEmail JSON from the previous stage. Your job is to take
+                            the `body` field, find every sensitive token inside it, and
+                            replace each with a stable placeholder.
+
+                            Token scheme — re-use the same token for the same value:
+                              - Last names      → PERSON_1, PERSON_2, ...
+                              - Companies/orgs  → COMPANY_1, COMPANY_2, ...
+                              - Projects/products → PROJECT_1, PROJECT_2, ...
+                              - Dollar amounts  → AMOUNT_1, AMOUNT_2, ...
+
+                            FIRST NAMES STAY. So "Bob Lobby from Choppy Corp pitched
+                            Project Zen for $42,000" becomes "Bob PERSON_1 from
+                            COMPANY_1 pitched PROJECT_1 for AMOUNT_1".
+
+                            Do not redact anything outside the body. Do not redact the
+                            subject. Do not redact email addresses (they are handled
+                            separately and never leave the device).
+
+                            Return JSON matching this exact shape:
+
+                              {
+                                "body": "<the body verbatim, with last names,
+                                          companies, projects, and dollar amounts
+                                          swapped for tokens>",
+                                "mapping": [
+                                  { "token": "PERSON_1",  "original": "Lobby" },
+                                  { "token": "COMPANY_1", "original": "Choppy Corp" },
+                                  { "token": "PROJECT_1", "original": "Project Zen" },
+                                  { "token": "AMOUNT_1",  "original": "$42,000" }
+                                ]
+                              }
+
+                            If there is nothing to redact, return the body unchanged and
+                            an empty mapping array.
+                            """,
+                    },
+                }));
+
+        // 3. CLOUD REPLY WRITER — receives only first names, subject, and the
+        //    token-redacted body. Drafts a plain reply body.
         builder.AddAIAgent(
             name: "cloud-reply-writer",
             instructions: """
-                You are a senior email drafter working in the cloud. You will be
-                given a redacted email plus a one-line summary of what the user
-                wants. Personal data has already been replaced with placeholder
-                tokens like PERSON_1, ORG_2, PERSON_USER, etc.
+                You are a senior email assistant. The user wants help drafting a reply
+                to a colleague. You will be given:
 
-                Rules:
-                  - KEEP every token EXACTLY as written. Do not invent new
-                    tokens, do not guess at names, do not de-tokenise.
-                  - Address the recipient using the same token that the
-                    incoming email's 'From:' line used (e.g. "Hi PERSON_1,").
-                  - Sign the reply with PERSON_USER (the user is the sender
-                    of the reply you are drafting):
+                  - FROM: the colleague's FIRST name
+                  - TO:   the user's FIRST name
+                  - SUBJECT: the subject line of the colleague's email
+                  - The body of the colleague's email (with last names, company names,
+                    project names, and dollar amounts already replaced by placeholder
+                    tokens like PERSON_1, COMPANY_1, PROJECT_1, AMOUNT_1 — keep these
+                    tokens VERBATIM in your output, do not invent names or numbers)
 
-                        Best regards,
-                        PERSON_USER
+                Draft just the BODY of the reply. Do NOT include:
+                  - any "Hi X" greeting
+                  - any "Best, Y" sign-off
+                  - any subject line
 
-                  - Be concise. 4-6 sentences. Acknowledge, commit, close.
-
-                Output ONLY the draft reply as Markdown.
+                The device will handle the greeting, sign-off, subject, and recipient.
+                Keep your reply 3-6 sentences, professional, and grounded in what the
+                colleague actually said. If there's a question to answer, answer it.
+                If there's a request to acknowledge, acknowledge it. Re-use any tokens
+                from the input where appropriate so the device can rehydrate them in
+                the final user-facing email.
                 """,
-            description: "Cloud-side reply drafter — only ever sees redacted, tokenised content.",
+            description:
+                "Cloud-side reply drafter — sees only first names + redacted body, " +
+                "returns a reply body.",
             chatClientServiceKey: AIModels.Cloud);
 
-        // 3. Finisher — local. The rehydrate adapter has already replaced the
-        //    tokens, so this agent's job is purely to make the reply read
-        //    naturally (tone, flow, light polish — no PII handling).
-        builder.AddAIAgent(
-            name: "local-email-finisher",
-            instructions: """
-                You are the on-device finisher. You will be given a draft email
-                reply that already has the real names, emails, companies, and
-                projects filled in.
-
-                Your job is to lightly polish the wording for tone and flow.
-                Do NOT add new facts. Do NOT change names, dates, or numbers.
-                Output ONLY the final polished reply as Markdown — no
-                commentary, no preamble, no extra text.
-                """,
-            description: "On-device finisher: polishes the rehydrated reply for tone and flow.",
-            chatClientServiceKey: AIModels.Local);
-
-        // Wire by hand using WorkflowBuilder. Plain agents are bound via
-        // BindAsExecutor (so streaming, chat bubbles, and traces work). Tiny
-        // adapter executors between agents move structured state out of the
-        // conversation and into IWorkflowContext, so rehydration is
-        // mechanical rather than LLM-guessed.
+        // ── Wire everything together ─────────────────────────────────────
         builder.AddWorkflow("local-cloud-email-triage", (sp, key) =>
         {
-            var redactorAgent    = sp.GetRequiredKeyedService<AIAgent>("local-email-redactor");
-            var replyWriterAgent = sp.GetRequiredKeyedService<AIAgent>("cloud-reply-writer");
-            var finisherAgent    = sp.GetRequiredKeyedService<AIAgent>("local-email-finisher");
+            var pickerAgent      = sp.GetRequiredKeyedService<AIAgent>("local-inbox-picker");
+            var redactorAgent    = sp.GetRequiredKeyedService<AIAgent>("local-body-redactor");
+            var cloudWriterAgent = sp.GetRequiredKeyedService<AIAgent>("cloud-reply-writer");
 
             var hostOpts = new AIAgentHostOptions
             {
@@ -201,27 +247,26 @@ public static class EmailTriageWorkflow
                 ForwardIncomingMessages = true,
             };
 
-            ExecutorBinding redactor          = redactorAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding storeRedactionMap = new StoreRedactionMapAdapter();
-            ExecutorBinding replyWriter       = replyWriterAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding rehydrate         = new RehydrateAdapter();
-            ExecutorBinding finisher          = finisherAgent.BindAsExecutor(hostOpts);
-            ExecutorBinding output            = new OutputMessagesExecutor();
+            ExecutorBinding picker        = pickerAgent.BindAsExecutor(hostOpts);
+            ExecutorBinding redactor      = redactorAgent.BindAsExecutor(hostOpts);
+            ExecutorBinding cloudPrompt   = new CloudPromptAdapter();
+            ExecutorBinding cloudWriter   = cloudWriterAgent.BindAsExecutor(hostOpts);
+            ExecutorBinding finalAssembly = new FinalEmailAssembler();
+            ExecutorBinding output        = new OutputMessagesExecutor();
 
-            return new WorkflowBuilder(redactor)
-                .AddEdge(redactor, storeRedactionMap)
-                .AddEdge(storeRedactionMap, replyWriter)
-                .AddEdge(replyWriter, rehydrate)
-                .AddEdge(rehydrate, finisher)
-                .AddEdge(finisher, output)
+            return new WorkflowBuilder(picker)
+                .AddEdge(picker, redactor)
+                .AddEdge(redactor, cloudPrompt)
+                .AddEdge(cloudPrompt, cloudWriter)
+                .AddEdge(cloudWriter, finalAssembly)
+                .AddEdge(finalAssembly, output)
                 .WithOutputFrom(output)
                 .WithName(key)
                 .WithDescription(
-                    "On-device RAG → on-device redaction → cloud reply → " +
-                    "deterministic rehydration → on-device polish. The cloud " +
-                    "agent only ever sees placeholder tokens; rehydration is " +
-                    "a literal text substitution from a map stored in workflow " +
-                    "state, not an LLM guess.")
+                    "Local inbox-picker → local body-redactor → cloud reply writer → " +
+                    "on-device assembly. The cloud sees only first names, the subject, " +
+                    "and a token-redacted body — never last names, email addresses, " +
+                    "company names, project names, or dollar amounts from the body.")
                 .Build();
         }).AddAsAIAgent();
     }

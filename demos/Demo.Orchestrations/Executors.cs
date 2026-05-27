@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
@@ -5,33 +6,22 @@ using Microsoft.Extensions.AI;
 namespace Demo.Orchestrations;
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Small adapter executors that sit BETWEEN agent stages in a sequential
+// Adapter executors that sit BETWEEN agent stages in the email-triage
 // workflow. They consume the previous agent's structured output, mutate
 // workflow state, and re-emit a clean ChatMessage + TurnToken so the next
 // agent can run.
 //
-// This is the pattern shown in the official Microsoft sample
-// "MixedWorkflowWithAgentsAndExecutors" — keep agents plain (so streaming,
-// chat bubbles, and traces work) and put any cross-stage logic into tiny
-// executors instead of customising the agent host.
+// All adapters subclass ChatProtocolExecutor so they accumulate upstream
+// List<ChatMessage> sends across a single turn and only fire TakeTurnAsync
+// once per TurnToken — same pattern MAF's own AIAgentHostExecutor uses.
+// Without this, an upstream agent with ForwardIncomingMessages = true would
+// trigger the adapter multiple times.
 // ──────────────────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Structured output for the redactor agent. The redactor is configured with
-/// <c>ChatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema&lt;RedactionResult&gt;()</c>
-/// so its reply is always a valid JSON document matching this shape.
-/// </summary>
-public sealed record RedactionResult(
-    string Redacted,
-    Dictionary<string, string> Tokens);
-
-/// <summary>
 /// Terminal executor that yields the final accumulated chat messages as the
-/// workflow output. Mirrors MAF's internal <c>OutputMessagesExecutor</c>
-/// (which is not public) but built on the public <see cref="ChatProtocolExecutor"/>
-/// base so it cleanly accepts both <c>List&lt;ChatMessage&gt;</c> sends and
-/// the <see cref="TurnToken"/> from upstream <see cref="AIAgent.BindAsExecutor"/>
-/// stages.
+/// workflow output. Public counterpart to MAF's internal
+/// <c>OutputMessagesExecutor</c>.
 /// </summary>
 public sealed class OutputMessagesExecutor : ChatProtocolExecutor
 {
@@ -49,30 +39,32 @@ public sealed class OutputMessagesExecutor : ChatProtocolExecutor
 }
 
 /// <summary>
-/// Adapter that sits AFTER the redactor agent. It:
-/// <list type="number">
-///   <item>Reads the redactor's JSON-formatted reply (<see cref="RedactionResult"/>).</item>
-///   <item>Stores the <c>Tokens</c> map in workflow state so a later stage
-///         can rehydrate the cloud reply.</item>
-///   <item>Forwards a clean <see cref="ChatMessage"/> containing just the
-///         redacted text, followed by a <see cref="TurnToken"/>, so the next
-///         agent stage runs against tokenised content only.</item>
-/// </list>
+/// Sits AFTER the inbox-picker agent and AFTER the body-redactor agent.
+/// Combines their two structured outputs (a <see cref="PickedEmail"/> and a
+/// <see cref="RedactedBody"/>) into the single ChatMessage that goes to the
+/// cloud writer. Stores both in workflow state for the assembler to read
+/// at the end.
 ///
-/// Inherits <see cref="ChatProtocolExecutor"/> so it accumulates upstream
-/// <c>List&lt;ChatMessage&gt;</c> sends across a single turn and only fires
-/// <see cref="TakeTurnAsync"/> once per <see cref="TurnToken"/>. This is what
-/// MAF's own <c>AIAgentHostExecutor</c> does — it stops adapters from
-/// running multiple times when an upstream agent forwards both incoming
-/// messages and its response.
+/// Cloud-bound prompt looks like:
+///
+///   From: Bob
+///   To: Alex
+///   Subject: Q3 budget approval — Project Atlas
+///
+///   [redacted body — last names / company names replaced with COMPANY_n /
+///   PERSON_n / etc., no email addresses]
+///
+///   Please draft a reply body. No greeting, no sign-off.
 /// </summary>
 [SendsMessage(typeof(ChatMessage))]
 [SendsMessage(typeof(TurnToken))]
-public sealed class StoreRedactionMapAdapter : ChatProtocolExecutor
+public sealed class CloudPromptAdapter : ChatProtocolExecutor
 {
-    public const string RedactionMapStateKey = "redaction_map";
+    public const string SharedScope = "email-triage";
+    public const string PickedEmailStateKey = "picked_email";
+    public const string RedactionMappingStateKey = "redaction_mapping";
 
-    public StoreRedactionMapAdapter(string id = "store-redaction-map") : base(id) { }
+    public CloudPromptAdapter(string id = "cloud-prompt-adapter") : base(id) { }
 
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
         => base.ConfigureProtocol(protocolBuilder).SendsMessage<ChatMessage>();
@@ -83,54 +75,111 @@ public sealed class StoreRedactionMapAdapter : ChatProtocolExecutor
         bool? emitEvents,
         CancellationToken cancellationToken = default)
     {
-        // The last message in the accumulated turn is the redactor's JSON reply.
-        var jsonText = messages
-            .LastOrDefault(m => m.Role == ChatRole.Assistant)
-            ?.Text
-            ?? messages.LastOrDefault()?.Text
-            ?? "{}";
+        var assistantTexts = messages
+            .Where(m => m.Role == ChatRole.Assistant && !string.IsNullOrWhiteSpace(m.Text))
+            .Select(m => m.Text!)
+            .ToList();
 
-        Dictionary<string, string> tokens;
-        string redactedText;
-        try
-        {
-            var parsed = JsonSerializer.Deserialize<RedactionResult>(jsonText)
-                ?? new RedactionResult(jsonText, []);
-            tokens = parsed.Tokens ?? [];
-            redactedText = parsed.Redacted;
-        }
-        catch (JsonException)
-        {
-            tokens = [];
-            redactedText = jsonText;
-        }
-
-        await context.QueueStateUpdateAsync(RedactionMapStateKey, tokens, cancellationToken: cancellationToken)
+        await Log(context, $"received {messages.Count} messages ({assistantTexts.Count} from agents)", cancellationToken)
             .ConfigureAwait(false);
 
-        // Send only the tokenised text downstream. Base class auto-sends the
-        // TurnToken when this method returns (AutoSendTurnToken = true).
-        await context.SendMessageAsync(
-            new ChatMessage(ChatRole.User, redactedText),
+        var picked = TryDeserialize<PickedEmail>(assistantTexts.FirstOrDefault());
+        var redacted = TryDeserialize<RedactedBody>(assistantTexts.LastOrDefault());
+
+        if (picked is null)
+        {
+            await Log(context, "PickedEmail JSON did not deserialize — workflow will stall", cancellationToken)
+                .ConfigureAwait(false);
+            await SendAsync(
+                "Inbox picker produced no parseable email. Please try again.",
+                context, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await Log(context, $"stored PickedEmail: from {picked.FromFullName} <{picked.FromEmail}>, subject \"{picked.Subject}\", body {picked.Body.Length} chars", cancellationToken)
+            .ConfigureAwait(false);
+
+        await context.QueueStateUpdateAsync(
+            PickedEmailStateKey, picked,
+            scopeName: SharedScope,
             cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        var bodyForCloud = redacted?.Body ?? picked.Body;
+
+        if (redacted is { Mapping.Count: > 0 })
+        {
+            var mappingDict = redacted.Mapping
+                .GroupBy(p => p.Token)
+                .ToDictionary(g => g.Key, g => g.First().Original);
+            var mapPreview = string.Join(", ", mappingDict.Take(4).Select(kv => $"{kv.Key}=\"{kv.Value}\""));
+            if (mappingDict.Count > 4) mapPreview += $", … (+{mappingDict.Count - 4} more)";
+            await Log(context, $"stored redaction mapping ({mappingDict.Count} entries): {mapPreview}", cancellationToken)
+                .ConfigureAwait(false);
+            await context.QueueStateUpdateAsync(
+                RedactionMappingStateKey, mappingDict,
+                scopeName: SharedScope,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await Log(context, "no redaction mapping (redactor output did not parse) — forwarding raw body", cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var prompt = $"""
+            FROM: {picked.FromFirstName}
+            TO:   {picked.ToFirstName}
+            SUBJECT: {picked.Subject}
+
+            {bodyForCloud}
+
+            Please draft just the BODY of a reply email. Do not include a
+            greeting (no "Hi X") or a sign-off (no "Best, Y") — the device
+            will add those. Keep it concise and professional, 3-6 sentences.
+            """;
+
+        await Log(context, $"sending cloud prompt ({prompt.Length} chars, body section {bodyForCloud.Length} chars)", cancellationToken)
+            .ConfigureAwait(false);
+
+        await SendAsync(prompt, context, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static ValueTask Log(
+        IWorkflowContext context, string message, CancellationToken cancellationToken)
+        => context.AddEventAsync(
+            new WorkflowEvent($"cloud-prompt-adapter: {message}"),
+            cancellationToken);
+
+    private static async ValueTask SendAsync(
+        string text, IWorkflowContext context, CancellationToken cancellationToken)
+        => await context.SendMessageAsync(
+            new ChatMessage(ChatRole.User, text), cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+    private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web);
+
+    private static T? TryDeserialize<T>(string? text) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        try { return JsonSerializer.Deserialize<T>(text, s_jsonOptions); }
+        catch (JsonException) { return null; }
     }
 }
 
 /// <summary>
-/// Adapter that sits AFTER the cloud reply writer. It:
-/// <list type="number">
-///   <item>Reads the redaction map back from workflow state.</item>
-///   <item>Replaces every <c>PERSON_n / EMAIL_n / ORG_n / PROJECT_n</c>
-///         token in the cloud's draft with the original value.</item>
-///   <item>Forwards the rehydrated reply as a clean <see cref="ChatMessage"/>
-///         plus a <see cref="TurnToken"/> so the next agent can polish it.</item>
-/// </list>
+/// Sits AFTER the cloud reply-writer and AFTER the summary agent. Builds
+/// the final user-facing markdown email by combining:
+///   - the picked email stored in workflow state (for the to/from frontmatter),
+///   - the user identity from <see cref="UserProfile"/> (for the from line + signature),
+///   - the cloud's reply body,
+///   - the local summary,
+///   - a mailto: link so the user can open the reply in Mail.app.
 /// </summary>
 [SendsMessage(typeof(ChatMessage))]
 [SendsMessage(typeof(TurnToken))]
-public sealed class RehydrateAdapter : ChatProtocolExecutor
+public sealed class FinalEmailAssembler : ChatProtocolExecutor
 {
-    public RehydrateAdapter(string id = "rehydrate") : base(id) { }
+    public FinalEmailAssembler(string id = "final-email-assembler") : base(id) { }
 
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
         => base.ConfigureProtocol(protocolBuilder).SendsMessage<ChatMessage>();
@@ -141,28 +190,93 @@ public sealed class RehydrateAdapter : ChatProtocolExecutor
         bool? emitEvents,
         CancellationToken cancellationToken = default)
     {
-        var cloudReply = messages
-            .LastOrDefault(m => m.Role == ChatRole.Assistant)
-            ?.Text
-            ?? messages.LastOrDefault()?.Text
-            ?? string.Empty;
+        var picked = await context
+            .ReadStateAsync<PickedEmail>(
+                CloudPromptAdapter.PickedEmailStateKey,
+                scopeName: CloudPromptAdapter.SharedScope,
+                cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
 
-        var tokens = await context
+        var mapping = await context
             .ReadStateAsync<Dictionary<string, string>>(
-                StoreRedactionMapAdapter.RedactionMapStateKey,
+                CloudPromptAdapter.RedactionMappingStateKey,
+                scopeName: CloudPromptAdapter.SharedScope,
                 cancellationToken: cancellationToken)
             .ConfigureAwait(false)
             ?? [];
 
-        // Replace longest tokens first so PROJECT_10 isn't half-eaten by PROJECT_1.
-        var rehydrated = cloudReply;
-        foreach (var (token, original) in tokens.OrderByDescending(kv => kv.Key.Length))
+        await Log(context, $"read state: picked={(picked is null ? "null" : picked.FromFullName)}, mapping entries={mapping.Count}", cancellationToken)
+            .ConfigureAwait(false);
+
+        if (picked is null)
         {
-            rehydrated = rehydrated.Replace(token, original);
+            await context.SendMessageAsync(
+                new ChatMessage(ChatRole.Assistant, "(No picked email — workflow stalled.)"),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            return;
         }
 
+        var rawReplyBody = messages
+            .Where(m => m.Role == ChatRole.Assistant && !string.IsNullOrWhiteSpace(m.Text))
+            .Select(m => m.Text!.Trim())
+            .LastOrDefault()
+            ?? "(no reply body generated)";
+
+        // Deterministic rehydration of any tokens the cloud preserved in the
+        // reply body. Replace longest keys first so PROJECT_10 isn't half-
+        // eaten by PROJECT_1.
+        var replyBody = rawReplyBody;
+        var tokensReplaced = 0;
+        foreach (var (token, original) in mapping.OrderByDescending(kv => kv.Key.Length))
+        {
+            var before = replyBody;
+            replyBody = replyBody.Replace(token, original);
+            if (!ReferenceEquals(before, replyBody)) tokensReplaced++;
+        }
+        await Log(context, $"rehydrated {tokensReplaced} of {mapping.Count} token kinds in cloud reply", cancellationToken)
+            .ConfigureAwait(false);
+
+        var subject = picked.Subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase)
+            ? picked.Subject
+            : "Re: " + picked.Subject;
+
+        var fullBody = $"""
+            Hi {picked.FromFirstName},
+
+            {replyBody}
+
+            Best,
+            {UserProfile.Name.Split(' ').First()}
+            """;
+
+        var mailto = BuildMailto(picked.FromEmail, subject, fullBody);
+
+        var markdown = new StringBuilder()
+            .AppendLine("---")
+            .AppendLine($"to: \"{picked.FromFullName}\" <{picked.FromEmail}>")
+            .AppendLine($"from: \"{UserProfile.Name}\" <{UserProfile.Email}>")
+            .AppendLine($"subject: {subject}")
+            .AppendLine("---")
+            .AppendLine()
+            .AppendLine(fullBody)
+            .AppendLine()
+            .AppendLine($"[Open in Mail]({mailto})")
+            .ToString();
+
+        await Log(context, $"assembled markdown ({markdown.Length} chars)", cancellationToken)
+            .ConfigureAwait(false);
+
         await context.SendMessageAsync(
-            new ChatMessage(ChatRole.User, rehydrated),
+            new ChatMessage(ChatRole.Assistant, markdown),
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
+
+    private static ValueTask Log(
+        IWorkflowContext context, string message, CancellationToken cancellationToken)
+        => context.AddEventAsync(
+            new WorkflowEvent($"final-email-assembler: {message}"),
+            cancellationToken);
+
+    private static string BuildMailto(string toEmail, string subject, string body) =>
+        $"mailto:{toEmail}?subject={Uri.EscapeDataString(subject)}&body={Uri.EscapeDataString(body)}";
 }

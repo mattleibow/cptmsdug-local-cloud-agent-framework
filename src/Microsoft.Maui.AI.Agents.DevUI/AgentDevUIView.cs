@@ -653,6 +653,18 @@ public partial class AgentDevUIView : ContentView
                     AddEvent("workflow.running", "Workflow execution started");
                     break;
 
+                case WorkflowWarningEvent warning:
+                    AddEvent("workflow.warning", warning.Data?.ToString() ?? "(no message)");
+                    break;
+
+                // Catch-all for custom WorkflowEvent subclasses emitted by user
+                // executors (e.g. our adapters' info logs). Only render text
+                // payloads — internal MAF events with object payloads are
+                // workflow plumbing and don't belong in the user-facing log.
+                case WorkflowEvent custom when custom.Data is string message:
+                    AddEvent("info", message);
+                    break;
+
                 case WorkflowOutputEvent output:
                 {
                     // The workflow's final aggregated result. Surface it as a final
