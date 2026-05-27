@@ -12,7 +12,7 @@ namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid;
 /// <c>List&lt;ChatMessage&gt;</c> sends across a turn and only yields once
 /// per <see cref="TurnToken"/>.
 /// </summary>
-public sealed class OutputMessagesExecutor(string id = "output-messages")
+public sealed class LocalOutputMessagesExecutor(string id = "local-output-messages")
     : ChatProtocolExecutor(id)
 {
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)

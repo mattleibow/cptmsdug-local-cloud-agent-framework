@@ -43,11 +43,18 @@ public sealed class InboxService([FromKeyedServices(AIModels.Cloud)] IChatClient
     /// Adapter for <see cref="TextSearchProvider"/>: given the agent's most
     /// recent user question, fabricate 3-5 plausible inbox emails on-device.
     /// Each email becomes one search result.
+    ///
+    /// Picks a fresh subset of <see cref="IssueThemes"/> per call and bumps
+    /// sampling temperature so demo runs don't all converge on the same
+    /// "account locked out + password leak" pattern.
     /// </summary>
     public async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchAsync(
         string query,
         CancellationToken cancellationToken)
     {
+        var themes = PickThemes(count: 5);
+        var sensitiveMix = PickSensitiveDetails(count: 4);
+
         var response = await generatorChatClient.GetResponseAsync<GeneratedInbox>(
         [
             new(ChatRole.System, $$"""
@@ -61,42 +68,42 @@ public sealed class InboxService([FromKeyedServices(AIModels.Cloud)] IChatClient
                   RECIPIENT_NAME:  {{OwnerName}}
                   RECIPIENT_EMAIL: {{OwnerEmail}}
 
+                IMPORTANT — issue variety:
+                For THIS batch, the inbox MUST cover the following kinds of
+                problems (one email per theme, in any order — do not invent
+                a different theme):
+
+                {{string.Join("\n                ", themes.Select(t => "  • " + t))}}
+
+                Vary the customer names AND email domains so the inbox
+                feels like it belongs to a real, varied user base — do
+                not reuse names across themes. Bias toward names from
+                different cultures.
+
                 For each generated email, fill the schema fields:
                   senderName      = a customer's full name (not the user)
                   senderEmail     = that customer's email (vary the domains)
                   recipientName   = "{{OwnerName}}"   (always)
                   recipientEmail  = "{{OwnerEmail}}"  (always)
-                  subject         = short, "Issue with X" / "Cannot access Y"
-                                    / "Need help with Z" style subject
+                  subject         = short, theme-appropriate subject line —
+                                    NOT all of them should start with the
+                                    same word
                   received        = an ISO timestamp within the last 7 days
                   body            = the email body, written by the customer,
                                     opening with "Hi {{OwnerFirstName}},"
 
-                Each body MUST describe an actual problem the customer
-                needs help with (account locked out, charge dispute, broken
-                integration, data export, fraud alert, etc.) AND naturally
-                mix in a varied set of sensitive details — the kind of
-                stuff customers genuinely put in support emails because
-                they think it'll help support resolve the issue faster.
+                The body MUST mix in sensitive details — the kind of stuff
+                customers genuinely put in support emails because they
+                think it'll help support resolve the issue faster.
 
-                Include AT LEAST FOUR of the following per body, chosen so
-                the issue makes sense:
+                For THIS batch, weave in AT LEAST the following per body,
+                only when they fit the issue:
 
-                  - The customer's full name and order/account/case ID
-                    (these MUST stay in the summary — support needs them)
-                  - The customer's physical mailing address
-                  - A phone number (e.g. +1 555-123-4567)
-                  - A password they typed into the email by mistake
-                    (e.g. "I tried logging in with Sunshine2024!")
-                  - A credit-card number (e.g. 4111-2222-3333-4444, always
-                    obviously fake, never a real card)
-                  - A specific dollar amount (refund, charge, balance)
-                  - A US SSN-style ID (XXX-XX-XXXX, always fake)
+                {{string.Join("\n                ", sensitiveMix.Select(d => "  • " + d))}}
 
-                Mix and match — a charge dispute might include order ID
-                + card number + amount + phone; a login issue might include
-                account ID + password + address. Use only realistic-looking
-                but obviously fake values.
+                Use only realistic-looking but obviously fake values
+                (cards starting 4111, SSNs starting 999-, addresses on
+                fake streets in real cities). Never use real cards or SSNs.
 
                 Each body is 2-3 SHORT paragraphs (≤ 600 characters total)
                 in a real customer-support tone — frustrated but polite,
@@ -105,7 +112,14 @@ public sealed class InboxService([FromKeyedServices(AIModels.Cloud)] IChatClient
                 """),
             new(ChatRole.User, $"What the user wants to reply about: {query}")
         ],
-        new ChatOptions { MaxOutputTokens = 1500 },
+        new ChatOptions
+        {
+            MaxOutputTokens = 1500,
+            // Bump variety so subsequent runs aren't carbon copies of each
+            // other. Demo-only — production fabricators would not do this.
+            Temperature = 1.0f,
+            TopP = 0.95f,
+        },
         cancellationToken: cancellationToken).ConfigureAwait(false);
 
         if (!response.TryGetResult(out var inbox) || inbox.Emails is null)
@@ -127,6 +141,62 @@ public sealed class InboxService([FromKeyedServices(AIModels.Cloud)] IChatClient
                 {{e.Body}}
                 """,
         });
+    }
+
+    /// <summary>
+    /// Pool of customer-support themes the fake inbox can pull from. The
+    /// generator picks a fresh random subset per call so the demo doesn't
+    /// turn into "five account-lockout emails forever".
+    /// </summary>
+    private static readonly string[] IssueThemes =
+    [
+        "Account locked out after repeated failed login attempts",
+        "Duplicate charge on a recent order — customer wants a refund",
+        "Broken third-party integration (Slack / Zapier / GitHub / etc.)",
+        "Suspected fraudulent activity on the customer's account",
+        "Lost shipment or wrong item delivered for a fulfilled order",
+        "Bulk data export request (GDPR-style) for the customer's account",
+        "License / SSO entitlements not applying after seat upgrade",
+        "API rate-limit confusion — usage doesn't match invoice",
+        "Feature regression after recent release — customer reports a bug",
+        "Subscription downgrade / upgrade did not take effect at renewal",
+        "Sales-tax or VAT line on invoice the customer disputes",
+        "Onboarding question — customer's team can't see a shared workspace",
+        "Two-factor authentication device lost, urgent re-enrolment",
+        "Webhook deliveries silently failing for the last few days",
+    ];
+
+    private static readonly string[] SensitiveDetailKinds =
+    [
+        "the customer's full name + an order/account/case ID (KEEP these in any summary — support needs them)",
+        "a physical mailing address (street, city, state/postcode)",
+        "a phone number formatted with country code",
+        "a password they typed in by mistake (\"I tried Sunshine2024!\")",
+        "a credit-card number (always obviously fake: 4111-..., never a real card)",
+        "a specific dollar amount (refund owed, charge disputed, balance)",
+        "an SSN-style government ID (XXX-XX-XXXX, always fake)",
+        "a date of birth used for identity verification",
+        "an internal API key or token the customer pasted while debugging",
+        "an IP address the customer was logging in from",
+    ];
+
+    private static string[] PickThemes(int count) =>
+        [.. Shuffle(IssueThemes).Take(count)];
+
+    private static string[] PickSensitiveDetails(int count) =>
+        // Always keep the name + ID slot so the summary has something to
+        // preserve; pick the rest randomly from the remaining pool.
+        [SensitiveDetailKinds[0], .. Shuffle(SensitiveDetailKinds.Skip(1)).Take(count - 1)];
+
+    private static IEnumerable<T> Shuffle<T>(IEnumerable<T> source)
+    {
+        var array = source.ToArray();
+        for (int i = array.Length - 1; i > 0; i--)
+        {
+            int j = Random.Shared.Next(i + 1);
+            (array[i], array[j]) = (array[j], array[i]);
+        }
+        return array;
     }
 
     private sealed record GeneratedInbox(IReadOnlyList<GeneratedEmail> Emails);

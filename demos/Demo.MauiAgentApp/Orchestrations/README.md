@@ -10,14 +10,16 @@ Orchestrations/
 ├─ Concurrent/Workflow.cs         (Travel: food + culture + logistics fan-out)
 ├─ Handoff/Workflow.cs            (Help Desk: dispatcher → specialist)
 ├─ GroupChat/Workflow.cs          (Startup pitch: founder + investor + advisor)
-├─ SequentialHybrid/              (local + cloud meeting-invite pipeline)
+├─ SequentialHybrid/              (local + cloud meeting-invite pipeline ⭐)
 │  ├─ Workflow.cs
-│  ├─ 1_LocalInboxSearchAgent.cs
-│  ├─ 2_LocalIssueSummariserAgent.cs
-│  ├─ 3_CloudInviteDrafterAgent.cs
-│  ├─ 4_LocalCalendarTool.cs
-│  ├─ 5_LocalInviteFinaliserExecutor.cs
-│  ├─ 6_OutputMessagesExecutor.cs
+│  ├─ 1_LocalInboxSearchAgent.cs            agent     — local RAG, picks email as JSON
+│  ├─ 2_LocalPickerToStateExecutor.cs       executor  — parse JSON, save to workflow state, forward body
+│  ├─ 3_LocalIssueSummariserAgent.cs        agent     — summarise body, strip PII
+│  ├─ 4_LocalSummaryToCloudExecutor.cs      executor  — one-way valve: forward summary only
+│  ├─ 5_CloudInviteDrafterAgent.cs          agent     — Azure OpenAI, writes body, calls get_calendar tool
+│  ├─ 6_LocalInviteFinaliserExecutor.cs     executor  — read picked email from state, build envelope
+│  ├─ 7_LocalOutputMessagesExecutor.cs      executor  — terminal
+│  ├─ LocalCalendarTool.cs                  tool      — exposed to cloud agent, runs on-device
 │  ├─ Models/PickedEmail.cs
 │  └─ Services/{InboxService,CalendarService}.cs
 ├─ StandaloneAgents.cs            (storyteller, code-mentor — single-agent)
@@ -197,42 +199,84 @@ USER ─▶ GroupChatHost  ◀─▶ investor  ◀─▶  (3 rounds)  ─▶ Fin
 ## Sequential Hybrid — Local + Cloud meeting invite ⭐
 
 **Demos:** the headline local + cloud story. Local on-device AI does
-private RAG and PII-omitting summarisation; cloud AI drafts a polished
-invite by calling **back into the device** for free/busy slots.
+private RAG and summarisation; cloud AI drafts a polished invite by
+calling **back into the device** for free/busy slots. The privacy
+boundary is enforced **structurally** — through a deliberate pipeline
+shape, not just by trusting the model to redact.
 
 ```
-USER ─▶ local-inbox-search ──▶ local-issue-summariser ──▶ cloud-invite-drafter ──▶ local-invite-finaliser ──▶ Final output
-        (Apple Intelligence)   (Apple Intelligence)        (Azure OpenAI + tool)    (deterministic wrap)
-                                                                │
-                                                                └─ calls back to device ──▶ get_calendar (LocalCalendarTool → CalendarService → Apple Intelligence)
+USER prompt
+  │
+  ▼
+1. local-inbox-search        local agent       picks email → PickedEmail JSON
+  │
+  ▼
+2. local-picker-to-state     local executor    parse JSON · save PickedEmail to workflow state · forward body
+  │
+  ▼
+3. local-issue-summariser    local agent       2-3 sentence brief, strips PII
+  │
+  ▼
+4. local-summary-to-cloud    local executor    one-way valve: forward summary only
+  │
+  ▼
+5. cloud-invite-drafter      cloud agent       Azure OpenAI · writes body · calls get_calendar tool
+  │                                                  │
+  │                                                  └─ tool runs on-device ─▶ CalendarService
+  ▼
+6. local-invite-finaliser    local executor    read PickedEmail back from state · build envelope (subject/from/to/mailto)
+  │
+  ▼
+7. local-output-messages     terminal
 ```
 
 | Stage | Where it runs | Tools | Role |
 | --- | --- | --- | --- |
 | `local-inbox-search` | Local (on-device) | RAG over fabricated inbox | Picks one customer email; returns `PickedEmail` JSON |
-| `local-issue-summariser` | Local (on-device) | none | Writes a plain-text brief; **omits addresses, phones, passwords, cards, SSNs** |
-| `cloud-invite-drafter` | Cloud (Azure OpenAI) | `get_calendar` | Calls back to device for free/busy slots, drafts Markdown invite |
-| `local-invite-finaliser` | Local executor | none | Wraps cloud draft in YAML frontmatter + `[:mail: Open in Mail](mailto:…)` |
+| `local-picker-to-state` | Local executor | — | Parses the JSON, stores the typed `PickedEmail` in **workflow state** under `"picked-email"`. Forwards a single user message containing only the email **body** downstream. |
+| `local-issue-summariser` | Local (on-device) | — | Sees only the body. Writes a 2-3 sentence brief; **omits addresses, phones, passwords, cards, SSNs**. |
+| `local-summary-to-cloud` | Local executor | — | One-way valve. Forwards only the summary as a fresh user message — nothing else from prior turns crosses the boundary. |
+| `cloud-invite-drafter` | Cloud (Azure OpenAI) | `get_calendar` | Sees only the summary. Calls back to the device for free/busy slots. Writes the **body** of the invite — no subject/from/to lines. |
+| `local-invite-finaliser` | Local executor | — | Reads `PickedEmail` back from workflow state and assembles the full envelope (subject/from/to + cloud body + mailto link). |
+| `local-output-messages` | Local executor | — | Terminal — yields the final messages as workflow output. |
 
-**Privacy contract** — cloud sees:
-- the PII-stripped brief (customer name + order ID kept; address/phone/password/card/SSN dropped)
-- calendar free/busy slots with generic labels (`Standup`, `Focus block` — no real event titles)
+**Why two executors between the LLM agents?**
 
-Cloud **never** sees:
-- the customer's raw email, address, phone, password, card, SSN
+MAF agents communicate by passing the full chat history forward. Without
+the executors, the cloud agent would receive the original user prompt
+**and** the raw inbox JSON **and** the summary, defeating the privacy
+story. The executors are explicit, auditable boundaries: each one decides
+exactly what its downstream stage gets to see.
+
+The picked email's subject and recipient address are kept on-device via
+`IWorkflowContext.QueueStateUpdateAsync<PickedEmail>("picked-email", …,
+scopeName: "shared")`. The cloud never sees them; the finaliser reads
+them back at the end to build the envelope.
+
+**Privacy contract — cloud sees:**
+- the 2-3 sentence summary brief (customer name + IDs only)
+- calendar free/busy slots with generic labels (`Standup`, `Focus block`, etc — no real event titles)
+
+**Cloud NEVER sees:**
+- the customer's raw email body
+- the customer's email address or full name (lives in workflow state)
+- physical address, phone, password, credit card, SSN
 - the user's actual calendar events
 - the rest of the inbox
+- the original user prompt
 
 **Try:**
 - `Draft a meeting invite to resolve the latest customer issue`
 - `Find the most urgent customer issue and propose a meeting`
 - `Schedule a follow-up with the customer about the lockout problem`
 
-**What you'll see (5 graph nodes, all green):**
+**What you'll see (7 graph nodes, all green):**
 - **Inbox search bubble** — JSON picked email (sender, subject, body).
+- **Picker-to-state info** — event in the sidebar showing what was saved to state.
 - **Summariser bubble** — short prose brief, no PII.
-- **Drafter bubble** — `## :event: Meeting invite — <reason>` heading, `get_calendar` tool call visible in the Tools sidebar, draft body with proposed slot.
-- **Finaliser bubble** — YAML frontmatter (`to:`, `from:`, `subject:`, `mailto:`) + the cloud's draft + `:mail: Open in Mail` link.
+- **Summary-to-cloud info** — event in the sidebar confirming the forwarded brief length.
+- **Drafter bubble** — `## :event: Meeting invite — <reason>` heading, `get_calendar` tool call visible in the Tools sidebar, body with proposed slot.
+- **Finaliser bubble** — YAML frontmatter with real `to:` / `from:` / `subject:` + the cloud's body.
 
 ---
 

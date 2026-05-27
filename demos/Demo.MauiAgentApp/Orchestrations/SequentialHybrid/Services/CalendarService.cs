@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,67 +10,100 @@ namespace Demo.MauiAgentApp.Orchestrations.SequentialHybrid.Services;
 /// Stands in for "the user's local calendar" in the meeting-invite demo.
 ///
 /// The cloud invite-drafter calls into this via the <c>get_calendar</c>
-/// tool to find a slot when the user is free. The cloud never sees the
-/// raw calendar — only the free/busy summary the tool returns.
+/// tool to plan a meeting time. The cloud never sees the calendar itself —
+/// only an opaque view: the user's working hours plus a list of busy
+/// time ranges. No event titles, no attendees, no projects. The drafter
+/// has to propose a meeting time INSIDE working hours and OUTSIDE any
+/// busy block — it cannot just grep for a "free" tag.
 ///
-/// In a real app this would read EventKit / Microsoft Graph. For the demo
-/// we fabricate a plausible schedule per call so each demo run feels
-/// fresh. We use the LOCAL chat client because a real calendar would
-/// only ever be read locally — using the cloud for fabrication would
-/// break the privacy story even if it's the easier path.
+/// In a real app this would read EventKit / Microsoft Graph. For the
+/// demo we fabricate the schedule per call so each run feels fresh.
+/// We use the CLOUD chat client because the data is invented and the
+/// cloud model produces richer, more varied schedules — the privacy
+/// story is preserved by the SHAPE of the data returned (working hours
+/// + opaque busy ranges) rather than by where it's generated.
 /// </summary>
-public sealed class CalendarService([FromKeyedServices(AIModels.Local)] IChatClient localChatClient)
+public sealed class CalendarService([FromKeyedServices(AIModels.Cloud)] IChatClient cloudChatClient)
 {
     /// <summary>
-    /// Returns a Markdown free/busy view of the user's calendar for the
-    /// given day or range. Generic event labels only — no attendees, no
-    /// titles like "1:1 with Sarah".
+    /// Returns a Markdown view of the user's calendar for the given date
+    /// or range: working hours on one line, then an opaque list of busy
+    /// time ranges. Never names an event, never names a person.
     /// </summary>
     public async Task<string> GetCalendarAsync(
         string dateOrRange,
         CancellationToken cancellationToken)
     {
-        var response = await localChatClient.GetResponseAsync<GeneratedSchedule>(
+        var response = await cloudChatClient.GetResponseAsync<GeneratedSchedule>(
         [
             new(ChatRole.System,
                 """
-                You are a fake personal-calendar generator. Given a date or
-                range like "tomorrow", "this week", "Tuesday", invent a
-                plausible-but-realistic work schedule for the user. Aim for
-                a mix of meetings and free slots — 4-6 entries per day.
+                You are a calendar generator for a privacy demo. Given a
+                date or range like "tomorrow", "this week", "Tuesday",
+                invent a plausible busy schedule for the user.
 
-                Use only generic labels — "Standup", "Internal review",
-                "Lunch", "Focus block", "Customer call", "1:1". Never name
-                colleagues or projects, because the calendar's contents
-                themselves are private.
+                Output shape:
+                  • workingHoursStart / workingHoursEnd: when the user is
+                    available in principle. Pick a plausible workday like
+                    08:30–17:30 or 09:00–18:00 — vary slightly across
+                    requests.
+                  • busyBlocks: 4-7 ordered ranges INSIDE working hours,
+                    representing meetings or focus blocks. Use a mix of
+                    short (15-30 min) and longer (45-90 min) blocks with
+                    real gaps of 15-90 minutes between them. The busy
+                    blocks MUST NOT overlap each other.
+
+                CRITICAL — privacy:
+                  • Do NOT include any event name, title, attendee, room,
+                    project, or other label. The schema has no such field.
+                    The busy blocks are OPAQUE — the only information that
+                    leaves the device is "the user is busy from A to B".
 
                 Return JSON matching the schema.
                 """),
             new(ChatRole.User, $"Date or range: {dateOrRange}")
         ],
-        new ChatOptions { MaxOutputTokens = 600 },
+        new ChatOptions
+        {
+            MaxOutputTokens = 600,
+            // High temperature so subsequent runs aren't identical
+            // schedules.
+            Temperature = 1.0f,
+            TopP = 0.95f,
+        },
         cancellationToken: cancellationToken);
 
-        if (!response.TryGetResult(out var schedule) || schedule.Slots is null)
+        if (!response.TryGetResult(out var schedule) || schedule.BusyBlocks is null)
             return "_(could not read calendar)_";
 
-        var lines = schedule.Slots.Select(s =>
-            $"- **{s.Time}**  {s.Label}{(s.IsFree ? " _(free)_" : "")}");
-        return string.Join("\n", lines);
+        var md = new StringBuilder()
+            .Append("Working hours: ")
+            .Append(schedule.WorkingHoursStart)
+            .Append('–')
+            .Append(schedule.WorkingHoursEnd)
+            .AppendLine()
+            .AppendLine()
+            .AppendLine("Busy:");
+        foreach (var b in schedule.BusyBlocks)
+            md.Append("  - ").Append(b.Start).Append('–').AppendLine(b.End);
+        return md.ToString();
     }
 
-    [Description("A plausible schedule for one day or short range.")]
+    [Description("Opaque view of the user's calendar — working hours and busy time ranges, no event titles.")]
     private sealed record GeneratedSchedule(
-        [property: Description("Time-ordered slots. Mix free blocks and meetings.")]
-        List<ScheduleSlot> Slots);
+        [property: Description("Start of the user's available window for the day, like \"09:00\".")]
+        string WorkingHoursStart,
 
-    private sealed record ScheduleSlot(
-        [property: Description("Time range like \"09:30-10:00\" or \"14:00-15:30\".")]
-        string Time,
+        [property: Description("End of the user's available window for the day, like \"17:30\".")]
+        string WorkingHoursEnd,
 
-        [property: Description("Generic label like \"Standup\", \"Focus block\", \"Customer call\", or \"Free\".")]
-        string Label,
+        [property: Description("Time-ordered busy ranges inside working hours. Mix short and longer blocks with realistic gaps between them. Must not overlap each other or fall outside working hours.")]
+        List<BusyBlock> BusyBlocks);
 
-        [property: Description("True if this slot is open for a new meeting, false if already booked.")]
-        bool IsFree);
+    private sealed record BusyBlock(
+        [property: Description("Start time of a busy block, like \"10:30\".")]
+        string Start,
+
+        [property: Description("End time of a busy block, like \"11:15\".")]
+        string End);
 }
